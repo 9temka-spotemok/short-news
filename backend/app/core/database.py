@@ -2,7 +2,7 @@
 Database configuration and session management
 """
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from loguru import logger
@@ -11,11 +11,14 @@ from app.core.config import settings
 
 
 # Create async engine
+# Note: asyncpg is an async-only driver
 engine = create_async_engine(
     settings.DATABASE_URL,
     echo=settings.DEBUG,
     pool_pre_ping=True,
     pool_recycle=300,
+    pool_size=5,
+    max_overflow=10,
 )
 
 # Create async session factory
@@ -47,7 +50,7 @@ async def init_db():
     try:
         # Test connection
         async with engine.begin() as conn:
-            await conn.run_sync(lambda sync_conn: sync_conn.execute("SELECT 1"))
+            await conn.execute(text("SELECT 1"))
         
         logger.info("Database connection established successfully")
     except Exception as e:

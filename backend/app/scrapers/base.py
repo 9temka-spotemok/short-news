@@ -99,7 +99,7 @@ class BaseScraper(ABC):
         
         return text.strip()
     
-    def extract_summary(self, content: str, max_length: int = 200) -> str:
+    def summarize_text(self, content: str, max_length: int = 200) -> str:
         """
         Extract summary from content
         """

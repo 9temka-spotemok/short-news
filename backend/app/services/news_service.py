@@ -29,6 +29,21 @@ class NewsService:
                 logger.info(f"News item already exists: {news_data['source_url']}")
                 return existing
             
+            # Coerce enums if provided as strings (common when coming from scrapers)
+            if 'source_type' in news_data and isinstance(news_data['source_type'], str):
+                try:
+                    news_data['source_type'] = SourceType(news_data['source_type'])
+                except ValueError:
+                    logger.warning(f"Unknown source_type '{news_data['source_type']}', defaulting to BLOG")
+                    news_data['source_type'] = SourceType.BLOG
+
+            if 'category' in news_data and isinstance(news_data['category'], str):
+                try:
+                    news_data['category'] = NewsCategory(news_data['category'])
+                except ValueError:
+                    # Leave category unset if unknown
+                    news_data.pop('category', None)
+
             # Resolve company ID if company name is provided
             if 'company_id' in news_data and isinstance(news_data['company_id'], str):
                 company = await self.get_company_by_name(news_data['company_id'])
@@ -78,17 +93,23 @@ class NewsService:
             
             # Apply filters
             if category:
-                query = query.where(NewsItem.category == NewsCategory(category))
+                try:
+                    enum_value = NewsCategory(category)
+                except ValueError:
+                    # Unknown category filter -> return empty result
+                    return []
+                query = query.where(NewsItem.category == enum_value)
             
             if company_id:
                 query = query.where(NewsItem.company_id == company_id)
             
             if search_query:
+                like = f"%{search_query}%"
                 query = query.where(
                     or_(
-                        NewsItem.title.ilike(f'%{search_query}%'),
-                        NewsItem.content.ilike(f'%{search_query}%'),
-                        NewsItem.summary.ilike(f'%{search_query}%')
+                        NewsItem.title.ilike(like),
+                        NewsItem.content.ilike(like),
+                        NewsItem.summary.ilike(like)
                     )
                 )
             
@@ -129,11 +150,20 @@ class NewsService:
         """
         try:
             # Use full-text search if available
-            search_query = select(NewsItem).where(
-                func.to_tsvector('english', NewsItem.title + ' ' + NewsItem.content).match(query)
-            ).order_by(desc(NewsItem.published_at)).offset(offset).limit(limit)
+            # Use concatenation via func.concat for cross-DB safety
+            ts_vector = func.to_tsvector(
+                'english',
+                func.concat(func.coalesce(NewsItem.title, ''), ' ', func.coalesce(NewsItem.content, ''))
+            )
+            search_stmt = (
+                select(NewsItem)
+                .where(ts_vector.match(query))
+                .order_by(desc(NewsItem.published_at))
+                .offset(offset)
+                .limit(limit)
+            )
             
-            result = await self.db.execute(search_query)
+            result = await self.db.execute(search_stmt)
             return result.scalars().all()
             
         except Exception as e:

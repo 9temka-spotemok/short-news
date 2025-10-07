@@ -33,12 +33,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Setup trusted hosts
+# Setup trusted hosts (expects hostnames, not full URLs)
 if settings.ENVIRONMENT == "production":
-    app.add_middleware(
-        TrustedHostMiddleware,
-        allowed_hosts=settings.ALLOWED_HOSTS
-    )
+    try:
+        allowed_hosts = [h.replace("http://", "").replace("https://", "").split("/")[0] for h in settings.ALLOWED_HOSTS]
+        app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
+    except Exception:
+        # Fallback to original list if parsing fails
+        app.add_middleware(TrustedHostMiddleware, allowed_hosts=["*"])
 
 # Setup exception handlers
 setup_exception_handlers(app)

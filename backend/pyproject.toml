@@ -4,7 +4,6 @@ version = "0.1.0"
 description = "AI Competitor Insight Hub Backend API"
 authors = ["AI Competitor Insight Hub Team <team@shot-news.com>"]
 readme = "README.md"
-python = "^3.11"
 
 [tool.poetry.dependencies]
 python = "^3.11"

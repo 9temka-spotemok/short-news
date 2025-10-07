@@ -109,7 +109,7 @@ class OpenAIScraper(BaseScraper):
             
             # Generate summary if not found
             if not summary:
-                summary = self.extract_summary(content, max_length=200)
+                summary = self.summarize_text(content, max_length=200)
             
             post_data = {
                 'title': self.normalize_text(title),

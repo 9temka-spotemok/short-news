@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # PostgreSQL Database
   postgres:
@@ -41,7 +39,7 @@ services:
       dockerfile: Dockerfile
     container_name: shot-news-backend
     environment:
-      - DATABASE_URL=postgresql://shot_news:shot_news_dev@postgres:5432/shot_news
+      - DATABASE_URL=postgresql+asyncpg://shot_news:shot_news_dev@postgres:5432/shot_news
       - REDIS_URL=redis://redis:6379
       - ENVIRONMENT=development
       - SECRET_KEY=dev-secret-key-change-in-production
@@ -63,7 +61,7 @@ services:
       dockerfile: Dockerfile
     container_name: shot-news-celery-worker
     environment:
-      - DATABASE_URL=postgresql://shot_news:shot_news_dev@postgres:5432/shot_news
+      - DATABASE_URL=postgresql+asyncpg://shot_news:shot_news_dev@postgres:5432/shot_news
       - REDIS_URL=redis://redis:6379
       - ENVIRONMENT=development
     volumes:
@@ -82,7 +80,7 @@ services:
       dockerfile: Dockerfile
     container_name: shot-news-celery-beat
     environment:
-      - DATABASE_URL=postgresql://shot_news:shot_news_dev@postgres:5432/shot_news
+      - DATABASE_URL=postgresql+asyncpg://shot_news:shot_news_dev@postgres:5432/shot_news
       - REDIS_URL=redis://redis:6379
       - ENVIRONMENT=development
     volumes:
