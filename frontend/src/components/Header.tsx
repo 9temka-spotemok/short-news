@@ -1,11 +1,14 @@
 import { useAuthStore } from '@/store/authStore'
-import { Bell, LogOut, Menu, User, X } from 'lucide-react'
-import { useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Bell, ChevronDown, LogOut, Menu, Settings, User, X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
   const location = useLocation()
+  const navigate = useNavigate()
   const { isAuthenticated, user, logout } = useAuthStore()
 
   const navigation = [
@@ -14,11 +17,39 @@ export default function Header() {
   ]
 
   const isActive = (path: string) => location.pathname === path
+  
+  // Проверяем, находимся ли мы на защищенной странице (Dashboard/Profile/Settings)
+  const isDashboardPage = location.pathname.startsWith('/dashboard') || 
+                          location.pathname.startsWith('/profile') || 
+                          location.pathname.startsWith('/settings')
+  
+  // Показываем навигацию только на публичных страницах
+  const showNavigation = !isDashboardPage
 
   const handleLogout = () => {
     logout()
     setIsMenuOpen(false)
+    setIsDropdownOpen(false)
+    navigate('/')
   }
+
+  // Закрытие dropdown при клике вне его
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  // Закрытие dropdown при смене маршрута
+  useEffect(() => {
+    setIsDropdownOpen(false)
+    setIsMenuOpen(false)
+  }, [location.pathname])
 
   return (
     <header className="bg-white shadow-sm border-b border-gray-200">
@@ -26,7 +57,7 @@ export default function Header() {
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <div className="flex items-center">
-            <Link to="/" className="flex items-center space-x-2">
+            <Link to={isAuthenticated ? "/dashboard" : "/"} className="flex items-center space-x-2">
               <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold text-sm">AI</span>
               </div>
@@ -35,50 +66,101 @@ export default function Header() {
           </div>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex space-x-8">
-            {navigation.map((item) => (
-              <Link
-                key={item.name}
-                to={item.href}
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                  isActive(item.href)
-                    ? 'text-primary-600 bg-primary-50'
-                    : 'text-gray-700 hover:text-primary-600 hover:bg-gray-50'
-                }`}
-              >
-                {item.name}
-              </Link>
-            ))}
-          </nav>
+          {showNavigation && (
+            <nav className="hidden md:flex space-x-8">
+              {navigation.map((item) => (
+                <Link
+                  key={item.name}
+                  to={item.href}
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    isActive(item.href)
+                      ? 'text-primary-600 bg-primary-50'
+                      : 'text-gray-700 hover:text-primary-600 hover:bg-gray-50'
+                  }`}
+                >
+                  {item.name}
+                </Link>
+              ))}
+            </nav>
+          )}
 
           {/* Desktop Actions */}
           <div className="hidden md:flex items-center space-x-4">
-            {isAuthenticated ? (
-              <>
-                <button className="p-2 text-gray-400 hover:text-gray-500">
-                  <Bell className="h-5 w-5" />
-                </button>
-                <div className="flex items-center space-x-2">
-                  <User className="h-5 w-5 text-gray-400" />
-                  <span className="text-sm text-gray-700">{user?.full_name}</span>
-                </div>
-                <button
-                  onClick={handleLogout}
-                  className="btn btn-outline btn-sm"
-                >
-                  <LogOut className="h-4 w-4" />
-                </button>
-              </>
-            ) : (
-              <div className="flex items-center space-x-2">
-                <Link to="/login" className="btn btn-outline btn-sm">
-                  Войти
-                </Link>
-                <Link to="/register" className="btn btn-primary btn-sm">
-                  Регистрация
-                </Link>
-              </div>
+            {isAuthenticated && (
+              <button className="p-2 text-gray-400 hover:text-gray-500">
+                <Bell className="h-5 w-5" />
+              </button>
             )}
+            
+            {/* User Dropdown */}
+            <div className="relative" ref={dropdownRef}>
+              <button
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                className="flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center">
+                  <User className="h-4 w-4 text-primary-600" />
+                </div>
+                {isAuthenticated && (
+                  <span className="text-sm text-gray-700">{user?.full_name}</span>
+                )}
+                <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {/* Dropdown Menu */}
+              {isDropdownOpen && (
+                <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                  {isAuthenticated ? (
+                    <>
+                      <Link
+                        to="/profile"
+                        onClick={() => setIsDropdownOpen(false)}
+                        className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        <User className="h-4 w-4 mr-3 text-gray-400" />
+                        Личный кабинет
+                      </Link>
+                      <Link
+                        to="/dashboard"
+                        onClick={() => setIsDropdownOpen(false)}
+                        className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        <Settings className="h-4 w-4 mr-3 text-gray-400" />
+                        Панель управления
+                      </Link>
+                      <div className="border-t border-gray-100 my-1"></div>
+                      <button
+                        onClick={handleLogout}
+                        className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                      >
+                        <LogOut className="h-4 w-4 mr-3" />
+                        Выход из профиля
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <Link
+                        to="/login"
+                        onClick={() => setIsDropdownOpen(false)}
+                        className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        <User className="h-4 w-4 mr-3 text-gray-400" />
+                        Вход в личный кабинет
+                      </Link>
+                      <div className="border-t border-gray-100 my-1"></div>
+                      <Link
+                        to="/register"
+                        onClick={() => setIsDropdownOpen(false)}
+                        className="flex items-center px-4 py-2 text-sm text-primary-600 hover:bg-primary-50 transition-colors"
+                      >
+                        <User className="h-4 w-4 mr-3" />
+                        Регистрация
+                      </Link>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Mobile menu button */}
@@ -101,7 +183,7 @@ export default function Header() {
       {isMenuOpen && (
         <div className="md:hidden">
           <div className="px-2 pt-2 pb-3 space-y-1 bg-white border-t border-gray-200">
-            {navigation.map((item) => (
+            {showNavigation && navigation.map((item) => (
               <Link
                 key={item.name}
                 to={item.href}
@@ -117,32 +199,53 @@ export default function Header() {
             ))}
             
             {isAuthenticated ? (
-              <div className="border-t border-gray-200 pt-4 mt-4">
-                <div className="flex items-center px-3 py-2">
-                  <User className="h-5 w-5 text-gray-400 mr-2" />
-                  <span className="text-sm text-gray-700">{user?.full_name}</span>
+              <div className={`${showNavigation ? 'border-t border-gray-200 pt-4 mt-4' : ''}`}>
+                <div className="flex items-center px-3 py-2 mb-2">
+                  <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center mr-3">
+                    <User className="h-4 w-4 text-primary-600" />
+                  </div>
+                  <span className="text-sm font-medium text-gray-700">{user?.full_name}</span>
                 </div>
+                <Link
+                  to="/profile"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="flex items-center px-3 py-2 text-gray-700 hover:text-primary-600 hover:bg-gray-50 rounded-md transition-colors"
+                >
+                  <User className="h-4 w-4 mr-3 text-gray-400" />
+                  Личный кабинет
+                </Link>
+                <Link
+                  to="/dashboard"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="flex items-center px-3 py-2 text-gray-700 hover:text-primary-600 hover:bg-gray-50 rounded-md transition-colors"
+                >
+                  <Settings className="h-4 w-4 mr-3 text-gray-400" />
+                  Панель управления
+                </Link>
                 <button
                   onClick={handleLogout}
-                  className="block w-full text-left px-3 py-2 text-gray-700 hover:text-primary-600 hover:bg-gray-50"
+                  className="flex items-center w-full text-left px-3 py-2 text-red-600 hover:bg-red-50 rounded-md transition-colors mt-1"
                 >
-                  Выйти
+                  <LogOut className="h-4 w-4 mr-3" />
+                  Выход из профиля
                 </button>
               </div>
             ) : (
-              <div className="border-t border-gray-200 pt-4 mt-4 space-y-2">
+              <div className={`${showNavigation ? 'border-t border-gray-200 pt-4 mt-4' : ''} space-y-2`}>
                 <Link
                   to="/login"
                   onClick={() => setIsMenuOpen(false)}
-                  className="block px-3 py-2 text-gray-700 hover:text-primary-600 hover:bg-gray-50"
+                  className="flex items-center px-3 py-2 text-gray-700 hover:text-primary-600 hover:bg-gray-50 rounded-md transition-colors"
                 >
-                  Войти
+                  <User className="h-4 w-4 mr-3 text-gray-400" />
+                  Вход в личный кабинет
                 </Link>
                 <Link
                   to="/register"
                   onClick={() => setIsMenuOpen(false)}
-                  className="block px-3 py-2 text-gray-700 hover:text-primary-600 hover:bg-gray-50"
+                  className="flex items-center px-3 py-2 text-primary-600 hover:bg-primary-50 rounded-md transition-colors"
                 >
+                  <User className="h-4 w-4 mr-3" />
                   Регистрация
                 </Link>
               </div>

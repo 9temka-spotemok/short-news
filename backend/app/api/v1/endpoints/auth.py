@@ -5,43 +5,73 @@ Authentication endpoints
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from loguru import logger
 
 from app.core.database import get_db
 from app.core.config import settings
+from app.core.security import (
+    verify_password,
+    get_password_hash,
+    create_access_token,
+    create_refresh_token,
+)
+from app.models.user import User
+from app.schemas.auth import UserRegister, AuthResponse, UserResponse
 
 router = APIRouter()
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
 
-@router.post("/register")
+@router.post("/register", response_model=dict)
 async def register(
-    email: str,
-    password: str,
-    full_name: str,
+    user_data: UserRegister,
     db: AsyncSession = Depends(get_db)
 ):
     """
     User registration endpoint
     """
-    logger.info(f"User registration attempt: {email}")
+    logger.info(f"User registration attempt: {user_data.email}")
     
-    # TODO: Implement user registration
-    # 1. Validate email format
-    # 2. Check if user already exists
-    # 3. Hash password
-    # 4. Create user in database
-    # 5. Send verification email
+    # Check if user already exists
+    result = await db.execute(
+        select(User).where(User.email == user_data.email)
+    )
+    existing_user = result.scalar_one_or_none()
+    
+    if existing_user:
+        logger.warning(f"Registration failed: User {user_data.email} already exists")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Пользователь с таким email уже существует"
+        )
+    
+    # Hash password
+    password_hash = get_password_hash(user_data.password)
+    
+    # Create user
+    new_user = User(
+        email=user_data.email,
+        password_hash=password_hash,
+        full_name=user_data.full_name,
+        is_active=True,
+        is_verified=False
+    )
+    
+    db.add(new_user)
+    await db.commit()
+    await db.refresh(new_user)
+    
+    logger.info(f"User registered successfully: {user_data.email}")
     
     return {
-        "message": "User registration endpoint - TODO: Implement",
-        "email": email,
-        "full_name": full_name
+        "message": "Регистрация успешна. Проверьте email для подтверждения.",
+        "email": user_data.email
     }
 
 
-@router.post("/login")
+@router.post("/login", response_model=AuthResponse)
 async def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_db)
@@ -51,16 +81,50 @@ async def login(
     """
     logger.info(f"User login attempt: {form_data.username}")
     
-    # TODO: Implement user login
-    # 1. Validate credentials
-    # 2. Generate JWT tokens
-    # 3. Return access and refresh tokens
+    # Find user by email
+    result = await db.execute(
+        select(User).where(User.email == form_data.username)
+    )
+    user = result.scalar_one_or_none()
     
-    return {
-        "message": "User login endpoint - TODO: Implement",
-        "access_token": "dummy_token",
-        "token_type": "bearer"
-    }
+    # Verify credentials
+    if not user or not verify_password(form_data.password, user.password_hash):
+        logger.warning(f"Login failed: Invalid credentials for {form_data.username}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Неверный email или пароль",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # Check if user is active
+    if not user.is_active:
+        logger.warning(f"Login failed: User {form_data.username} is inactive")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Аккаунт деактивирован"
+        )
+    
+    # Create tokens
+    access_token = create_access_token(data={"sub": str(user.id), "email": user.email})
+    refresh_token = create_refresh_token(data={"sub": str(user.id), "email": user.email})
+    
+    logger.info(f"User logged in successfully: {user.email}")
+    
+    # Return response
+    return AuthResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        token_type="bearer",
+        user=UserResponse(
+            id=str(user.id),
+            email=user.email,
+            full_name=user.full_name,
+            is_active=user.is_active,
+            is_verified=user.is_verified,
+            created_at=user.created_at,
+            updated_at=user.updated_at
+        )
+    )
 
 
 @router.post("/refresh")

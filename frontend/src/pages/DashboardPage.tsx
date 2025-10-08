@@ -151,9 +151,6 @@ export default function DashboardPage() {
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
             Панель управления
           </h1>
-          <p className="text-gray-600">
-            Добро пожаловать в AI Competitor Insight Hub
-          </p>
         </div>
 
         {/* Tabs */}
