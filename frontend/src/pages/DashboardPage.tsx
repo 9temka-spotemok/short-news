@@ -1,7 +1,7 @@
 import CompanyMultiSelect from '@/components/CompanyMultiSelect'
 import api from '@/services/api'
 import { formatDistance } from 'date-fns'
-import { ru } from 'date-fns/locale'
+import { enUS } from 'date-fns/locale'
 import { Bell, Calendar, Filter, Search, TrendingUp } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
@@ -38,28 +38,28 @@ export default function DashboardPage() {
   const [selectedDate, setSelectedDate] = useState('')
 
   const tabs = [
-    { id: 'overview', label: 'Обзор' },
-    { id: 'news', label: 'Новости' },
-    { id: 'digest', label: 'Дайджесты' },
-    { id: 'analytics', label: 'Аналитика' },
+    { id: 'overview', label: 'Overview' },
+    { id: 'news', label: 'News' },
+    { id: 'digest', label: 'Digests' },
+    { id: 'analytics', label: 'Analytics' },
   ]
 
   const categoryLabels: Record<string, string> = {
-    'product_update': 'Обновления продуктов',
-    'technical_update': 'Технические обновления',
-    'strategic_announcement': 'Стратегические анонсы',
-    'funding_news': 'Новости о финансировании',
-    'pricing_change': 'Изменения цен',
-    'research_paper': 'Исследования',
-    'community_event': 'События',
-    'partnership': 'Партнерства',
-    'acquisition': 'Приобретения',
-    'integration': 'Интеграции',
-    'security_update': 'Обновления безопасности',
-    'api_update': 'Обновления API',
-    'model_release': 'Релизы моделей',
-    'performance_improvement': 'Улучшения производительности',
-    'feature_deprecation': 'Устаревшие функции',
+    'product_update': 'Product Updates',
+    'technical_update': 'Technical Updates',
+    'strategic_announcement': 'Strategic Announcements',
+    'funding_news': 'Funding News',
+    'pricing_change': 'Pricing Changes',
+    'research_paper': 'Research Papers',
+    'community_event': 'Community Events',
+    'partnership': 'Partnerships',
+    'acquisition': 'Acquisitions',
+    'integration': 'Integrations',
+    'security_update': 'Security Updates',
+    'api_update': 'API Updates',
+    'model_release': 'Model Releases',
+    'performance_improvement': 'Performance Improvements',
+    'feature_deprecation': 'Feature Deprecations',
   }
 
   useEffect(() => {
@@ -101,7 +101,7 @@ export default function DashboardPage() {
         .sort((a, b) => b.count - a.count)
       
       setStats({
-        totalCompanies: 10, // Известно из seed
+        totalCompanies: 10, // Known from seed
         todayNews: items.filter((item: NewsItem) => {
           const published = new Date(item.published_at || item.created_at)
           const today = new Date()
@@ -143,9 +143,9 @@ export default function DashboardPage() {
   const formatDate = (dateString: string) => {
     try {
       const date = new Date(dateString)
-      return formatDistance(date, new Date(), { addSuffix: true, locale: ru })
+      return formatDistance(date, new Date(), { addSuffix: true, locale: enUS })
     } catch {
-      return 'Недавно'
+      return 'Recently'
     }
   }
   
@@ -163,7 +163,7 @@ export default function DashboardPage() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Панель управления
+            Dashboard
           </h1>
         </div>
 
@@ -193,7 +193,7 @@ export default function DashboardPage() {
             {loading ? (
               <div className="text-center py-12">
                 <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-                <p className="mt-4 text-gray-600">Загрузка статистики...</p>
+                <p className="mt-4 text-gray-600">Loading statistics...</p>
               </div>
             ) : (
               <>
@@ -204,7 +204,7 @@ export default function DashboardPage() {
                         <TrendingUp className="h-6 w-6 text-primary-600" />
                       </div>
                       <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-600">Отслеживаемых компаний</p>
+                        <p className="text-sm font-medium text-gray-600">Tracked Companies</p>
                         <p className="text-2xl font-bold text-gray-900">{stats?.totalCompanies || 0}</p>
                       </div>
                     </div>
@@ -216,7 +216,7 @@ export default function DashboardPage() {
                         <Bell className="h-6 w-6 text-green-600" />
                       </div>
                       <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-600">Новостей сегодня</p>
+                        <p className="text-sm font-medium text-gray-600">News Today</p>
                         <p className="text-2xl font-bold text-gray-900">{stats?.todayNews || 0}</p>
                       </div>
                     </div>
@@ -228,7 +228,7 @@ export default function DashboardPage() {
                         <Calendar className="h-6 w-6 text-yellow-600" />
                       </div>
                       <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-600">Всего новостей</p>
+                        <p className="text-sm font-medium text-gray-600">Total News</p>
                         <p className="text-2xl font-bold text-gray-900">{stats?.totalNews || 0}</p>
                       </div>
                     </div>
@@ -240,7 +240,7 @@ export default function DashboardPage() {
                         <Filter className="h-6 w-6 text-purple-600" />
                       </div>
                       <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-600">Категорий</p>
+                        <p className="text-sm font-medium text-gray-600">Categories</p>
                         <p className="text-2xl font-bold text-gray-900">{stats?.categoriesBreakdown.length || 0}</p>
                       </div>
                     </div>
@@ -252,7 +252,7 @@ export default function DashboardPage() {
                   {/* Recent News */}
                   <div className="card p-6">
                     <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                      Последние новости
+                      Recent News
                     </h3>
                     <div className="space-y-4">
                       {recentNews.slice(0, 5).map((item) => (
@@ -284,7 +284,7 @@ export default function DashboardPage() {
                         </div>
                       ))}
                       {recentNews.length === 0 && (
-                        <p className="text-sm text-gray-500">Новостей пока нет</p>
+                        <p className="text-sm text-gray-500">No news yet</p>
                       )}
                     </div>
                   </div>
@@ -292,7 +292,7 @@ export default function DashboardPage() {
                   {/* Popular Categories */}
                   <div className="card p-6">
                     <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                      Популярные категории
+                      Popular Categories
                     </h3>
                     <div className="space-y-3">
                       {stats?.categoriesBreakdown.slice(0, 4).map((category) => (
@@ -310,7 +310,7 @@ export default function DashboardPage() {
                         </div>
                       ))}
                       {(!stats || stats.categoriesBreakdown.length === 0) && (
-                        <p className="text-sm text-gray-500">Данных пока нет</p>
+                        <p className="text-sm text-gray-500">No data yet</p>
                       )}
                     </div>
                   </div>
@@ -325,10 +325,10 @@ export default function DashboardPage() {
             {/* News Filters */}
             <div className="card p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Фильтры новостей</h3>
+                <h3 className="text-lg font-semibold text-gray-900">News Filters</h3>
                 <a href="/news" className="btn btn-outline btn-sm">
                   <Search className="h-4 w-4 mr-2" />
-                  Расширенный поиск
+                  Advanced Search
                 </a>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -337,27 +337,27 @@ export default function DashboardPage() {
                   value={selectedCategory}
                   onChange={(e) => setSelectedCategory(e.target.value)}
                 >
-                  <option value="">Все категории</option>
-                  <option value="product_update">Обновления продуктов</option>
-                  <option value="technical_update">Технические обновления</option>
-                  <option value="strategic_announcement">Стратегические анонсы</option>
-                  <option value="funding_news">Новости о финансировании</option>
-                  <option value="pricing_change">Изменения цен</option>
-                  <option value="research_paper">Исследования</option>
-                  <option value="community_event">События</option>
-                  <option value="partnership">Партнерства</option>
-                  <option value="acquisition">Приобретения</option>
-                  <option value="integration">Интеграции</option>
-                  <option value="security_update">Обновления безопасности</option>
-                  <option value="api_update">Обновления API</option>
-                  <option value="model_release">Релизы моделей</option>
-                  <option value="performance_improvement">Улучшения производительности</option>
-                  <option value="feature_deprecation">Устаревшие функции</option>
+                  <option value="">All Categories</option>
+                  <option value="product_update">Product Updates</option>
+                  <option value="technical_update">Technical Updates</option>
+                  <option value="strategic_announcement">Strategic Announcements</option>
+                  <option value="funding_news">Funding News</option>
+                  <option value="pricing_change">Pricing Changes</option>
+                  <option value="research_paper">Research Papers</option>
+                  <option value="community_event">Community Events</option>
+                  <option value="partnership">Partnerships</option>
+                  <option value="acquisition">Acquisitions</option>
+                  <option value="integration">Integrations</option>
+                  <option value="security_update">Security Updates</option>
+                  <option value="api_update">API Updates</option>
+                  <option value="model_release">Model Releases</option>
+                  <option value="performance_improvement">Performance Improvements</option>
+                  <option value="feature_deprecation">Feature Deprecations</option>
                 </select>
                 <CompanyMultiSelect
                   selectedCompanies={selectedCompanies}
                   onSelectionChange={setSelectedCompanies}
-                  placeholder="Выберите компании..."
+                  placeholder="Select companies..."
                 />
                 <input 
                   type="date" 
@@ -369,11 +369,11 @@ export default function DashboardPage() {
               {(selectedCategory || selectedCompanies.length > 0 || selectedDate) && (
                 <div className="mt-4 flex items-center justify-between">
                   <p className="text-sm text-gray-600">
-                    {selectedCategory && `Категория: ${categoryLabels[selectedCategory] || selectedCategory}`}
+                    {selectedCategory && `Category: ${categoryLabels[selectedCategory] || selectedCategory}`}
                     {selectedCategory && (selectedCompanies.length > 0 || selectedDate) && ' • '}
-                    {selectedCompanies.length > 0 && `Компании: ${selectedCompanies.length}`}
+                    {selectedCompanies.length > 0 && `Companies: ${selectedCompanies.length}`}
                     {selectedCompanies.length > 0 && selectedDate && ' • '}
-                    {selectedDate && `Дата: ${new Date(selectedDate).toLocaleDateString('ru-RU')}`}
+                    {selectedDate && `Date: ${new Date(selectedDate).toLocaleDateString('en-US')}`}
                   </p>
                   <button
                     onClick={() => {
@@ -383,7 +383,7 @@ export default function DashboardPage() {
                     }}
                     className="text-sm text-primary-600 hover:text-primary-700 font-medium"
                   >
-                    Сбросить фильтры
+                    Reset Filters
                   </button>
                 </div>
               )}
@@ -392,7 +392,7 @@ export default function DashboardPage() {
             {/* News List */}
             {loading ? (
               <div className="text-center py-12">
-                <p className="text-gray-600">Загрузка новостей...</p>
+                <p className="text-gray-600">Loading news...</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -425,7 +425,7 @@ export default function DashboardPage() {
                           {item.title}
                         </h4>
                         <p className="text-gray-600 text-sm mb-3 line-clamp-2">
-                          {item.summary || 'Нет описания'}
+                          {item.summary || 'No description'}
                         </p>
                         <div className="flex items-center space-x-4">
                           <a
@@ -434,7 +434,7 @@ export default function DashboardPage() {
                             rel="noopener noreferrer"
                             className="text-primary-600 hover:text-primary-700 text-sm font-medium"
                           >
-                            Читать далее →
+                            Read more →
                           </a>
                           <span className="text-gray-500 text-sm capitalize">
                             {item.source_type}
@@ -446,7 +446,7 @@ export default function DashboardPage() {
                 ))}
                 {filteredNews.length === 0 && !loading && (
                   <div className="text-center py-12">
-                    <p className="text-gray-600">Новостей не найдено</p>
+                    <p className="text-gray-600">No news found</p>
                     <button
                       onClick={() => {
                         setSelectedCategory('')
@@ -454,7 +454,7 @@ export default function DashboardPage() {
                       }}
                       className="mt-4 text-sm text-primary-600 hover:text-primary-700 font-medium"
                     >
-                      Сбросить фильтры
+                      Reset Filters
                     </button>
                   </div>
                 )}
@@ -467,32 +467,32 @@ export default function DashboardPage() {
           <div className="space-y-6">
             <div className="card p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Генерация дайджестов
+                Generate Digests
               </h3>
               <p className="text-gray-600 mb-6">
-                Создавайте персонализированные дайджесты на основе ваших предпочтений
+                Create personalized digests based on your preferences
               </p>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <button className="btn btn-primary btn-md">
-                  Ежедневный дайджест
+                  Daily Digest
                 </button>
                 <button className="btn btn-outline btn-md">
-                  Еженедельный дайджест
+                  Weekly Digest
                 </button>
                 <button className="btn btn-outline btn-md">
-                  Кастомный дайджест
+                  Custom Digest
                 </button>
               </div>
             </div>
 
             <div className="card p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Последние дайджесты
+                Recent Digests
               </h3>
               <div className="text-center py-8">
-                <p className="text-gray-600">Дайджесты будут доступны после реализации email системы</p>
+                <p className="text-gray-600">Digests will be available after email system implementation</p>
                 <p className="text-sm text-gray-500 mt-2">
-                  Всего новостей для дайджеста: {stats?.totalNews || 0}
+                  Total news for digest: {stats?.totalNews || 0}
                 </p>
               </div>
             </div>
@@ -503,21 +503,21 @@ export default function DashboardPage() {
           <div className="space-y-6">
             <div className="card p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Аналитика и тренды
+                Analytics and Trends
               </h3>
               <p className="text-gray-600 mb-6">
-                Анализ активности и трендов в ИИ-индустрии
+                Analysis of activity and trends in AI industry
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="p-4 bg-gray-50 rounded-lg">
-                  <h4 className="font-medium text-gray-900 mb-2">Всего новостей</h4>
+                  <h4 className="font-medium text-gray-900 mb-2">Total News</h4>
                   <p className="text-2xl font-bold text-primary-600">{stats?.totalNews || 0}</p>
-                  <p className="text-sm text-gray-600">в базе данных</p>
+                  <p className="text-sm text-gray-600">in database</p>
                 </div>
                 <div className="p-4 bg-gray-50 rounded-lg">
-                  <h4 className="font-medium text-gray-900 mb-2">Новостей сегодня</h4>
+                  <h4 className="font-medium text-gray-900 mb-2">News Today</h4>
                   <p className="text-2xl font-bold text-green-600">{stats?.todayNews || 0}</p>
-                  <p className="text-sm text-gray-600">опубликовано сегодня</p>
+                  <p className="text-sm text-gray-600">published today</p>
                 </div>
               </div>
             </div>
@@ -525,7 +525,7 @@ export default function DashboardPage() {
             {/* Category Trends */}
             <div className="card p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Распределение по категориям
+                Category Distribution
               </h3>
               <div className="space-y-4">
                 {stats?.categoriesBreakdown.map((category) => (
@@ -545,7 +545,7 @@ export default function DashboardPage() {
                   </div>
                 ))}
                 {(!stats || stats.categoriesBreakdown.length === 0) && (
-                  <p className="text-sm text-gray-500 text-center py-4">Данных пока нет</p>
+                  <p className="text-sm text-gray-500 text-center py-4">No data yet</p>
                 )}
               </div>
             </div>
@@ -553,7 +553,7 @@ export default function DashboardPage() {
             {/* Recent Activity */}
             <div className="card p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Последняя активность
+                Recent Activity
               </h3>
               <div className="space-y-3">
                 {recentNews.slice(0, 8).map((item) => (
@@ -580,7 +580,7 @@ export default function DashboardPage() {
                   </div>
                 ))}
                 {recentNews.length === 0 && (
-                  <p className="text-sm text-gray-500 text-center py-4">Активности пока нет</p>
+                  <p className="text-sm text-gray-500 text-center py-4">No activity yet</p>
                 )}
               </div>
             </div>

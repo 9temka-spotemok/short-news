@@ -12,8 +12,8 @@ export default function Header() {
   const { isAuthenticated, user, logout } = useAuthStore()
 
   const navigation = [
-    { name: 'Главная', href: '/' },
-    { name: 'Новости', href: '/news' },
+    { name: 'Home', href: '/' },
+    { name: 'News', href: '/news' },
   ]
 
   const isActive = (path: string) => location.pathname === path
@@ -118,7 +118,7 @@ export default function Header() {
                         className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                       >
                         <User className="h-4 w-4 mr-3 text-gray-400" />
-                        Личный кабинет
+                        Profile
                       </Link>
                       <Link
                         to="/dashboard"
@@ -126,7 +126,7 @@ export default function Header() {
                         className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                       >
                         <Settings className="h-4 w-4 mr-3 text-gray-400" />
-                        Панель управления
+                        Dashboard
                       </Link>
                       <div className="border-t border-gray-100 my-1"></div>
                       <button
@@ -134,7 +134,7 @@ export default function Header() {
                         className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
                       >
                         <LogOut className="h-4 w-4 mr-3" />
-                        Выход из профиля
+                        Sign Out
                       </button>
                     </>
                   ) : (
@@ -145,7 +145,7 @@ export default function Header() {
                         className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                       >
                         <User className="h-4 w-4 mr-3 text-gray-400" />
-                        Вход в личный кабинет
+                        Sign In
                       </Link>
                       <div className="border-t border-gray-100 my-1"></div>
                       <Link
@@ -154,7 +154,7 @@ export default function Header() {
                         className="flex items-center px-4 py-2 text-sm text-primary-600 hover:bg-primary-50 transition-colors"
                       >
                         <User className="h-4 w-4 mr-3" />
-                        Регистрация
+                        Sign Up
                       </Link>
                     </>
                   )}
@@ -212,7 +212,7 @@ export default function Header() {
                   className="flex items-center px-3 py-2 text-gray-700 hover:text-primary-600 hover:bg-gray-50 rounded-md transition-colors"
                 >
                   <User className="h-4 w-4 mr-3 text-gray-400" />
-                  Личный кабинет
+                  Profile
                 </Link>
                 <Link
                   to="/dashboard"
@@ -220,14 +220,14 @@ export default function Header() {
                   className="flex items-center px-3 py-2 text-gray-700 hover:text-primary-600 hover:bg-gray-50 rounded-md transition-colors"
                 >
                   <Settings className="h-4 w-4 mr-3 text-gray-400" />
-                  Панель управления
+                  Dashboard
                 </Link>
                 <button
                   onClick={handleLogout}
                   className="flex items-center w-full text-left px-3 py-2 text-red-600 hover:bg-red-50 rounded-md transition-colors mt-1"
                 >
                   <LogOut className="h-4 w-4 mr-3" />
-                  Выход из профиля
+                  Sign Out
                 </button>
               </div>
             ) : (
@@ -238,7 +238,7 @@ export default function Header() {
                   className="flex items-center px-3 py-2 text-gray-700 hover:text-primary-600 hover:bg-gray-50 rounded-md transition-colors"
                 >
                   <User className="h-4 w-4 mr-3 text-gray-400" />
-                  Вход в личный кабинет
+                  Sign In
                 </Link>
                 <Link
                   to="/register"
@@ -246,7 +246,7 @@ export default function Header() {
                   className="flex items-center px-3 py-2 text-primary-600 hover:bg-primary-50 rounded-md transition-colors"
                 >
                   <User className="h-4 w-4 mr-3" />
-                  Регистрация
+                  Sign Up
                 </Link>
               </div>
             )}

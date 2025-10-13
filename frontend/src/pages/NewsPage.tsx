@@ -1,7 +1,7 @@
 import CompanyMultiSelect from '@/components/CompanyMultiSelect'
 import api from '@/services/api'
 import { formatDistance } from 'date-fns'
-import { ru } from 'date-fns/locale'
+import { enUS } from 'date-fns/locale'
 import { Calendar, Filter, Search } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
@@ -34,40 +34,40 @@ export default function NewsPage() {
   const [total, setTotal] = useState(0)
 
   const categories = [
-    { value: '', label: 'Все категории' },
-    { value: 'product_update', label: 'Обновления продуктов' },
-    { value: 'pricing_change', label: 'Изменения цен' },
-    { value: 'strategic_announcement', label: 'Стратегические анонсы' },
-    { value: 'technical_update', label: 'Технические обновления' },
-    { value: 'funding_news', label: 'Новости о финансировании' },
-    { value: 'research_paper', label: 'Исследования' },
-    { value: 'community_event', label: 'События' },
-    { value: 'partnership', label: 'Партнерства' },
-    { value: 'acquisition', label: 'Приобретения' },
-    { value: 'integration', label: 'Интеграции' },
-    { value: 'security_update', label: 'Обновления безопасности' },
-    { value: 'api_update', label: 'Обновления API' },
-    { value: 'model_release', label: 'Релизы моделей' },
-    { value: 'performance_improvement', label: 'Улучшения производительности' },
-    { value: 'feature_deprecation', label: 'Устаревшие функции' },
+    { value: '', label: 'All Categories' },
+    { value: 'product_update', label: 'Product Updates' },
+    { value: 'pricing_change', label: 'Pricing Changes' },
+    { value: 'strategic_announcement', label: 'Strategic Announcements' },
+    { value: 'technical_update', label: 'Technical Updates' },
+    { value: 'funding_news', label: 'Funding News' },
+    { value: 'research_paper', label: 'Research Papers' },
+    { value: 'community_event', label: 'Community Events' },
+    { value: 'partnership', label: 'Partnerships' },
+    { value: 'acquisition', label: 'Acquisitions' },
+    { value: 'integration', label: 'Integrations' },
+    { value: 'security_update', label: 'Security Updates' },
+    { value: 'api_update', label: 'API Updates' },
+    { value: 'model_release', label: 'Model Releases' },
+    { value: 'performance_improvement', label: 'Performance Improvements' },
+    { value: 'feature_deprecation', label: 'Feature Deprecations' },
   ]
 
   const categoryLabels: Record<string, string> = {
-    'product_update': 'Обновления продуктов',
-    'pricing_change': 'Изменения цен',
-    'strategic_announcement': 'Стратегические анонсы',
-    'technical_update': 'Технические обновления',
-    'funding_news': 'Новости о финансировании',
-    'research_paper': 'Исследования',
-    'community_event': 'События',
-    'partnership': 'Партнерства',
-    'acquisition': 'Приобретения',
-    'integration': 'Интеграции',
-    'security_update': 'Обновления безопасности',
-    'api_update': 'Обновления API',
-    'model_release': 'Релизы моделей',
-    'performance_improvement': 'Улучшения производительности',
-    'feature_deprecation': 'Устаревшие функции',
+    'product_update': 'Product Updates',
+    'pricing_change': 'Pricing Changes',
+    'strategic_announcement': 'Strategic Announcements',
+    'technical_update': 'Technical Updates',
+    'funding_news': 'Funding News',
+    'research_paper': 'Research Papers',
+    'community_event': 'Community Events',
+    'partnership': 'Partnerships',
+    'acquisition': 'Acquisitions',
+    'integration': 'Integrations',
+    'security_update': 'Security Updates',
+    'api_update': 'API Updates',
+    'model_release': 'Model Releases',
+    'performance_improvement': 'Performance Improvements',
+    'feature_deprecation': 'Feature Deprecations',
   }
 
   // Fetch news from API
@@ -91,7 +91,7 @@ export default function NewsPage() {
       
     } catch (err: any) {
       console.error('Failed to fetch news:', err)
-      setError('Не удалось загрузить новости. Попробуйте обновить страницу.')
+      setError('Failed to load news. Please try refreshing the page.')
     } finally {
       setLoading(false)
     }
@@ -100,9 +100,9 @@ export default function NewsPage() {
   const formatDate = (dateString: string) => {
     try {
       const date = new Date(dateString)
-      return formatDistance(date, new Date(), { addSuffix: true, locale: ru })
+      return formatDistance(date, new Date(), { addSuffix: true, locale: enUS })
     } catch {
-      return 'Недавно'
+      return 'Recently'
     }
   }
 
@@ -117,14 +117,14 @@ export default function NewsPage() {
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">
-          Новости ИИ-индустрии
+          AI Industry News
         </h1>
         <p className="text-gray-600">
-          Актуальные новости из мира искусственного интеллекта и машинного обучения
+          Latest news from the world of artificial intelligence and machine learning
         </p>
         {total > 0 && (
           <p className="text-sm text-gray-500 mt-2">
-            Найдено новостей: {total}
+            News found: {total}
           </p>
         )}
       </div>
@@ -137,7 +137,7 @@ export default function NewsPage() {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
               type="text"
-              placeholder="Поиск новостей..."
+              placeholder="Search news..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="input pl-10"
@@ -164,7 +164,7 @@ export default function NewsPage() {
           <CompanyMultiSelect
             selectedCompanies={selectedCompanies}
             onSelectionChange={setSelectedCompanies}
-            placeholder="Выберите компании..."
+            placeholder="Select companies..."
           />
 
           {/* Date Filter */}
@@ -189,15 +189,15 @@ export default function NewsPage() {
       {loading && (
         <div className="text-center py-12">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-          <p className="mt-4 text-gray-600">Загрузка новостей...</p>
+          <p className="mt-4 text-gray-600">Loading news...</p>
         </div>
       )}
 
       {/* Empty State */}
       {!loading && !error && news.length === 0 && (
         <div className="text-center py-12">
-          <p className="text-gray-600 text-lg">Новостей пока нет</p>
-          <p className="text-gray-500 text-sm mt-2">Попробуйте изменить фильтры или вернитесь позже</p>
+          <p className="text-gray-600 text-lg">No news yet</p>
+          <p className="text-gray-500 text-sm mt-2">Try changing filters or come back later</p>
         </div>
       )}
 
@@ -228,7 +228,7 @@ export default function NewsPage() {
                       {item.title}
                     </h3>
                     <p className="text-gray-600 text-sm mb-4 line-clamp-3">
-                      {item.summary || 'Нет описания'}
+                      {item.summary || 'No description'}
                     </p>
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-gray-500 capitalize">
@@ -240,7 +240,7 @@ export default function NewsPage() {
                         rel="noopener noreferrer"
                         className="text-primary-600 hover:text-primary-700 text-sm font-medium"
                       >
-                        Читать далее →
+                        Read more →
                       </a>
                     </div>
                   </div>
@@ -254,7 +254,7 @@ export default function NewsPage() {
               onClick={fetchNews}
               className="btn btn-outline btn-md"
             >
-              Обновить новости
+              Refresh News
             </button>
           </div>
         </>

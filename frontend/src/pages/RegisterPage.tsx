@@ -9,12 +9,12 @@ import { z } from 'zod'
 import { authService } from '@/services/authService'
 
 const registerSchema = z.object({
-  email: z.string().email('Некорректный email'),
-  password: z.string().min(6, 'Пароль должен содержать минимум 6 символов'),
-  full_name: z.string().min(2, 'Имя должно содержать минимум 2 символа'),
+  email: z.string().email('Invalid email'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+  full_name: z.string().min(2, 'Name must be at least 2 characters'),
   confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {
-  message: 'Пароли не совпадают',
+  message: 'Passwords do not match',
   path: ['confirmPassword'],
 })
 
@@ -42,11 +42,11 @@ export default function RegisterPage() {
         password: data.password,
         full_name: data.full_name,
       })
-      toast.success('Регистрация прошла успешно! Проверьте email для подтверждения.')
+      toast.success('Registration successful! Check your email for confirmation.')
       navigate('/login')
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Ошибка регистрации')
-    } finally {
+      toast.error(error.response?.data?.message || 'Registration error')
+    } finally{
       setIsLoading(false)
     }
   }
@@ -61,15 +61,15 @@ export default function RegisterPage() {
             </div>
           </div>
           <h2 className="mt-6 text-center text-3xl font-bold text-gray-900">
-            Создать аккаунт
+            Create Account
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            Или{' '}
+            Or{' '}
             <Link
               to="/login"
               className="font-medium text-primary-600 hover:text-primary-500"
             >
-              войдите в существующий
+              sign in to existing account
             </Link>
           </p>
         </div>
@@ -79,7 +79,7 @@ export default function RegisterPage() {
             {/* Full Name */}
             <div>
               <label htmlFor="full_name" className="block text-sm font-medium text-gray-700">
-                Полное имя
+                Full Name
               </label>
               <div className="mt-1 relative">
                 <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -87,7 +87,7 @@ export default function RegisterPage() {
                   {...register('full_name')}
                   type="text"
                   className="input pl-10"
-                  placeholder="Иван Иванов"
+                  placeholder="John Doe"
                 />
               </div>
               {errors.full_name && (
@@ -117,7 +117,7 @@ export default function RegisterPage() {
             {/* Password */}
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Пароль
+                Password
               </label>
               <div className="mt-1 relative">
                 <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -147,7 +147,7 @@ export default function RegisterPage() {
             {/* Confirm Password */}
             <div>
               <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
-                Подтвердите пароль
+                Confirm Password
               </label>
               <div className="mt-1 relative">
                 <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -185,13 +185,13 @@ export default function RegisterPage() {
               className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
             />
             <label htmlFor="terms" className="ml-2 block text-sm text-gray-900">
-              Я согласен с{' '}
+              I agree to the{' '}
               <a href="#" className="text-primary-600 hover:text-primary-500">
-                условиями использования
+                terms of service
               </a>{' '}
-              и{' '}
+              and{' '}
               <a href="#" className="text-primary-600 hover:text-primary-500">
-                политикой конфиденциальности
+                privacy policy
               </a>
             </label>
           </div>
@@ -203,7 +203,7 @@ export default function RegisterPage() {
               disabled={isLoading}
               className="btn btn-primary btn-lg w-full"
             >
-              {isLoading ? 'Регистрация...' : 'Создать аккаунт'}
+              {isLoading ? 'Creating account...' : 'Create Account'}
             </button>
           </div>
         </form>

@@ -13,16 +13,16 @@ export default function HomePage() {
               <span className="text-primary-600"> Insight Hub</span>
             </h1>
             <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
-              Интеллектуальная платформа для мониторинга новостей из мира ИИ-индустрии. 
-              Получайте персонализированные дайджесты и будьте в курсе всех важных событий.
+              Intelligent platform for monitoring AI industry news. 
+              Get personalized digests and stay informed about all important events.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link to="/register" className="btn btn-primary btn-lg">
-                Начать бесплатно
+                Get Started Free
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
               <Link to="/news" className="btn btn-outline btn-lg">
-                Посмотреть новости
+                View News
               </Link>
             </div>
           </div>
@@ -34,11 +34,11 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl font-bold text-gray-900 mb-4">
-              Почему выбирают shot-news?
+              Why Choose shot-news?
             </h2>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Мы используем современные технологии ИИ для предоставления 
-              наиболее релевантной информации о развитии индустрии.
+              We use modern AI technologies to provide the most 
+              relevant information about industry developments.
             </p>
           </div>
 
@@ -48,10 +48,10 @@ export default function HomePage() {
                 <TrendingUp className="h-8 w-8 text-primary-600" />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                Анализ трендов
+                Trend Analysis
               </h3>
               <p className="text-gray-600">
-                Отслеживайте ключевые тренды и изменения в ИИ-индустрии
+                Track key trends and changes in the AI industry
               </p>
             </div>
 
@@ -60,10 +60,10 @@ export default function HomePage() {
                 <Filter className="h-8 w-8 text-primary-600" />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                Умная фильтрация
+                Smart Filtering
               </h3>
               <p className="text-gray-600">
-                ИИ-алгоритмы отбирают только релевантные для вас новости
+                AI algorithms select only news relevant to you
               </p>
             </div>
 
@@ -72,10 +72,10 @@ export default function HomePage() {
                 <Bell className="h-8 w-8 text-primary-600" />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                Персонализация
+                Personalization
               </h3>
               <p className="text-gray-600">
-                Получайте дайджесты, адаптированные под ваши интересы
+                Receive digests tailored to your interests
               </p>
             </div>
 
@@ -84,10 +84,10 @@ export default function HomePage() {
                 <Zap className="h-8 w-8 text-primary-600" />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                Быстро и точно
+                Fast and Accurate
               </h3>
               <p className="text-gray-600">
-                Обновления в реальном времени с высокой точностью
+                Real-time updates with high accuracy
               </p>
             </div>
           </div>
@@ -100,15 +100,15 @@ export default function HomePage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
             <div>
               <div className="text-4xl font-bold text-primary-600 mb-2">50+</div>
-              <div className="text-gray-600">Отслеживаемых компаний</div>
+              <div className="text-gray-600">Tracked Companies</div>
             </div>
             <div>
               <div className="text-4xl font-bold text-primary-600 mb-2">1000+</div>
-              <div className="text-gray-600">Новостей в день</div>
+              <div className="text-gray-600">News per Day</div>
             </div>
             <div>
               <div className="text-4xl font-bold text-primary-600 mb-2">99.5%</div>
-              <div className="text-gray-600">Точность классификации</div>
+              <div className="text-gray-600">Classification Accuracy</div>
             </div>
           </div>
         </div>
@@ -118,14 +118,14 @@ export default function HomePage() {
       <div className="py-24 bg-primary-600">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl font-bold text-white mb-4">
-            Готовы начать?
+            Ready to Get Started?
           </h2>
           <p className="text-xl text-primary-100 mb-8 max-w-2xl mx-auto">
-            Присоединяйтесь к сообществу профессионалов ИИ-индустрии 
-            и получайте актуальную информацию первыми.
+            Join the community of AI industry professionals 
+            and get the latest information first.
           </p>
           <Link to="/register" className="btn bg-white text-primary-600 hover:bg-gray-100 btn-lg">
-            Создать аккаунт
+            Create Account
             <ArrowRight className="ml-2 h-4 w-4" />
           </Link>
         </div>

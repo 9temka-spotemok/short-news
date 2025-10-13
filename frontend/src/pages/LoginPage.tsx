@@ -10,8 +10,8 @@ import { authService } from '@/services/authService'
 import { useAuthStore } from '@/store/authStore'
 
 const loginSchema = z.object({
-  email: z.string().email('Некорректный email'),
-  password: z.string().min(6, 'Пароль должен содержать минимум 6 символов'),
+  email: z.string().email('Invalid email'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
 })
 
 type LoginForm = z.infer<typeof loginSchema>
@@ -35,10 +35,10 @@ export default function LoginPage() {
     try {
       const response = await authService.login(data)
       login(response)
-      toast.success('Вход выполнен успешно!')
+      toast.success('Login successful!')
       navigate('/dashboard')
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Ошибка входа')
+      toast.error(error.response?.data?.message || 'Login error')
     } finally {
       setIsLoading(false)
     }
@@ -54,15 +54,15 @@ export default function LoginPage() {
             </div>
           </div>
           <h2 className="mt-6 text-center text-3xl font-bold text-gray-900">
-            Вход в аккаунт
+            Sign In to Your Account
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            Или{' '}
+            Or{' '}
             <Link
               to="/register"
               className="font-medium text-primary-600 hover:text-primary-500"
             >
-              создайте новый аккаунт
+              create a new account
             </Link>
           </p>
         </div>
@@ -91,7 +91,7 @@ export default function LoginPage() {
             {/* Password */}
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Пароль
+                Password
               </label>
               <div className="mt-1 relative">
                 <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -129,13 +129,13 @@ export default function LoginPage() {
                 className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
               />
               <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900">
-                Запомнить меня
+                Remember me
               </label>
             </div>
 
             <div className="text-sm">
               <a href="#" className="font-medium text-primary-600 hover:text-primary-500">
-                Забыли пароль?
+                Forgot password?
               </a>
             </div>
           </div>
@@ -147,7 +147,7 @@ export default function LoginPage() {
               disabled={isLoading}
               className="btn btn-primary btn-lg w-full"
             >
-              {isLoading ? 'Вход...' : 'Войти'}
+              {isLoading ? 'Signing in...' : 'Sign In'}
             </button>
           </div>
         </form>
@@ -155,11 +155,11 @@ export default function LoginPage() {
         {/* Demo credentials */}
         <div className="mt-6 p-4 bg-blue-50 rounded-lg">
           <h3 className="text-sm font-medium text-blue-900 mb-2">
-            Демо-доступ:
+            Demo Access:
           </h3>
           <p className="text-sm text-blue-700">
             Email: demo@shot-news.com<br />
-            Пароль: demo123
+            Password: demo123
           </p>
         </div>
       </div>

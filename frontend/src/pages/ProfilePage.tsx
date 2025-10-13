@@ -1,6 +1,6 @@
 import { useAuthStore } from '@/store/authStore'
 import { format } from 'date-fns'
-import { ru } from 'date-fns/locale'
+import { enUS } from 'date-fns/locale'
 import { Calendar, CheckCircle, Mail, User, XCircle } from 'lucide-react'
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -26,7 +26,7 @@ export default function ProfilePage() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-          <p className="mt-4 text-gray-500">Загрузка профиля...</p>
+          <p className="mt-4 text-gray-500">Loading profile...</p>
         </div>
       </div>
     )
@@ -42,8 +42,8 @@ export default function ProfilePage() {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Page Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Личный кабинет</h1>
-          <p className="mt-2 text-gray-600">Управление профилем и настройками</p>
+          <h1 className="text-3xl font-bold text-gray-900">Profile</h1>
+          <p className="mt-2 text-gray-600">Manage your profile and settings</p>
         </div>
 
         {/* Profile Card */}
@@ -63,14 +63,14 @@ export default function ProfilePage() {
 
           {/* User Information */}
           <div className="px-6 py-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Информация о профиле</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Profile Information</h3>
             
             <div className="space-y-4">
               {/* Email */}
               <div className="flex items-start space-x-3 p-4 bg-gray-50 rounded-lg">
                 <Mail className="h-5 w-5 text-gray-400 mt-0.5" />
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-700">Email адрес</p>
+                  <p className="text-sm font-medium text-gray-700">Email Address</p>
                   <p className="text-sm text-gray-900 mt-1">{user.email}</p>
                 </div>
               </div>
@@ -79,7 +79,7 @@ export default function ProfilePage() {
               <div className="flex items-start space-x-3 p-4 bg-gray-50 rounded-lg">
                 <User className="h-5 w-5 text-gray-400 mt-0.5" />
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-700">Полное имя</p>
+                  <p className="text-sm font-medium text-gray-700">Full Name</p>
                   <p className="text-sm text-gray-900 mt-1">{user.full_name}</p>
                 </div>
               </div>
@@ -92,9 +92,9 @@ export default function ProfilePage() {
                   <XCircle className="h-5 w-5 text-red-500 mt-0.5" />
                 )}
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-700">Статус аккаунта</p>
+                  <p className="text-sm font-medium text-gray-700">Account Status</p>
                   <p className={`text-sm mt-1 ${user.is_active ? 'text-green-600' : 'text-red-600'}`}>
-                    {user.is_active ? 'Активен' : 'Неактивен'}
+                    {user.is_active ? 'Active' : 'Inactive'}
                   </p>
                 </div>
               </div>
@@ -107,9 +107,9 @@ export default function ProfilePage() {
                   <XCircle className="h-5 w-5 text-yellow-500 mt-0.5" />
                 )}
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-700">Верификация email</p>
+                  <p className="text-sm font-medium text-gray-700">Email Verification</p>
                   <p className={`text-sm mt-1 ${user.is_verified ? 'text-green-600' : 'text-yellow-600'}`}>
-                    {user.is_verified ? 'Подтвержден' : 'Не подтвержден'}
+                    {user.is_verified ? 'Verified' : 'Not Verified'}
                   </p>
                 </div>
               </div>
@@ -118,9 +118,9 @@ export default function ProfilePage() {
               <div className="flex items-start space-x-3 p-4 bg-gray-50 rounded-lg">
                 <Calendar className="h-5 w-5 text-gray-400 mt-0.5" />
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-700">Дата регистрации</p>
+                  <p className="text-sm font-medium text-gray-700">Registration Date</p>
                   <p className="text-sm text-gray-900 mt-1">
-                    {format(new Date(user.created_at), 'dd MMMM yyyy, HH:mm', { locale: ru })}
+                    {format(new Date(user.created_at), 'MMMM dd, yyyy, HH:mm', { locale: enUS })}
                   </p>
                 </div>
               </div>
@@ -129,7 +129,7 @@ export default function ProfilePage() {
               <div className="flex items-start space-x-3 p-4 bg-gray-50 rounded-lg">
                 <User className="h-5 w-5 text-gray-400 mt-0.5" />
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-700">ID пользователя</p>
+                  <p className="text-sm font-medium text-gray-700">User ID</p>
                   <p className="text-sm text-gray-500 mt-1 font-mono">{user.id}</p>
                 </div>
               </div>
@@ -140,7 +140,7 @@ export default function ProfilePage() {
           <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
             <div className="flex items-center justify-between">
               <p className="text-sm text-gray-500">
-                Последнее обновление: {format(new Date(user.updated_at), 'dd MMMM yyyy, HH:mm', { locale: ru })}
+                Last updated: {format(new Date(user.updated_at), 'MMMM dd, yyyy, HH:mm', { locale: enUS })}
               </p>
             </div>
           </div>
@@ -155,10 +155,10 @@ export default function ProfilePage() {
               </svg>
             </div>
             <div className="flex-1">
-              <h3 className="text-sm font-medium text-blue-900">Информация</h3>
+              <h3 className="text-sm font-medium text-blue-900">Information</h3>
               <p className="mt-1 text-sm text-blue-700">
-                Здесь отображается основная информация о вашем профиле. 
-                Для изменения настроек уведомлений и предпочтений перейдите в раздел "Настройки".
+                Your basic profile information is displayed here. 
+                To change notification settings and preferences, go to the "Settings" section.
               </p>
             </div>
           </div>

@@ -18,7 +18,7 @@ interface CompanyMultiSelectProps {
 export default function CompanyMultiSelect({
   selectedCompanies,
   onSelectionChange,
-  placeholder = 'Выберите компании...'
+  placeholder = 'Select companies...'
 }: CompanyMultiSelectProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -141,7 +141,7 @@ export default function CompanyMultiSelect({
               <input
                 type="text"
                 className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
-                placeholder="Поиск компаний..."
+                placeholder="Search companies..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onClick={(e) => e.stopPropagation()}
@@ -152,9 +152,9 @@ export default function CompanyMultiSelect({
           {/* Companies List */}
           <div className="py-1">
             {loading ? (
-              <div className="px-3 py-2 text-sm text-gray-500">Загрузка...</div>
+              <div className="px-3 py-2 text-sm text-gray-500">Loading...</div>
             ) : filteredCompanies.length === 0 ? (
-              <div className="px-3 py-2 text-sm text-gray-500">Компании не найдены</div>
+              <div className="px-3 py-2 text-sm text-gray-500">No companies found</div>
             ) : (
               filteredCompanies.map((company) => {
                 const isSelected = selectedCompanies.includes(company.id)

@@ -5,10 +5,10 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('profile')
 
   const tabs = [
-    { id: 'profile', label: 'Профиль', icon: User },
-    { id: 'notifications', label: 'Уведомления', icon: Bell },
-    { id: 'preferences', label: 'Предпочтения', icon: Filter },
-    { id: 'security', label: 'Безопасность', icon: Shield },
+    { id: 'profile', label: 'Profile', icon: User },
+    { id: 'notifications', label: 'Notifications', icon: Bell },
+    { id: 'preferences', label: 'Preferences', icon: Filter },
+    { id: 'security', label: 'Security', icon: Shield },
   ]
 
   return (
@@ -17,10 +17,10 @@ export default function SettingsPage() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Настройки
+            Settings
           </h1>
           <p className="text-gray-600">
-            Управление профилем и предпочтениями
+            Manage your profile and preferences
           </p>
         </div>
 
@@ -54,17 +54,17 @@ export default function SettingsPage() {
               <div className="space-y-6">
                 <div className="card p-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                    Информация профиля
+                    Profile Information
                   </h3>
                   <form className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Имя
+                          Name
                         </label>
                         <input
                           type="text"
-                          defaultValue="Иван Иванов"
+                          defaultValue="John Doe"
                           className="input"
                         />
                       </div>
@@ -74,41 +74,41 @@ export default function SettingsPage() {
                         </label>
                         <input
                           type="email"
-                          defaultValue="ivan@example.com"
+                          defaultValue="john@example.com"
                           className="input"
                         />
                       </div>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        О себе
+                        About
                       </label>
                       <textarea
                         rows={3}
-                        defaultValue="Исследователь ИИ и машинного обучения"
+                        defaultValue="AI and Machine Learning Researcher"
                         className="input"
                       />
                     </div>
                     <button className="btn btn-primary btn-md">
-                      Сохранить изменения
+                      Save Changes
                     </button>
                   </form>
                 </div>
 
                 <div className="card p-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                    Аватар
+                    Avatar
                   </h3>
                   <div className="flex items-center space-x-4">
                     <div className="w-16 h-16 bg-primary-600 rounded-full flex items-center justify-center">
-                      <span className="text-white font-bold text-lg">ИИ</span>
+                      <span className="text-white font-bold text-lg">AI</span>
                     </div>
                     <div>
                       <button className="btn btn-outline btn-sm">
-                        Изменить аватар
+                        Change Avatar
                       </button>
                       <p className="text-sm text-gray-500 mt-1">
-                        JPG, PNG или GIF, максимум 2MB
+                        JPG, PNG or GIF, max 2MB
                       </p>
                     </div>
                   </div>
@@ -120,16 +120,16 @@ export default function SettingsPage() {
               <div className="space-y-6">
                 <div className="card p-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                    Настройки уведомлений
+                    Notification Settings
                   </h3>
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <div>
                         <h4 className="text-sm font-medium text-gray-900">
-                          Email уведомления
+                          Email Notifications
                         </h4>
                         <p className="text-sm text-gray-500">
-                          Получать уведомления на email
+                          Receive notifications via email
                         </p>
                       </div>
                       <input
@@ -141,10 +141,10 @@ export default function SettingsPage() {
                     <div className="flex items-center justify-between">
                       <div>
                         <h4 className="text-sm font-medium text-gray-900">
-                          Ежедневные дайджесты
+                          Daily Digests
                         </h4>
                         <p className="text-sm text-gray-500">
-                          Получать ежедневные дайджесты новостей
+                          Receive daily news digests
                         </p>
                       </div>
                       <input
@@ -156,10 +156,10 @@ export default function SettingsPage() {
                     <div className="flex items-center justify-between">
                       <div>
                         <h4 className="text-sm font-medium text-gray-900">
-                          Критические новости
+                          Critical News
                         </h4>
                         <p className="text-sm text-gray-500">
-                          Мгновенные уведомления о важных новостях
+                          Instant notifications about important news
                         </p>
                       </div>
                       <input
@@ -173,14 +173,14 @@ export default function SettingsPage() {
 
                 <div className="card p-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                    Частота уведомлений
+                    Notification Frequency
                   </h3>
                   <div className="space-y-3">
                     {[
-                      { value: 'realtime', label: 'В реальном времени' },
-                      { value: 'daily', label: 'Ежедневно' },
-                      { value: 'weekly', label: 'Еженедельно' },
-                      { value: 'never', label: 'Никогда' },
+                      { value: 'realtime', label: 'Real-time' },
+                      { value: 'daily', label: 'Daily' },
+                      { value: 'weekly', label: 'Weekly' },
+                      { value: 'never', label: 'Never' },
                     ].map((option) => (
                       <label key={option.value} className="flex items-center">
                         <input
@@ -204,7 +204,7 @@ export default function SettingsPage() {
               <div className="space-y-6">
                 <div className="card p-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                    Отслеживаемые компании
+                    Tracked Companies
                   </h3>
                   <div className="space-y-3">
                     {[
@@ -230,7 +230,7 @@ export default function SettingsPage() {
 
                 <div className="card p-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                    Интересующие категории
+                    Interested Categories
                   </h3>
                   <div className="grid grid-cols-2 gap-3">
                     {[
@@ -257,12 +257,12 @@ export default function SettingsPage() {
 
                 <div className="card p-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                    Ключевые слова
+                    Keywords
                   </h3>
                   <div>
                     <input
                       type="text"
-                      placeholder="Добавить ключевое слово"
+                      placeholder="Add keyword"
                       className="input mb-3"
                     />
                     <div className="flex flex-wrap gap-2">
@@ -287,64 +287,64 @@ export default function SettingsPage() {
               <div className="space-y-6">
                 <div className="card p-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                    Изменить пароль
+                    Change Password
                   </h3>
                   <form className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Текущий пароль
+                        Current Password
                       </label>
                       <input type="password" className="input" />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Новый пароль
+                        New Password
                       </label>
                       <input type="password" className="input" />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Подтвердите пароль
+                        Confirm Password
                       </label>
                       <input type="password" className="input" />
                     </div>
                     <button className="btn btn-primary btn-md">
-                      Изменить пароль
+                      Change Password
                     </button>
                   </form>
                 </div>
 
                 <div className="card p-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                    Двухфакторная аутентификация
+                    Two-Factor Authentication
                   </h3>
                   <p className="text-gray-600 mb-4">
-                    Добавьте дополнительный уровень безопасности к вашему аккаунту
+                    Add an extra layer of security to your account
                   </p>
                   <button className="btn btn-outline btn-md">
-                    Включить 2FA
+                    Enable 2FA
                   </button>
                 </div>
 
                 <div className="card p-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                    Активные сессии
+                    Active Sessions
                   </h3>
                   <div className="space-y-3">
                     <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                       <div>
-                        <p className="text-sm font-medium text-gray-900">Текущая сессия</p>
-                        <p className="text-xs text-gray-500">Chrome на Windows • Москва, Россия</p>
+                        <p className="text-sm font-medium text-gray-900">Current Session</p>
+                        <p className="text-xs text-gray-500">Chrome on Windows • Moscow, Russia</p>
                       </div>
-                      <span className="badge badge-success">Активна</span>
+                      <span className="badge badge-success">Active</span>
                     </div>
                     <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                       <div>
-                        <p className="text-sm font-medium text-gray-900">Мобильное приложение</p>
-                        <p className="text-xs text-gray-500">iPhone • Москва, Россия</p>
+                        <p className="text-sm font-medium text-gray-900">Mobile App</p>
+                        <p className="text-xs text-gray-500">iPhone • Moscow, Russia</p>
                       </div>
                       <button className="text-red-600 hover:text-red-700 text-sm">
-                        Завершить
+                        End
                       </button>
                     </div>
                   </div>

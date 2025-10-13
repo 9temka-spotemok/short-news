@@ -14,8 +14,8 @@ export default function Footer() {
               <span className="text-xl font-bold">shot-news</span>
             </div>
             <p className="text-gray-400 mb-4">
-              Интеллектуальная платформа для мониторинга новостей из мира ИИ-индустрии 
-              с персонализированными дайджестами.
+              Intelligent platform for monitoring AI industry news 
+              with personalized digests.
             </p>
             <div className="flex space-x-4">
               <a href="#" className="text-gray-400 hover:text-white">
@@ -33,17 +33,17 @@ export default function Footer() {
           {/* Navigation */}
           <div>
             <h3 className="text-sm font-semibold uppercase tracking-wider mb-4">
-              Навигация
+              Navigation
             </h3>
             <ul className="space-y-2">
               <li>
                 <Link to="/" className="text-gray-400 hover:text-white">
-                  Главная
+                  Home
                 </Link>
               </li>
               <li>
                 <Link to="/news" className="text-gray-400 hover:text-white">
-                  Новости
+                  News
                 </Link>
               </li>
               <li>
@@ -53,7 +53,7 @@ export default function Footer() {
               </li>
               <li>
                 <a href="#" className="text-gray-400 hover:text-white">
-                  Документация
+                  Documentation
                 </a>
               </li>
             </ul>
@@ -62,27 +62,27 @@ export default function Footer() {
           {/* Support */}
           <div>
             <h3 className="text-sm font-semibold uppercase tracking-wider mb-4">
-              Поддержка
+              Support
             </h3>
             <ul className="space-y-2">
               <li>
                 <a href="#" className="text-gray-400 hover:text-white">
-                  Помощь
+                  Help
                 </a>
               </li>
               <li>
                 <a href="#" className="text-gray-400 hover:text-white">
-                  Контакты
+                  Contact
                 </a>
               </li>
               <li>
                 <a href="#" className="text-gray-400 hover:text-white">
-                  Сообщить об ошибке
+                  Report a Bug
                 </a>
               </li>
               <li>
                 <a href="#" className="text-gray-400 hover:text-white">
-                  Предложить функцию
+                  Suggest a Feature
                 </a>
               </li>
             </ul>
@@ -92,14 +92,14 @@ export default function Footer() {
         <div className="border-t border-gray-800 mt-8 pt-8">
           <div className="flex flex-col md:flex-row justify-between items-center">
             <p className="text-gray-400 text-sm">
-              © 2025 shot-news. Все права защищены.
+              © 2025 shot-news. All rights reserved.
             </p>
             <div className="flex space-x-6 mt-4 md:mt-0">
               <a href="#" className="text-gray-400 hover:text-white text-sm">
-                Политика конфиденциальности
+                Privacy Policy
               </a>
               <a href="#" className="text-gray-400 hover:text-white text-sm">
-                Условия использования
+                Terms of Service
               </a>
             </div>
           </div>
