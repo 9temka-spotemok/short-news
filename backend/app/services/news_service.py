@@ -81,6 +81,7 @@ class NewsService:
         self,
         category: Optional[str] = None,
         company_id: Optional[str] = None,
+        company_ids: Optional[List[str]] = None,
         limit: int = 20,
         offset: int = 0,
         search_query: Optional[str] = None
@@ -89,18 +90,18 @@ class NewsService:
         Get news items with filtering and pagination
         """
         try:
-            query = select(NewsItem)
+            from sqlalchemy.orm import selectinload
+            
+            query = select(NewsItem).options(selectinload(NewsItem.company))
             
             # Apply filters
             if category:
-                try:
-                    enum_value = NewsCategory(category)
-                except ValueError:
-                    # Unknown category filter -> return empty result
-                    return []
-                query = query.where(NewsItem.category == enum_value)
+                # Category is now a string, not enum
+                query = query.where(NewsItem.category == category)
             
-            if company_id:
+            if company_ids:
+                query = query.where(NewsItem.company_id.in_(company_ids))
+            elif company_id:
                 query = query.where(NewsItem.company_id == company_id)
             
             if search_query:
@@ -191,7 +192,8 @@ class NewsService:
     async def get_news_count(
         self,
         category: Optional[str] = None,
-        company_id: Optional[str] = None
+        company_id: Optional[str] = None,
+        company_ids: Optional[List[str]] = None
     ) -> int:
         """
         Get total count of news items
@@ -200,9 +202,12 @@ class NewsService:
             query = select(func.count(NewsItem.id))
             
             if category:
-                query = query.where(NewsItem.category == NewsCategory(category))
+                # Category is now a string, not enum
+                query = query.where(NewsItem.category == category)
             
-            if company_id:
+            if company_ids:
+                query = query.where(NewsItem.company_id.in_(company_ids))
+            elif company_id:
                 query = query.where(NewsItem.company_id == company_id)
             
             result = await self.db.execute(query)

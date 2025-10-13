@@ -14,7 +14,15 @@ CREATE TYPE news_category AS ENUM (
     'technical_update',
     'funding_news',
     'research_paper',
-    'community_event'
+    'community_event',
+    'partnership',
+    'acquisition',
+    'integration',
+    'security_update',
+    'api_update',
+    'model_release',
+    'performance_improvement',
+    'feature_deprecation'
 );
 
 CREATE TYPE source_type AS ENUM (

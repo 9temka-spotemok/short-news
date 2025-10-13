@@ -1,3 +1,4 @@
+import CompanyMultiSelect from '@/components/CompanyMultiSelect'
 import api from '@/services/api'
 import { formatDistance } from 'date-fns'
 import { ru } from 'date-fns/locale'
@@ -13,6 +14,11 @@ interface NewsItem {
   category: string
   published_at: string
   created_at: string
+  company?: {
+    id: string
+    name: string
+    website?: string
+  }
 }
 
 interface DashboardStats {
@@ -28,7 +34,7 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [selectedCategory, setSelectedCategory] = useState('')
-  const [selectedCompany, setSelectedCompany] = useState('')
+  const [selectedCompanies, setSelectedCompanies] = useState<string[]>([])
   const [selectedDate, setSelectedDate] = useState('')
 
   const tabs = [
@@ -46,6 +52,14 @@ export default function DashboardPage() {
     'pricing_change': 'Изменения цен',
     'research_paper': 'Исследования',
     'community_event': 'События',
+    'partnership': 'Партнерства',
+    'acquisition': 'Приобретения',
+    'integration': 'Интеграции',
+    'security_update': 'Обновления безопасности',
+    'api_update': 'Обновления API',
+    'model_release': 'Релизы моделей',
+    'performance_improvement': 'Улучшения производительности',
+    'feature_deprecation': 'Устаревшие функции',
   }
 
   useEffect(() => {
@@ -57,7 +71,7 @@ export default function DashboardPage() {
     if (activeTab === 'news') {
       fetchFilteredNews()
     }
-  }, [selectedCategory, selectedCompany, activeTab])
+  }, [selectedCategory, selectedCompanies, activeTab])
 
   const fetchDashboardData = async () => {
     try {
@@ -112,8 +126,8 @@ export default function DashboardPage() {
       if (selectedCategory) {
         params.category = selectedCategory
       }
-      if (selectedCompany) {
-        params.company = selectedCompany
+      if (selectedCompanies.length > 0) {
+        params.companies = selectedCompanies.join(',')
       }
       
       const response = await api.get('/news/', { params })
@@ -253,9 +267,19 @@ export default function DashboardPage() {
                             >
                               {item.title}
                             </a>
-                            <p className="text-xs text-gray-500 mt-1">
-                              {formatDate(item.published_at || item.created_at)}
-                            </p>
+                            <div className="flex items-center space-x-2 mt-1">
+                              <p className="text-xs text-gray-500">
+                                {formatDate(item.published_at || item.created_at)}
+                              </p>
+                              {item.company && (
+                                <>
+                                  <span className="text-xs text-gray-400">•</span>
+                                  <span className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full">
+                                    {item.company.name}
+                                  </span>
+                                </>
+                              )}
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -319,19 +343,22 @@ export default function DashboardPage() {
                   <option value="strategic_announcement">Стратегические анонсы</option>
                   <option value="funding_news">Новости о финансировании</option>
                   <option value="pricing_change">Изменения цен</option>
+                  <option value="research_paper">Исследования</option>
+                  <option value="community_event">События</option>
+                  <option value="partnership">Партнерства</option>
+                  <option value="acquisition">Приобретения</option>
+                  <option value="integration">Интеграции</option>
+                  <option value="security_update">Обновления безопасности</option>
+                  <option value="api_update">Обновления API</option>
+                  <option value="model_release">Релизы моделей</option>
+                  <option value="performance_improvement">Улучшения производительности</option>
+                  <option value="feature_deprecation">Устаревшие функции</option>
                 </select>
-                <select 
-                  className="input"
-                  value={selectedCompany}
-                  onChange={(e) => setSelectedCompany(e.target.value)}
-                  disabled
-                >
-                  <option value="">Все компании</option>
-                  <option value="openai">OpenAI</option>
-                  <option value="anthropic">Anthropic</option>
-                  <option value="google">Google</option>
-                  <option value="meta">Meta</option>
-                </select>
+                <CompanyMultiSelect
+                  selectedCompanies={selectedCompanies}
+                  onSelectionChange={setSelectedCompanies}
+                  placeholder="Выберите компании..."
+                />
                 <input 
                   type="date" 
                   className="input"
@@ -339,17 +366,19 @@ export default function DashboardPage() {
                   onChange={(e) => setSelectedDate(e.target.value)}
                 />
               </div>
-              {(selectedCategory || selectedDate) && (
+              {(selectedCategory || selectedCompanies.length > 0 || selectedDate) && (
                 <div className="mt-4 flex items-center justify-between">
                   <p className="text-sm text-gray-600">
                     {selectedCategory && `Категория: ${categoryLabels[selectedCategory] || selectedCategory}`}
-                    {selectedCategory && selectedDate && ' • '}
+                    {selectedCategory && (selectedCompanies.length > 0 || selectedDate) && ' • '}
+                    {selectedCompanies.length > 0 && `Компании: ${selectedCompanies.length}`}
+                    {selectedCompanies.length > 0 && selectedDate && ' • '}
                     {selectedDate && `Дата: ${new Date(selectedDate).toLocaleDateString('ru-RU')}`}
                   </p>
                   <button
                     onClick={() => {
                       setSelectedCategory('')
-                      setSelectedCompany('')
+                      setSelectedCompanies([])
                       setSelectedDate('')
                     }}
                     className="text-sm text-primary-600 hover:text-primary-700 font-medium"
@@ -379,6 +408,14 @@ export default function DashboardPage() {
                           }`}>
                             {categoryLabels[item.category] || item.category}
                           </span>
+                          {item.company && (
+                            <>
+                              <span className="text-sm text-gray-500">•</span>
+                              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
+                                {item.company.name}
+                              </span>
+                            </>
+                          )}
                           <span className="text-sm text-gray-500">•</span>
                           <span className="text-sm text-gray-500">
                             {formatDate(item.published_at || item.created_at)}
@@ -523,9 +560,19 @@ export default function DashboardPage() {
                   <div key={item.id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-gray-900 truncate">{item.title}</p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {formatDate(item.published_at || item.created_at)}
-                      </p>
+                      <div className="flex items-center space-x-2 mt-1">
+                        <p className="text-xs text-gray-500">
+                          {formatDate(item.published_at || item.created_at)}
+                        </p>
+                        {item.company && (
+                          <>
+                            <span className="text-xs text-gray-400">•</span>
+                            <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">
+                              {item.company.name}
+                            </span>
+                          </>
+                        )}
+                      </div>
                     </div>
                     <span className="ml-4 px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-600 capitalize">
                       {item.source_type}

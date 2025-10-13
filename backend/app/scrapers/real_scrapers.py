@@ -21,6 +21,66 @@ class AINewsScraper:
             follow_redirects=True
         )
     
+    def _determine_category(self, title: str, company: str) -> str:
+        """Determine news category based on title content"""
+        title_lower = title.lower()
+        
+        # Technical updates
+        if any(keyword in title_lower for keyword in [
+            'api', 'technical', 'update', 'improvement', 'performance', 
+            'optimization', 'infrastructure', 'system', 'backend'
+        ]):
+            return 'technical_update'
+        
+        # Product updates
+        if any(keyword in title_lower for keyword in [
+            'release', 'launch', 'new feature', 'product', 'version', 
+            'update', 'announcement', 'introducing'
+        ]):
+            return 'product_update'
+        
+        # Strategic announcements
+        if any(keyword in title_lower for keyword in [
+            'strategy', 'partnership', 'collaboration', 'acquisition', 
+            'investment', 'funding', 'business', 'market'
+        ]):
+            return 'strategic_announcement'
+        
+        # Research papers
+        if any(keyword in title_lower for keyword in [
+            'research', 'paper', 'study', 'analysis', 'findings', 
+            'publication', 'journal'
+        ]):
+            return 'research_paper'
+        
+        # Security updates
+        if any(keyword in title_lower for keyword in [
+            'security', 'safety', 'privacy', 'protection', 'vulnerability'
+        ]):
+            return 'security_update'
+        
+        # Model releases
+        if any(keyword in title_lower for keyword in [
+            'model', 'gpt', 'claude', 'gemini', 'llama', 'training', 
+            'dataset', 'weights'
+        ]):
+            return 'model_release'
+        
+        # Company-specific defaults
+        company_defaults = {
+            'OpenAI': 'product_update',
+            'Anthropic': 'product_update', 
+            'Google': 'technical_update',
+            'Meta': 'product_update',
+            'Hugging Face': 'technical_update',
+            'Mistral AI': 'product_update',
+            'Cohere': 'technical_update',
+            'Stability AI': 'product_update',
+            'Perplexity AI': 'product_update'
+        }
+        
+        return company_defaults.get(company, 'product_update')
+    
     async def scrape_openai_blog(self) -> List[Dict[str, Any]]:
         """Scrape OpenAI blog"""
         logger.info("Scraping OpenAI blog...")
@@ -41,6 +101,9 @@ class AINewsScraper:
                     if title and len(title) > 10:
                         full_url = href if href.startswith('http') else f"https://openai.com{href}"
                         
+                        # Determine category based on title content
+                        category = self._determine_category(title, 'OpenAI')
+                        
                         news_items.append({
                             'title': title[:500],
                             'content': f"Article from OpenAI blog: {title}",
@@ -48,7 +111,7 @@ class AINewsScraper:
                             'source_url': full_url,
                             'source_type': 'blog',
                             'company_name': 'OpenAI',
-                            'category': 'product_update',
+                            'category': category,
                             'published_at': datetime.now() - timedelta(days=len(news_items)),
                         })
             
@@ -79,6 +142,9 @@ class AINewsScraper:
                     if title and len(title) > 10:
                         full_url = href if href.startswith('http') else f"https://www.anthropic.com{href}"
                         
+                        # Determine category based on title content
+                        category = self._determine_category(title, 'Anthropic')
+                        
                         news_items.append({
                             'title': title[:500],
                             'content': f"News from Anthropic: {title}",
@@ -86,7 +152,7 @@ class AINewsScraper:
                             'source_url': full_url,
                             'source_type': 'blog',
                             'company_name': 'Anthropic',
-                            'category': 'product_update',
+                            'category': category,
                             'published_at': datetime.now() - timedelta(days=len(news_items)),
                         })
             
@@ -117,6 +183,9 @@ class AINewsScraper:
                 if href and title and len(title) > 10:
                     full_url = href if href.startswith('http') else f"https://blog.google{href}"
                     
+                    # Determine category based on title content
+                    category = self._determine_category(title, 'Google')
+                    
                     news_items.append({
                         'title': title[:500],
                         'content': f"Article from Google AI Blog: {title}",
@@ -124,7 +193,7 @@ class AINewsScraper:
                         'source_url': full_url,
                         'source_type': 'blog',
                         'company_name': 'Google',
-                        'category': 'technical_update',
+                        'category': category,
                         'published_at': datetime.now() - timedelta(days=len(news_items)),
                     })
             
@@ -155,6 +224,9 @@ class AINewsScraper:
                 if href and title and len(title) > 10 and 'blog' in href:
                     full_url = href if href.startswith('http') else f"https://ai.meta.com{href}"
                     
+                    # Determine category based on title content
+                    category = self._determine_category(title, 'Meta')
+                    
                     news_items.append({
                         'title': title[:500],
                         'content': f"Article from Meta AI Blog: {title}",
@@ -162,7 +234,7 @@ class AINewsScraper:
                         'source_url': full_url,
                         'source_type': 'blog',
                         'company_name': 'Meta',
-                        'category': 'product_update',
+                        'category': category,
                         'published_at': datetime.now() - timedelta(days=len(news_items)),
                     })
             
@@ -193,6 +265,9 @@ class AINewsScraper:
                 if href and title and len(title) > 10:
                     full_url = href if href.startswith('http') else f"https://huggingface.co{href}"
                     
+                    # Determine category based on title content
+                    category = self._determine_category(title, 'Hugging Face')
+                    
                     news_items.append({
                         'title': title[:500],
                         'content': f"Article from Hugging Face Blog: {title}",
@@ -200,7 +275,7 @@ class AINewsScraper:
                         'source_url': full_url,
                         'source_type': 'blog',
                         'company_name': 'Hugging Face',
-                        'category': 'technical_update',
+                        'category': category,
                         'published_at': datetime.now() - timedelta(days=len(news_items)),
                     })
             
@@ -209,6 +284,172 @@ class AINewsScraper:
             
         except Exception as e:
             logger.error(f"Failed to scrape Hugging Face blog: {e}")
+            return []
+    
+    async def scrape_mistral_ai_news(self) -> List[Dict[str, Any]]:
+        """Scrape Mistral AI news"""
+        logger.info("Scraping Mistral AI news...")
+        
+        try:
+            url = "https://mistral.ai/news/"
+            response = await self.session.get(url)
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            news_items = []
+            # Find news articles
+            articles = soup.select('a[href*="/news/"]')[:15]
+            
+            for article in articles:
+                href = article.get('href', '')
+                title = article.get_text(strip=True)
+                
+                if href and title and len(title) > 10 and href != '/news/' and href != '/news':
+                    full_url = href if href.startswith('http') else f"https://mistral.ai{href}"
+                    
+                    # Determine category based on title content
+                    category = self._determine_category(title, 'Mistral AI')
+                    
+                    news_items.append({
+                        'title': title[:500],
+                        'content': f"News from Mistral AI: {title}",
+                        'summary': title[:200],
+                        'source_url': full_url,
+                        'source_type': 'blog',
+                        'company_name': 'Mistral AI',
+                        'category': category,
+                        'published_at': datetime.now() - timedelta(days=len(news_items)),
+                    })
+            
+            logger.info(f"Scraped {len(news_items)} items from Mistral AI news")
+            return news_items[:10]
+            
+        except Exception as e:
+            logger.error(f"Failed to scrape Mistral AI news: {e}")
+            return []
+    
+    async def scrape_cohere_blog(self) -> List[Dict[str, Any]]:
+        """Scrape Cohere blog"""
+        logger.info("Scraping Cohere blog...")
+        
+        try:
+            url = "https://cohere.com/blog"
+            response = await self.session.get(url)
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            news_items = []
+            # Find blog posts
+            articles = soup.select('a[href*="/blog/"]')[:15]
+            
+            for article in articles:
+                href = article.get('href', '')
+                title = article.get_text(strip=True)
+                
+                if href and title and len(title) > 10 and href != '/blog/' and href != '/blog':
+                    full_url = href if href.startswith('http') else f"https://cohere.com{href}"
+                    
+                    # Determine category based on title content
+                    category = self._determine_category(title, 'Cohere')
+                    
+                    news_items.append({
+                        'title': title[:500],
+                        'content': f"Article from Cohere Blog: {title}",
+                        'summary': title[:200],
+                        'source_url': full_url,
+                        'source_type': 'blog',
+                        'company_name': 'Cohere',
+                        'category': category,
+                        'published_at': datetime.now() - timedelta(days=len(news_items)),
+                    })
+            
+            logger.info(f"Scraped {len(news_items)} items from Cohere blog")
+            return news_items[:10]
+            
+        except Exception as e:
+            logger.error(f"Failed to scrape Cohere blog: {e}")
+            return []
+    
+    async def scrape_stability_ai_news(self) -> List[Dict[str, Any]]:
+        """Scrape Stability AI news"""
+        logger.info("Scraping Stability AI news...")
+        
+        try:
+            url = "https://stability.ai/news"
+            response = await self.session.get(url)
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            news_items = []
+            # Find news articles
+            articles = soup.select('article a, h2 a, h3 a')[:15]
+            
+            for article in articles:
+                href = article.get('href', '')
+                title = article.get_text(strip=True)
+                
+                if href and title and len(title) > 10:
+                    full_url = href if href.startswith('http') else f"https://stability.ai{href}"
+                    
+                    if 'news' in full_url or 'blog' in full_url:
+                        # Determine category based on title content
+                        category = self._determine_category(title, 'Stability AI')
+                        
+                        news_items.append({
+                            'title': title[:500],
+                            'content': f"News from Stability AI: {title}",
+                            'summary': title[:200],
+                            'source_url': full_url,
+                            'source_type': 'blog',
+                            'company_name': 'Stability AI',
+                            'category': category,
+                            'published_at': datetime.now() - timedelta(days=len(news_items)),
+                        })
+            
+            logger.info(f"Scraped {len(news_items)} items from Stability AI news")
+            return news_items[:10]
+            
+        except Exception as e:
+            logger.error(f"Failed to scrape Stability AI news: {e}")
+            return []
+    
+    async def scrape_perplexity_blog(self) -> List[Dict[str, Any]]:
+        """Scrape Perplexity AI blog"""
+        logger.info("Scraping Perplexity AI blog...")
+        
+        try:
+            url = "https://www.perplexity.ai/hub/blog"
+            response = await self.session.get(url)
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            news_items = []
+            # Find blog posts
+            articles = soup.select('article a, h2 a, h3 a')[:15]
+            
+            for article in articles:
+                href = article.get('href', '')
+                title = article.get_text(strip=True)
+                
+                if href and title and len(title) > 10:
+                    full_url = href if href.startswith('http') else f"https://www.perplexity.ai{href}"
+                    
+                    if 'blog' in full_url or 'hub' in full_url:
+                        # Determine category based on title content
+                        category = self._determine_category(title, 'Perplexity AI')
+                        
+                        news_items.append({
+                            'title': title[:500],
+                            'content': f"Article from Perplexity AI Blog: {title}",
+                            'summary': title[:200],
+                            'source_url': full_url,
+                            'source_type': 'blog',
+                            'company_name': 'Perplexity AI',
+                            'category': category,
+                            'published_at': datetime.now() - timedelta(days=len(news_items)),
+                        })
+            
+            logger.info(f"Scraped {len(news_items)} items from Perplexity AI blog")
+            return news_items[:10]
+            
+        except Exception as e:
+            logger.error(f"Failed to scrape Perplexity AI blog: {e}")
             return []
     
     async def scrape_all(self) -> List[Dict[str, Any]]:
@@ -233,7 +474,20 @@ class AINewsScraper:
         hf_news = await self.scrape_huggingface_blog()
         all_news.extend(hf_news)
         
-        logger.info(f"Total scraped: {len(all_news)} news items")
+        # New sources
+        mistral_news = await self.scrape_mistral_ai_news()
+        all_news.extend(mistral_news)
+        
+        cohere_news = await self.scrape_cohere_blog()
+        all_news.extend(cohere_news)
+        
+        stability_news = await self.scrape_stability_ai_news()
+        all_news.extend(stability_news)
+        
+        perplexity_news = await self.scrape_perplexity_blog()
+        all_news.extend(perplexity_news)
+        
+        logger.info(f"Total scraped: {len(all_news)} news items from 9 sources")
         return all_news
     
     async def close(self):

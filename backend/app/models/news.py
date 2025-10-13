@@ -2,15 +2,15 @@
 News models
 """
 
-from sqlalchemy import Column, String, Text, Float, DateTime, ForeignKey, Enum
-from sqlalchemy.dialects.postgresql import UUID, TSVECTOR
+from sqlalchemy import Column, String, Text, Float, DateTime, ForeignKey, Enum, TypeDecorator, types
+from sqlalchemy.dialects.postgresql import UUID, TSVECTOR, ENUM
 from sqlalchemy.orm import relationship
 import enum
 
 from .base import BaseModel
 
 
-class NewsCategory(enum.Enum):
+class NewsCategory(str, enum.Enum):
     """News category enumeration"""
     PRODUCT_UPDATE = "product_update"
     PRICING_CHANGE = "pricing_change"
@@ -19,9 +19,17 @@ class NewsCategory(enum.Enum):
     FUNDING_NEWS = "funding_news"
     RESEARCH_PAPER = "research_paper"
     COMMUNITY_EVENT = "community_event"
+    PARTNERSHIP = "partnership"
+    ACQUISITION = "acquisition"
+    INTEGRATION = "integration"
+    SECURITY_UPDATE = "security_update"
+    API_UPDATE = "api_update"
+    MODEL_RELEASE = "model_release"
+    PERFORMANCE_IMPROVEMENT = "performance_improvement"
+    FEATURE_DEPRECATION = "feature_deprecation"
 
 
-class SourceType(enum.Enum):
+class SourceType(str, enum.Enum):
     """Source type enumeration"""
     BLOG = "blog"
     TWITTER = "twitter"
@@ -29,6 +37,23 @@ class SourceType(enum.Enum):
     REDDIT = "reddit"
     NEWS_SITE = "news_site"
     PRESS_RELEASE = "press_release"
+
+
+# Define PostgreSQL ENUMs that already exist in database
+source_type_enum = ENUM(
+    'blog', 'twitter', 'github', 'reddit', 'news_site', 'press_release',
+    name='source_type',
+    create_type=False
+)
+
+news_category_enum = ENUM(
+    'product_update', 'pricing_change', 'strategic_announcement', 
+    'technical_update', 'funding_news', 'research_paper', 'community_event',
+    'partnership', 'acquisition', 'integration', 'security_update',
+    'api_update', 'model_release', 'performance_improvement', 'feature_deprecation',
+    name='news_category',
+    create_type=False
+)
 
 
 class NewsItem(BaseModel):
@@ -39,9 +64,9 @@ class NewsItem(BaseModel):
     content = Column(Text)
     summary = Column(Text)
     source_url = Column(String(1000), unique=True, nullable=False)
-    source_type = Column(Enum(SourceType), nullable=False)
+    source_type = Column(source_type_enum, nullable=False)
     company_id = Column(UUID(as_uuid=True), ForeignKey("companies.id"))
-    category = Column(Enum(NewsCategory))
+    category = Column(news_category_enum)
     priority_score = Column(Float, default=0.5)
     published_at = Column(DateTime, nullable=False)
     

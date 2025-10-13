@@ -16,7 +16,8 @@ router = APIRouter()
 @router.get("/")
 async def get_news(
     category: Optional[str] = Query(None, description="Filter by category"),
-    company: Optional[str] = Query(None, description="Filter by company"),
+    company: Optional[str] = Query(None, description="Filter by company ID"),
+    companies: Optional[str] = Query(None, description="Filter by multiple company IDs (comma-separated)"),
     limit: int = Query(20, ge=1, le=100, description="Number of news items to return"),
     offset: int = Query(0, ge=0, description="Number of news items to skip"),
     db: AsyncSession = Depends(get_db)
@@ -24,15 +25,22 @@ async def get_news(
     """
     Get news items with optional filtering
     """
-    logger.info(f"News request: category={category}, company={company}, limit={limit}, offset={offset}")
+    logger.info(f"News request: category={category}, company={company}, companies={companies}, limit={limit}, offset={offset}")
     
     try:
         news_service = NewsService(db)
         
+        # Parse company IDs if provided
+        company_ids = None
+        if companies:
+            company_ids = [cid.strip() for cid in companies.split(',') if cid.strip()]
+        elif company:
+            company_ids = [company]
+        
         # Get news items
         news_items = await news_service.get_news_items(
             category=category,
-            company_id=company,
+            company_ids=company_ids,
             limit=limit,
             offset=offset
         )
@@ -40,22 +48,33 @@ async def get_news(
         # Get total count
         total_count = await news_service.get_news_count(
             category=category,
-            company_id=company
+            company_ids=company_ids
         )
         
         # Convert to response format
         items = []
         for item in news_items:
+            # Add company info
+            company_info = None
+            if item.company:
+                company_info = {
+                    "id": str(item.company.id),
+                    "name": item.company.name,
+                    "website": item.company.website
+                }
+            
             items.append({
                 "id": str(item.id),
                 "title": item.title,
                 "summary": item.summary,
+                "content": item.content,
                 "source_url": item.source_url,
-                "source_type": item.source_type.value if item.source_type else None,
-                "category": item.category.value if item.category else None,
+                "source_type": item.source_type if item.source_type else None,
+                "category": item.category if item.category else None,
                 "priority_score": item.priority_score,
                 "published_at": item.published_at.isoformat() if item.published_at else None,
                 "created_at": item.created_at.isoformat() if item.created_at else None,
+                "company": company_info
             })
         
         return {

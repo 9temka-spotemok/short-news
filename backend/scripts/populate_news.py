@@ -39,6 +39,8 @@ async def populate_news():
         
         async with AsyncSessionLocal() as db:
             added_count = 0
+            skipped_count = 0
+            error_count = 0
             
             for item in news_data:
                 try:
@@ -50,13 +52,19 @@ async def populate_news():
                     
                     if existing:
                         logger.debug(f"News already exists: {item['title'][:50]}")
+                        skipped_count += 1
                         continue
                     
                     # Get company
                     company = await get_company_by_name(db, item['company_name'])
                     if not company:
                         logger.warning(f"Company not found: {item['company_name']}")
+                        error_count += 1
                         continue
+                    
+                    # Use string values directly
+                    source_type = item['source_type'].lower()
+                    category = item.get('category', 'product_update').lower() if item.get('category') else None
                     
                     # Create news item
                     news_item = NewsItem(
@@ -64,22 +72,27 @@ async def populate_news():
                         content=item['content'],
                         summary=item['summary'],
                         source_url=item['source_url'],
-                        source_type=SourceType(item['source_type']),
+                        source_type=source_type,
                         company_id=company.id,
-                        category=NewsCategory(item['category']) if item.get('category') else None,
+                        category=category,
                         published_at=item['published_at'],
                     )
                     
                     db.add(news_item)
+                    await db.flush()  # Flush immediately to catch errors
                     added_count += 1
                     logger.info(f"Added news: {item['title'][:50]}...")
                     
                 except Exception as e:
                     logger.error(f"Failed to add news item: {e}")
+                    await db.rollback()  # Rollback on error
+                    error_count += 1
                     continue
             
             await db.commit()
             logger.info(f"✅ Successfully added {added_count} news items")
+            logger.info(f"⏩ Skipped {skipped_count} existing items")
+            logger.info(f"❌ {error_count} errors")
             
             # Get final count
             result = await db.execute(select(NewsItem))

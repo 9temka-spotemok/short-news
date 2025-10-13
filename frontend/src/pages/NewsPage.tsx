@@ -1,3 +1,4 @@
+import CompanyMultiSelect from '@/components/CompanyMultiSelect'
 import api from '@/services/api'
 import { formatDistance } from 'date-fns'
 import { ru } from 'date-fns/locale'
@@ -26,6 +27,7 @@ interface NewsResponse {
 export default function NewsPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('')
+  const [selectedCompanies, setSelectedCompanies] = useState<string[]>([])
   const [news, setNews] = useState<NewsItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -38,6 +40,16 @@ export default function NewsPage() {
     { value: 'strategic_announcement', label: 'Стратегические анонсы' },
     { value: 'technical_update', label: 'Технические обновления' },
     { value: 'funding_news', label: 'Новости о финансировании' },
+    { value: 'research_paper', label: 'Исследования' },
+    { value: 'community_event', label: 'События' },
+    { value: 'partnership', label: 'Партнерства' },
+    { value: 'acquisition', label: 'Приобретения' },
+    { value: 'integration', label: 'Интеграции' },
+    { value: 'security_update', label: 'Обновления безопасности' },
+    { value: 'api_update', label: 'Обновления API' },
+    { value: 'model_release', label: 'Релизы моделей' },
+    { value: 'performance_improvement', label: 'Улучшения производительности' },
+    { value: 'feature_deprecation', label: 'Устаревшие функции' },
   ]
 
   const categoryLabels: Record<string, string> = {
@@ -48,6 +60,14 @@ export default function NewsPage() {
     'funding_news': 'Новости о финансировании',
     'research_paper': 'Исследования',
     'community_event': 'События',
+    'partnership': 'Партнерства',
+    'acquisition': 'Приобретения',
+    'integration': 'Интеграции',
+    'security_update': 'Обновления безопасности',
+    'api_update': 'Обновления API',
+    'model_release': 'Релизы моделей',
+    'performance_improvement': 'Улучшения производительности',
+    'feature_deprecation': 'Устаревшие функции',
   }
 
   // Fetch news from API
@@ -111,7 +131,7 @@ export default function NewsPage() {
 
       {/* Filters */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Search */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -126,7 +146,7 @@ export default function NewsPage() {
 
           {/* Category Filter */}
           <div className="relative">
-            <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none z-10" />
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
@@ -140,9 +160,16 @@ export default function NewsPage() {
             </select>
           </div>
 
+          {/* Company Filter */}
+          <CompanyMultiSelect
+            selectedCompanies={selectedCompanies}
+            onSelectionChange={setSelectedCompanies}
+            placeholder="Выберите компании..."
+          />
+
           {/* Date Filter */}
           <div className="relative">
-            <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none z-10" />
             <input
               type="date"
               className="input pl-10"
