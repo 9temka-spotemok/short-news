@@ -1,7 +1,8 @@
 import { useAuthStore } from '@/store/authStore'
-import { Bell, ChevronDown, LogOut, Menu, Settings, User, X } from 'lucide-react'
+import { ChevronDown, LogOut, Menu, Settings, User, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import NotificationCenter from './NotificationCenter'
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -86,11 +87,8 @@ export default function Header() {
 
           {/* Desktop Actions */}
           <div className="hidden md:flex items-center space-x-4">
-            {isAuthenticated && (
-              <button className="p-2 text-gray-400 hover:text-gray-500">
-                <Bell className="h-5 w-5" />
-              </button>
-            )}
+            {/* Notification Center - only for authenticated users */}
+            {isAuthenticated && <NotificationCenter />}
             
             {/* User Dropdown */}
             <div className="relative" ref={dropdownRef}>

@@ -28,6 +28,20 @@ interface DashboardStats {
   categoriesBreakdown: { category: string; count: number; percentage: number }[]
 }
 
+interface DigestData {
+  date_from: string
+  date_to: string
+  news_count: number
+  categories?: Record<string, NewsItem[]>
+  statistics?: {
+    total_news: number
+    by_category: Record<string, number>
+    by_source: Record<string, number>
+    avg_priority: number
+  }
+  format: string
+}
+
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState('overview')
   const [recentNews, setRecentNews] = useState<NewsItem[]>([])
@@ -36,6 +50,11 @@ export default function DashboardPage() {
   const [selectedCategory, setSelectedCategory] = useState('')
   const [selectedCompanies, setSelectedCompanies] = useState<string[]>([])
   const [selectedDate, setSelectedDate] = useState('')
+  
+  // Digest state
+  const [digest, setDigest] = useState<DigestData | null>(null)
+  const [digestLoading, setDigestLoading] = useState(false)
+  const [digestError, setDigestError] = useState<string | null>(null)
 
   const tabs = [
     { id: 'overview', label: 'Overview' },
@@ -137,6 +156,38 @@ export default function DashboardPage() {
       console.error('Failed to fetch filtered news:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchDigest = async (type: 'daily' | 'weekly' | 'custom') => {
+    try {
+      setDigestLoading(true)
+      setDigestError(null)
+      
+      let endpoint = ''
+      switch (type) {
+        case 'daily':
+          endpoint = '/digest/daily'
+          break
+        case 'weekly':
+          endpoint = '/digest/weekly'
+          break
+        case 'custom':
+          // Default to last 7 days for custom
+          const dateFrom = new Date()
+          dateFrom.setDate(dateFrom.getDate() - 7)
+          endpoint = `/digest/custom?date_from=${dateFrom.toISOString().split('T')[0]}&date_to=${new Date().toISOString().split('T')[0]}`
+          break
+      }
+      
+      const response = await api.get(endpoint)
+      setDigest(response.data)
+      
+    } catch (error: any) {
+      console.error('Failed to fetch digest:', error)
+      setDigestError(error.response?.data?.detail || 'Failed to load digest')
+    } finally {
+      setDigestLoading(false)
     }
   }
 
@@ -465,6 +516,21 @@ export default function DashboardPage() {
 
         {activeTab === 'digest' && (
           <div className="space-y-6">
+            {/* Settings Link */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Bell className="w-5 h-5 text-blue-600" />
+                  <p className="text-sm text-blue-900">
+                    Configure digest settings for automatic delivery
+                  </p>
+                </div>
+                <a href="/digest-settings" className="text-sm font-medium text-blue-600 hover:text-blue-700">
+                  Go to Settings →
+                </a>
+              </div>
+            </div>
+
             <div className="card p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
                 Generate Digests
@@ -473,28 +539,114 @@ export default function DashboardPage() {
                 Create personalized digests based on your preferences
               </p>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <button className="btn btn-primary btn-md">
-                  Daily Digest
+                <button 
+                  onClick={() => fetchDigest('daily')}
+                  disabled={digestLoading}
+                  className="btn btn-primary btn-md"
+                >
+                  {digestLoading ? 'Loading...' : 'Daily Digest'}
                 </button>
-                <button className="btn btn-outline btn-md">
+                <button 
+                  onClick={() => fetchDigest('weekly')}
+                  disabled={digestLoading}
+                  className="btn btn-outline btn-md"
+                >
                   Weekly Digest
                 </button>
-                <button className="btn btn-outline btn-md">
-                  Custom Digest
+                <button 
+                  onClick={() => fetchDigest('custom')}
+                  disabled={digestLoading}
+                  className="btn btn-outline btn-md"
+                >
+                  Custom (Last 7 Days)
                 </button>
               </div>
             </div>
 
-            <div className="card p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Recent Digests
-              </h3>
-              <div className="text-center py-8">
-                <p className="text-gray-600">Digests will be available after email system implementation</p>
-                <p className="text-sm text-gray-500 mt-2">
-                  Total news for digest: {stats?.totalNews || 0}
-                </p>
+            {/* Error Message */}
+            {digestError && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <p className="text-sm text-red-800">{digestError}</p>
               </div>
+            )}
+
+            {/* Digest Results */}
+            <div className="card p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Digest Results
+                </h3>
+                {digest && (
+                  <span className="text-sm text-gray-500">
+                    {digest.news_count} news items • {digest.format}
+                  </span>
+                )}
+              </div>
+
+              {digestLoading && (
+                <div className="text-center py-8">
+                  <div className="inline-block w-8 h-8 border-4 border-primary-600 border-t-transparent rounded-full animate-spin"></div>
+                  <p className="text-gray-600 mt-4">Generating digest...</p>
+                </div>
+              )}
+
+              {!digestLoading && !digest && !digestError && (
+                <div className="text-center py-8">
+                  <p className="text-gray-600">Click a button above to generate a digest</p>
+                  <p className="text-sm text-gray-500 mt-2">
+                    Digests are personalized based on your preferences
+                  </p>
+                </div>
+              )}
+
+              {!digestLoading && digest && (
+                <div className="space-y-6">
+                  {digest.categories && Object.entries(digest.categories).map(([category, items]) => (
+                    <div key={category}>
+                      <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
+                        <span className="px-2 py-1 text-sm rounded bg-primary-100 text-primary-700 mr-2">
+                          {categoryLabels[category] || category}
+                        </span>
+                        <span className="text-sm text-gray-500">({items.length})</span>
+                      </h4>
+                      <div className="space-y-4">
+                        {items.map((item: any) => (
+                          <div key={item.id} className="border-b border-gray-100 pb-4 last:border-0">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <a 
+                                  href={item.source_url} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="text-base font-medium text-gray-900 hover:text-primary-600"
+                                >
+                                  {item.title}
+                                </a>
+                                {item.summary && <p className="text-sm text-gray-600 mt-1">{item.summary}</p>}
+                                <div className="flex items-center space-x-3 mt-2">
+                                  {item.company && (
+                                    <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700">
+                                      {item.company.name}
+                                    </span>
+                                  )}
+                                  <span className="text-xs text-gray-500">
+                                    {formatDate(item.published_at)}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                  {(!digest.categories || Object.keys(digest.categories).length === 0) && (
+                    <p className="text-center text-gray-500 py-4">
+                      No news items found for this period
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}

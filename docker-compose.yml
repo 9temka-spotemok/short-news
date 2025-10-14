@@ -42,6 +42,7 @@ services:
       - DATABASE_URL=postgresql+asyncpg://shot_news:shot_news_dev@postgres:5432/shot_news
       - REDIS_URL=redis://redis:6379
       - ENVIRONMENT=development
+      - DEBUG=true
       - SECRET_KEY=dev-secret-key-change-in-production
     ports:
       - "8000:8000"

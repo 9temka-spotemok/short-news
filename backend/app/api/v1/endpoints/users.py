@@ -2,37 +2,52 @@
 User endpoints
 """
 
-from typing import List
+from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from pydantic import BaseModel
 from loguru import logger
+import uuid
 
 from app.core.database import get_db
+from app.api.dependencies import get_current_user
+from app.models import User, UserPreferences
 
 router = APIRouter()
 
 
+class DigestSettingsUpdate(BaseModel):
+    """Model for updating digest settings"""
+    digest_enabled: Optional[bool] = None
+    digest_frequency: Optional[str] = None
+    digest_custom_schedule: Optional[dict] = None
+    digest_format: Optional[str] = None
+    digest_include_summaries: Optional[bool] = None
+    telegram_chat_id: Optional[str] = None
+    telegram_enabled: Optional[bool] = None
+    timezone: Optional[str] = None
+    week_start_day: Optional[int] = None
+
+
 @router.get("/me")
-async def get_current_user(
+async def get_current_user_profile(
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Get current user profile
     """
-    logger.info("Current user profile request")
-    
-    # TODO: Implement get current user
-    # 1. Extract user from JWT token
-    # 2. Query user profile from database
-    # 3. Return user profile
+    logger.info(f"Current user profile request from {current_user.id}")
     
     return {
-        "message": "Current user endpoint - TODO: Implement",
-        "user": {
-            "id": "dummy_id",
-            "email": "user@example.com",
-            "full_name": "Dummy User"
-        }
+        "id": str(current_user.id),
+        "email": current_user.email,
+        "full_name": current_user.full_name,
+        "is_active": current_user.is_active,
+        "is_verified": current_user.is_verified,
+        "created_at": current_user.created_at.isoformat(),
+        "updated_at": current_user.updated_at.isoformat()
     }
 
 
@@ -144,20 +159,193 @@ async def subscribe_to_company(
 @router.delete("/companies/{company_id}/unsubscribe")
 async def unsubscribe_from_company(
     company_id: str,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Unsubscribe from a company
     """
-    logger.info(f"Unsubscribe from company: {company_id}")
+    logger.info(f"Unsubscribe from company {company_id} for user {current_user.id}")
     
-    # TODO: Implement unsubscribe from company
-    # 1. Extract user from JWT token
-    # 2. Remove company from user's subscriptions
-    # 3. Return success
+    try:
+        # Get user preferences
+        result = await db.execute(
+            select(UserPreferences).where(UserPreferences.user_id == current_user.id)
+        )
+        preferences = result.scalar_one_or_none()
+        
+        if not preferences:
+            raise HTTPException(status_code=404, detail="User preferences not found")
+        
+        # Remove company from subscriptions
+        company_uuid = uuid.UUID(company_id)
+        if preferences.subscribed_companies and company_uuid in preferences.subscribed_companies:
+            preferences.subscribed_companies.remove(company_uuid)
+            await db.commit()
+        
+        return {
+            "status": "success",
+            "company_id": company_id,
+            "message": "Unsubscribed from company"
+        }
+        
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid company ID")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error unsubscribing from company: {e}")
+        await db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to unsubscribe from company")
+
+
+@router.get("/preferences/digest")
+async def get_digest_settings(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get user digest settings
+    """
+    logger.info(f"Get digest settings for user {current_user.id}")
     
-    return {
-        "message": "Unsubscribe from company endpoint - TODO: Implement",
-        "company_id": company_id,
-        "status": "unsubscribed"
-    }
+    try:
+        result = await db.execute(
+            select(UserPreferences).where(UserPreferences.user_id == current_user.id)
+        )
+        preferences = result.scalar_one_or_none()
+        
+        # Create default preferences if they don't exist
+        if not preferences:
+            logger.info(f"Creating default preferences for user {current_user.id}")
+            from app.models.preferences import DigestFrequency, DigestFormat, NotificationFrequency
+            
+            preferences = UserPreferences(
+                id=uuid.uuid4(),
+                user_id=current_user.id,
+                subscribed_companies=[],
+                interested_categories=[],
+                keywords=[],
+                notification_frequency=NotificationFrequency.DAILY,
+                digest_enabled=False,
+                digest_frequency=DigestFrequency.DAILY,
+                digest_custom_schedule={},
+                digest_format=DigestFormat.SHORT,
+                digest_include_summaries=True,
+                telegram_chat_id=None,
+                telegram_enabled=False,
+                timezone='UTC',
+                week_start_day=0
+            )
+            db.add(preferences)
+            await db.commit()
+            await db.refresh(preferences)
+        
+        return {
+            "digest_enabled": preferences.digest_enabled,
+            "digest_frequency": preferences.digest_frequency.value if preferences.digest_frequency else "daily",
+            "digest_custom_schedule": preferences.digest_custom_schedule,
+            "digest_format": preferences.digest_format.value if preferences.digest_format else "short",
+            "digest_include_summaries": preferences.digest_include_summaries,
+            "telegram_chat_id": preferences.telegram_chat_id,
+            "telegram_enabled": preferences.telegram_enabled,
+            "timezone": preferences.timezone if hasattr(preferences, 'timezone') else "UTC",
+            "week_start_day": preferences.week_start_day if hasattr(preferences, 'week_start_day') else 0
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching digest settings: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch digest settings")
+
+
+@router.put("/preferences/digest")
+async def update_digest_settings(
+    settings: DigestSettingsUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Update user digest settings
+    """
+    logger.info(f"Update digest settings for user {current_user.id}")
+    
+    try:
+        result = await db.execute(
+            select(UserPreferences).where(UserPreferences.user_id == current_user.id)
+        )
+        preferences = result.scalar_one_or_none()
+        
+        # Create default preferences if they don't exist
+        if not preferences:
+            logger.info(f"Creating default preferences for user {current_user.id}")
+            from app.models.preferences import DigestFrequency, DigestFormat, NotificationFrequency
+            
+            preferences = UserPreferences(
+                id=uuid.uuid4(),
+                user_id=current_user.id,
+                subscribed_companies=[],
+                interested_categories=[],
+                keywords=[],
+                notification_frequency=NotificationFrequency.DAILY,
+                digest_enabled=False,
+                digest_frequency=DigestFrequency.DAILY,
+                digest_custom_schedule={},
+                digest_format=DigestFormat.SHORT,
+                digest_include_summaries=True,
+                telegram_chat_id=None,
+                telegram_enabled=False,
+                timezone='UTC',
+                week_start_day=0
+            )
+            db.add(preferences)
+        
+        # Update settings
+        if settings.digest_enabled is not None:
+            preferences.digest_enabled = settings.digest_enabled
+        if settings.digest_frequency is not None:
+            from app.models.preferences import DigestFrequency
+            preferences.digest_frequency = DigestFrequency(settings.digest_frequency)
+        if settings.digest_custom_schedule is not None:
+            preferences.digest_custom_schedule = settings.digest_custom_schedule
+        if settings.digest_format is not None:
+            from app.models.preferences import DigestFormat
+            preferences.digest_format = DigestFormat(settings.digest_format)
+        if settings.digest_include_summaries is not None:
+            preferences.digest_include_summaries = settings.digest_include_summaries
+        if settings.telegram_chat_id is not None:
+            preferences.telegram_chat_id = settings.telegram_chat_id
+        if settings.telegram_enabled is not None:
+            preferences.telegram_enabled = settings.telegram_enabled
+        if settings.timezone is not None:
+            preferences.timezone = settings.timezone
+        if settings.week_start_day is not None:
+            preferences.week_start_day = settings.week_start_day
+        
+        await db.commit()
+        await db.refresh(preferences)
+        
+        return {
+            "status": "success",
+            "digest_settings": {
+                "digest_enabled": preferences.digest_enabled,
+                "digest_frequency": preferences.digest_frequency.value if preferences.digest_frequency else None,
+                "digest_custom_schedule": preferences.digest_custom_schedule,
+                "digest_format": preferences.digest_format.value if preferences.digest_format else None,
+                "digest_include_summaries": preferences.digest_include_summaries,
+                "telegram_chat_id": preferences.telegram_chat_id,
+                "telegram_enabled": preferences.telegram_enabled,
+                "timezone": preferences.timezone if hasattr(preferences, 'timezone') else "UTC",
+                "week_start_day": preferences.week_start_day if hasattr(preferences, 'week_start_day') else 0
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid value: {e}")
+    except Exception as e:
+        logger.error(f"Error updating digest settings: {e}")
+        await db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to update digest settings")

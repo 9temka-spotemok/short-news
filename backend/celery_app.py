@@ -14,6 +14,7 @@ celery_app = Celery(
         "app.tasks.scraping",
         "app.tasks.nlp",
         "app.tasks.digest",
+        "app.tasks.notifications",
     ]
 )
 
@@ -47,7 +48,23 @@ celery_app.conf.beat_schedule = {
     },
     "generate-daily-digests": {
         "task": "app.tasks.digest.generate_daily_digests",
-        "schedule": 60 * 60,  # Every hour
+        "schedule": 60 * 60,  # Every hour (will check user preferences for timing)
+    },
+    "send-channel-digest": {
+        "task": "app.tasks.digest.send_channel_digest",
+        "schedule": 24 * 60 * 60,  # Daily at midnight UTC
+    },
+    "check-daily-trends": {
+        "task": "app.tasks.notifications.check_daily_trends",
+        "schedule": 6 * 60 * 60,  # Every 6 hours
+    },
+    "check-company-activity": {
+        "task": "app.tasks.notifications.check_company_activity",
+        "schedule": 4 * 60 * 60,  # Every 4 hours
+    },
+    "cleanup-old-notifications": {
+        "task": "app.tasks.notifications.cleanup_old_notifications",
+        "schedule": 24 * 60 * 60,  # Daily
     },
     "cleanup-old-data": {
         "task": "app.tasks.scraping.cleanup_old_data",

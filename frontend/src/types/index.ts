@@ -20,6 +20,27 @@ export interface UserPreferences {
   updated_at: string
 }
 
+export interface DigestSettings {
+  digest_enabled: boolean
+  digest_frequency: DigestFrequency
+  digest_custom_schedule: CustomSchedule | null
+  digest_format: DigestFormat
+  digest_include_summaries: boolean
+  telegram_chat_id: string | null
+  telegram_enabled: boolean
+  timezone?: string  // User's timezone (e.g., "UTC", "America/New_York", "Europe/Moscow")
+  week_start_day?: number  // 0=Sunday, 1=Monday
+}
+
+export type DigestFrequency = 'daily' | 'weekly' | 'custom'
+export type DigestFormat = 'short' | 'detailed'
+
+export interface CustomSchedule {
+  time: string  // "09:00"
+  days: number[]  // [1,2,3,4,5] for Monday-Friday
+  timezone: string  // "UTC"
+}
+
 // News types
 export type NewsCategory = 
   | 'product_update'
@@ -29,6 +50,14 @@ export type NewsCategory =
   | 'funding_news'
   | 'research_paper'
   | 'community_event'
+  | 'partnership'
+  | 'acquisition'
+  | 'integration'
+  | 'security_update'
+  | 'api_update'
+  | 'model_release'
+  | 'performance_improvement'
+  | 'feature_deprecation'
 
 export type SourceType = 
   | 'blog'
@@ -150,4 +179,63 @@ export interface UserActivity {
   news_id: string
   action: ActivityType
   created_at: string
+}
+
+// Notification types
+export type NotificationType =
+  | 'new_news'
+  | 'company_active'
+  | 'pricing_change'
+  | 'funding_announcement'
+  | 'product_launch'
+  | 'category_trend'
+  | 'keyword_match'
+  | 'competitor_milestone'
+
+export type NotificationPriority = 'low' | 'medium' | 'high'
+
+export interface Notification {
+  id: string
+  type: NotificationType
+  title: string
+  message: string
+  data: Record<string, any>
+  is_read: boolean
+  priority: NotificationPriority
+  created_at: string
+}
+
+export interface NotificationSettings {
+  id: string
+  enabled: boolean
+  notification_types: Record<string, boolean>
+  min_priority_score: number
+  company_alerts: boolean
+  category_trends: boolean
+  keyword_alerts: boolean
+}
+
+// Competitor analysis types
+export interface CompetitorComparison {
+  id?: string
+  companies: Company[]
+  date_from: string
+  date_to: string
+  metrics: ComparisonMetrics
+  created_at?: string
+}
+
+export interface ComparisonMetrics {
+  news_volume: Record<string, number>
+  category_distribution: Record<string, Record<string, number>>
+  activity_score: Record<string, number>
+  daily_activity?: Record<string, Record<string, number>>
+  top_news?: Record<string, NewsItem[]>
+}
+
+export interface CompareRequest {
+  company_ids: string[]
+  date_from?: string
+  date_to?: string
+  name?: string
 }

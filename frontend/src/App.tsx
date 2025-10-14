@@ -3,10 +3,13 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 
 import DashboardLayout from '@/components/DashboardLayout'
 import Layout from '@/components/Layout'
+import CompetitorAnalysisPage from '@/pages/CompetitorAnalysisPage'
 import DashboardPage from '@/pages/DashboardPage'
+import DigestSettingsPage from '@/pages/DigestSettingsPage'
 import HomePage from '@/pages/HomePage'
 import LoginPage from '@/pages/LoginPage'
 import NewsPage from '@/pages/NewsPage'
+import NotificationsPage from '@/pages/NotificationsPage'
 import ProfilePage from '@/pages/ProfilePage'
 import RegisterPage from '@/pages/RegisterPage'
 import SettingsPage from '@/pages/SettingsPage'
@@ -43,6 +46,18 @@ function App() {
         <Route 
           path="settings" 
           element={isAuthenticated ? <SettingsPage /> : <Navigate to="/login" />} 
+        />
+        <Route 
+          path="digest-settings" 
+          element={isAuthenticated ? <DigestSettingsPage /> : <Navigate to="/login" />} 
+        />
+        <Route 
+          path="notifications" 
+          element={isAuthenticated ? <NotificationsPage /> : <Navigate to="/login" />} 
+        />
+        <Route 
+          path="competitor-analysis" 
+          element={isAuthenticated ? <CompetitorAnalysisPage /> : <Navigate to="/login" />} 
         />
       </Route>
 

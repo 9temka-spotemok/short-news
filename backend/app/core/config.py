@@ -52,6 +52,10 @@ class Settings(BaseSettings):
     SENDGRID_API_KEY: Optional[str] = Field(default=None, description="SendGrid API key")
     FROM_EMAIL: str = Field(default="noreply@shot-news.com", description="From email address")
     
+    # Telegram
+    TELEGRAM_BOT_TOKEN: Optional[str] = Field(default=None, description="Telegram bot token")
+    TELEGRAM_CHANNEL_ID: Optional[str] = Field(default=None, description="Telegram channel ID for public digests")
+    
     # Celery
     CELERY_BROKER_URL: str = Field(default="redis://localhost:6379/0", description="Celery broker URL")
     CELERY_RESULT_BACKEND: str = Field(default="redis://localhost:6379/0", description="Celery result backend URL")
