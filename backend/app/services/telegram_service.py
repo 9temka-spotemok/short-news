@@ -215,8 +215,206 @@ class TelegramService:
         """Handle /digest command"""
         return (
             "📰 Генерация дайджеста...\n\n"
-            "Дайджест будет отправлен в ближайшее время."
+            "Ваш персонализированный дайджест будет отправлен в ближайшее время!"
         )
+    
+    async def set_webhook(self, webhook_url: str) -> bool:
+        """
+        Set Telegram webhook URL
+        
+        Args:
+            webhook_url: Webhook URL to set
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        if not self.bot_token:
+            logger.warning("Telegram bot token not configured")
+            return False
+        
+        try:
+            url = f"{self.base_url}/setWebhook"
+            payload = {
+                "url": webhook_url,
+                "allowed_updates": ["message", "callback_query", "channel_post"]
+            }
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, json=payload) as response:
+                    if response.status != 200:
+                        logger.error(f"Failed to set webhook: {response.status}")
+                        return False
+                    
+                    result = await response.json()
+                    if not result.get("ok"):
+                        logger.error(f"Telegram API error setting webhook: {result}")
+                        return False
+            
+            logger.info(f"Webhook set successfully: {webhook_url}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error setting webhook: {e}")
+            return False
+    
+    async def delete_webhook(self) -> bool:
+        """
+        Delete Telegram webhook
+        
+        Returns:
+            True if successful, False otherwise
+        """
+        if not self.bot_token:
+            logger.warning("Telegram bot token not configured")
+            return False
+        
+        try:
+            url = f"{self.base_url}/deleteWebhook"
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url) as response:
+                    if response.status != 200:
+                        logger.error(f"Failed to delete webhook: {response.status}")
+                        return False
+                    
+                    result = await response.json()
+                    if not result.get("ok"):
+                        logger.error(f"Telegram API error deleting webhook: {result}")
+                        return False
+            
+            logger.info("Webhook deleted successfully")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error deleting webhook: {e}")
+            return False
+    
+    async def get_webhook_info(self) -> dict:
+        """
+        Get current webhook information
+        
+        Returns:
+            Webhook info dict
+        """
+        if not self.bot_token:
+            logger.warning("Telegram bot token not configured")
+            return {}
+        
+        try:
+            url = f"{self.base_url}/getWebhookInfo"
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url) as response:
+                    if response.status != 200:
+                        logger.error(f"Failed to get webhook info: {response.status}")
+                        return {}
+                    
+                    result = await response.json()
+                    if not result.get("ok"):
+                        logger.error(f"Telegram API error getting webhook info: {result}")
+                        return {}
+                    
+                    return result.get("result", {})
+                    
+        except Exception as e:
+            logger.error(f"Error getting webhook info: {e}")
+            return {}
+    
+    async def answer_callback_query(self, callback_query_id: str, text: str = None, show_alert: bool = False) -> bool:
+        """
+        Answer callback query to remove loading state
+        
+        Args:
+            callback_query_id: Callback query ID
+            text: Optional response text
+            show_alert: Whether to show alert popup
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        if not self.bot_token:
+            logger.warning("Telegram bot token not configured")
+            return False
+        
+        try:
+            url = f"{self.base_url}/answerCallbackQuery"
+            payload = {
+                "callback_query_id": callback_query_id
+            }
+            
+            if text:
+                payload["text"] = text
+            if show_alert:
+                payload["show_alert"] = show_alert
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, json=payload) as response:
+                    if response.status != 200:
+                        logger.error(f"Failed to answer callback query: {response.status}")
+                        return False
+                    
+                    result = await response.json()
+                    if not result.get("ok"):
+                        logger.error(f"Telegram API error answering callback query: {result}")
+                        return False
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error answering callback query: {e}")
+            return False
+    
+    async def send_message_with_keyboard(self, chat_id: str, text: str, keyboard: dict = None) -> bool:
+        """
+        Send message with inline keyboard
+        
+        Args:
+            chat_id: Telegram chat ID
+            text: Message text
+            keyboard: Inline keyboard markup
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        if not self.bot_token:
+            logger.warning("Telegram bot token not configured")
+            return False
+        
+        try:
+            url = f"{self.base_url}/sendMessage"
+            
+            # Split message if too long
+            messages = self._split_message(text)
+            
+            for i, message in enumerate(messages):
+                payload = {
+                    "chat_id": chat_id,
+                    "text": message,
+                    "parse_mode": "Markdown",
+                    "disable_web_page_preview": True
+                }
+                
+                # Add keyboard only to the last message
+                if keyboard and i == len(messages) - 1:
+                    payload["reply_markup"] = keyboard
+                
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(url, json=payload) as response:
+                        if response.status != 200:
+                            logger.error(f"Failed to send Telegram message with keyboard: {response.status}")
+                            return False
+                        
+                        result = await response.json()
+                        if not result.get("ok"):
+                            logger.error(f"Telegram API error: {result}")
+                            return False
+            
+            logger.info(f"Message with keyboard sent to chat {chat_id}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error sending Telegram message with keyboard: {e}")
+            return False
 
 
 # Global instance

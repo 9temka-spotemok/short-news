@@ -32,6 +32,24 @@ def generate_daily_digests(self):
         raise self.retry(exc=e, countdown=60, max_retries=3)
 
 
+@celery_app.task(bind=True)
+def generate_weekly_digests(self):
+    """
+    Generate weekly digests for all users
+    """
+    logger.info("Starting weekly digest generation")
+    
+    try:
+        # Run async function
+        result = asyncio.run(_generate_weekly_digests_async())
+        logger.info(f"Weekly digest generation completed: {result['generated_count']} digests")
+        return result
+        
+    except Exception as e:
+        logger.error(f"Weekly digest generation failed: {e}")
+        raise self.retry(exc=e, countdown=60, max_retries=3)
+
+
 async def _generate_daily_digests_async():
     """Async implementation of daily digest generation"""
     async with AsyncSessionLocal() as db:
@@ -52,7 +70,7 @@ async def _generate_daily_digests_async():
                 digest_data = await digest_service.generate_user_digest(
                     user_id=str(user_prefs.user_id),
                     period="daily",
-                    format_type=user_prefs.digest_format.value if user_prefs.digest_format else "short"
+                    format_type=user_prefs.digest_format if user_prefs.digest_format else "short"
                 )
                 
                 # Send via Telegram if enabled
@@ -65,6 +83,44 @@ async def _generate_daily_digests_async():
                 
             except Exception as e:
                 logger.error(f"Failed to generate digest for user {user_prefs.user_id}: {e}")
+                continue
+        
+        return {"status": "success", "generated_count": generated_count}
+
+
+async def _generate_weekly_digests_async():
+    """Async implementation of weekly digest generation"""
+    async with AsyncSessionLocal() as db:
+        # Get all users with digest enabled and weekly frequency
+        result = await db.execute(
+            select(UserPreferences).where(
+                UserPreferences.digest_enabled == True,
+                UserPreferences.digest_frequency == "weekly"
+            )
+        )
+        user_prefs_list = result.scalars().all()
+        
+        generated_count = 0
+        for user_prefs in user_prefs_list:
+            try:
+                # Generate digest
+                digest_service = DigestService(db)
+                digest_data = await digest_service.generate_user_digest(
+                    user_id=str(user_prefs.user_id),
+                    period="weekly",
+                    format_type=user_prefs.digest_format if user_prefs.digest_format else "short"
+                )
+                
+                # Send via Telegram if enabled
+                if user_prefs.telegram_enabled and user_prefs.telegram_chat_id:
+                    digest_text = digest_service.format_digest_for_telegram(digest_data)
+                    await telegram_service.send_digest(user_prefs.telegram_chat_id, digest_text)
+                    logger.info(f"Weekly digest sent to Telegram for user {user_prefs.user_id}")
+                
+                generated_count += 1
+                
+            except Exception as e:
+                logger.error(f"Failed to generate weekly digest for user {user_prefs.user_id}: {e}")
                 continue
         
         return {"status": "success", "generated_count": generated_count}
@@ -104,7 +160,7 @@ async def _generate_user_digest_async(user_id: str, digest_type: str):
         digest_data = await digest_service.generate_user_digest(
             user_id=user_id,
             period=digest_type,
-            format_type=user_prefs.digest_format.value if user_prefs.digest_format else "short"
+            format_type=user_prefs.digest_format if user_prefs.digest_format else "short"
         )
         
         # Send via Telegram if enabled

@@ -6,7 +6,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from loguru import logger
 import uuid
 
@@ -28,6 +28,20 @@ class DigestSettingsUpdate(BaseModel):
     telegram_enabled: Optional[bool] = None
     timezone: Optional[str] = None
     week_start_day: Optional[int] = None
+    
+    @field_validator('digest_frequency')
+    @classmethod
+    def validate_digest_frequency(cls, v):
+        if v is not None and v not in ['daily', 'weekly', 'custom']:
+            raise ValueError('digest_frequency must be one of: daily, weekly, custom')
+        return v
+    
+    @field_validator('digest_format')
+    @classmethod
+    def validate_digest_format(cls, v):
+        if v is not None and v not in ['short', 'detailed']:
+            raise ValueError('digest_format must be one of: short, detailed')
+        return v
 
 
 @router.get("/me")
@@ -226,11 +240,11 @@ async def get_digest_settings(
                 subscribed_companies=[],
                 interested_categories=[],
                 keywords=[],
-                notification_frequency=NotificationFrequency.DAILY,
+                notification_frequency='daily',
                 digest_enabled=False,
-                digest_frequency=DigestFrequency.DAILY,
+                digest_frequency='daily',
                 digest_custom_schedule={},
-                digest_format=DigestFormat.SHORT,
+                digest_format='short',
                 digest_include_summaries=True,
                 telegram_chat_id=None,
                 telegram_enabled=False,
@@ -243,9 +257,9 @@ async def get_digest_settings(
         
         return {
             "digest_enabled": preferences.digest_enabled,
-            "digest_frequency": preferences.digest_frequency.value if preferences.digest_frequency else "daily",
+            "digest_frequency": preferences.digest_frequency if preferences.digest_frequency else "daily",
             "digest_custom_schedule": preferences.digest_custom_schedule,
-            "digest_format": preferences.digest_format.value if preferences.digest_format else "short",
+            "digest_format": preferences.digest_format if preferences.digest_format else "short",
             "digest_include_summaries": preferences.digest_include_summaries,
             "telegram_chat_id": preferences.telegram_chat_id,
             "telegram_enabled": preferences.telegram_enabled,
@@ -288,11 +302,11 @@ async def update_digest_settings(
                 subscribed_companies=[],
                 interested_categories=[],
                 keywords=[],
-                notification_frequency=NotificationFrequency.DAILY,
+                notification_frequency='daily',
                 digest_enabled=False,
-                digest_frequency=DigestFrequency.DAILY,
+                digest_frequency='daily',
                 digest_custom_schedule={},
-                digest_format=DigestFormat.SHORT,
+                digest_format='short',
                 digest_include_summaries=True,
                 telegram_chat_id=None,
                 telegram_enabled=False,
@@ -305,13 +319,11 @@ async def update_digest_settings(
         if settings.digest_enabled is not None:
             preferences.digest_enabled = settings.digest_enabled
         if settings.digest_frequency is not None:
-            from app.models.preferences import DigestFrequency
-            preferences.digest_frequency = DigestFrequency(settings.digest_frequency)
+            preferences.digest_frequency = settings.digest_frequency
         if settings.digest_custom_schedule is not None:
             preferences.digest_custom_schedule = settings.digest_custom_schedule
         if settings.digest_format is not None:
-            from app.models.preferences import DigestFormat
-            preferences.digest_format = DigestFormat(settings.digest_format)
+            preferences.digest_format = settings.digest_format
         if settings.digest_include_summaries is not None:
             preferences.digest_include_summaries = settings.digest_include_summaries
         if settings.telegram_chat_id is not None:
@@ -330,9 +342,9 @@ async def update_digest_settings(
             "status": "success",
             "digest_settings": {
                 "digest_enabled": preferences.digest_enabled,
-                "digest_frequency": preferences.digest_frequency.value if preferences.digest_frequency else None,
+                "digest_frequency": preferences.digest_frequency if preferences.digest_frequency else None,
                 "digest_custom_schedule": preferences.digest_custom_schedule,
-                "digest_format": preferences.digest_format.value if preferences.digest_format else None,
+                "digest_format": preferences.digest_format if preferences.digest_format else None,
                 "digest_include_summaries": preferences.digest_include_summaries,
                 "telegram_chat_id": preferences.telegram_chat_id,
                 "telegram_enabled": preferences.telegram_enabled,

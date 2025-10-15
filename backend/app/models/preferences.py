@@ -6,6 +6,7 @@ from sqlalchemy import Column, String, ForeignKey, Enum, Boolean, Text, Integer
 from sqlalchemy.dialects.postgresql import UUID, ARRAY, JSON
 from sqlalchemy.orm import relationship
 import enum
+from sqlalchemy import Enum as SQLEnum
 
 from .base import BaseModel
 from .news import NewsCategory
@@ -40,13 +41,13 @@ class UserPreferences(BaseModel):
     subscribed_companies = Column(ARRAY(UUID), default=list)
     interested_categories = Column(ARRAY(Enum(NewsCategory)), default=list)
     keywords = Column(ARRAY(String), default=list)
-    notification_frequency = Column(Enum(NotificationFrequency), default=NotificationFrequency.DAILY)
+    notification_frequency = Column(SQLEnum('realtime', 'daily', 'weekly', 'never', name='notificationfrequency'), default='daily')
     
     # Digest settings
     digest_enabled = Column(Boolean, default=False)
-    digest_frequency = Column(Enum(DigestFrequency), default=DigestFrequency.DAILY)
+    digest_frequency = Column(SQLEnum('daily', 'weekly', 'custom', name='digestfrequency'), default='daily')
     digest_custom_schedule = Column(JSON, default=dict)  # {"time": "09:00", "days": [1,2,3,4,5], "timezone": "UTC"}
-    digest_format = Column(Enum(DigestFormat), default=DigestFormat.SHORT)
+    digest_format = Column(SQLEnum('short', 'detailed', name='digestformat'), default='short')
     digest_include_summaries = Column(Boolean, default=True)
     
     # Telegram integration

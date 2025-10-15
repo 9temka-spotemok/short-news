@@ -60,11 +60,11 @@ class DigestService:
                 subscribed_companies=[],
                 interested_categories=[],
                 keywords=[],
-                notification_frequency=NotificationFrequency.DAILY,
+                notification_frequency='daily',
                 digest_enabled=True,
-                digest_frequency=DigestFrequency.DAILY,
+                digest_frequency='daily',
                 digest_custom_schedule={},
-                digest_format=DigestFormat.SHORT,
+                digest_format='short',
                 digest_include_summaries=True,
                 telegram_chat_id=None,
                 telegram_enabled=False,
@@ -137,10 +137,13 @@ class DigestService:
         
         if period == "daily":
             # Current day: from 00:00:00 to 23:59:59 in user's timezone
+            # Get the start of current day (00:00:00)
             date_from_user = now_user.replace(hour=0, minute=0, second=0, microsecond=0)
+            # Get the end of current day (23:59:59.999999)
             date_to_user = now_user.replace(hour=23, minute=59, second=59, microsecond=999999)
             
             logger.debug(f"Daily digest user TZ range: {date_from_user} to {date_to_user}")
+            logger.debug(f"Current user time: {now_user}")
             
             # Convert back to UTC for database query
             date_from = date_from_user.astimezone(pytz.UTC).replace(tzinfo=None)
@@ -149,31 +152,27 @@ class DigestService:
             logger.debug(f"Daily digest UTC range: {date_from} to {date_to}")
             
         elif period == "weekly":
-            # Get week start day preference (0=Sunday, 1=Monday)
-            week_start_day = getattr(user_prefs, 'week_start_day', 0) if user_prefs else 0
-            if week_start_day is None:
-                week_start_day = 0
+            # Always use Sunday as week start (Western calendar)
+            # weekday() returns: Monday=0, Sunday=6
+            # We want: Sunday=0, so we calculate days_since_sunday
+            days_since_week_start = (now_user.weekday() + 1) % 7
             
-            if week_start_day == 0:  # Sunday
-                # weekday() returns: Monday=0, Sunday=6
-                # We want: Sunday=0, so we calculate days_since_sunday
-                days_since_week_start = (now_user.weekday() + 1) % 7
-            else:  # Monday
-                # weekday() returns: Monday=0
-                days_since_week_start = now_user.weekday()
-            
-            # Start of week
+            # Start of week (Sunday 00:00:00)
             week_start = now_user - timedelta(days=days_since_week_start)
             date_from_user = week_start.replace(hour=0, minute=0, second=0, microsecond=0)
             
-            # End of week (6 days after start)
+            # End of week (Saturday 23:59:59)
             days_until_week_end = 6 - days_since_week_start
             week_end = now_user + timedelta(days=days_until_week_end)
             date_to_user = week_end.replace(hour=23, minute=59, second=59, microsecond=999999)
             
+            logger.debug(f"Weekly digest user TZ range: {date_from_user} to {date_to_user}")
+            
             # Convert back to UTC for database query
             date_from = date_from_user.astimezone(pytz.UTC).replace(tzinfo=None)
             date_to = date_to_user.astimezone(pytz.UTC).replace(tzinfo=None)
+            
+            logger.debug(f"Weekly digest UTC range: {date_from} to {date_to}")
             
         elif period == "custom":
             if custom_from and custom_to:
@@ -205,6 +204,7 @@ class DigestService:
             date_to = date_to_user.astimezone(pytz.UTC).replace(tzinfo=None)
         
         logger.info(f"Date range for {period} digest (timezone: {user_tz_name}): {date_from} to {date_to} UTC")
+        logger.info(f"Period details: {period}, User timezone: {user_tz_name}, Current user time: {now_user}")
         return date_from, date_to
     
     async def _fetch_news(

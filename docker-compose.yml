@@ -44,6 +44,7 @@ services:
       - ENVIRONMENT=development
       - DEBUG=true
       - SECRET_KEY=dev-secret-key-change-in-production
+      - TELEGRAM_BOT_TOKEN=8358550051:AAFVEGVvywc3n636YgYnHFT56JAbYgGIKLA
     ports:
       - "8000:8000"
     volumes:
@@ -64,7 +65,12 @@ services:
     environment:
       - DATABASE_URL=postgresql+asyncpg://shot_news:shot_news_dev@postgres:5432/shot_news
       - REDIS_URL=redis://redis:6379
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
       - ENVIRONMENT=development
+      - DEBUG=true
+      - SECRET_KEY=dev-secret-key-change-in-production
+      - TELEGRAM_BOT_TOKEN=8358550051:AAFVEGVvywc3n636YgYnHFT56JAbYgGIKLA
     volumes:
       - ./backend:/app
     depends_on:
@@ -83,7 +89,12 @@ services:
     environment:
       - DATABASE_URL=postgresql+asyncpg://shot_news:shot_news_dev@postgres:5432/shot_news
       - REDIS_URL=redis://redis:6379
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
       - ENVIRONMENT=development
+      - DEBUG=true
+      - SECRET_KEY=dev-secret-key-change-in-production
+      - TELEGRAM_BOT_TOKEN=8358550051:AAFVEGVvywc3n636YgYnHFT56JAbYgGIKLA
     volumes:
       - ./backend:/app
     depends_on:

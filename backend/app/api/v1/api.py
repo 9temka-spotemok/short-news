@@ -5,7 +5,7 @@ Enhanced API v1 router configuration with improved organization
 from fastapi import APIRouter
 from loguru import logger
 
-from app.api.v1.endpoints import auth, news, users, digest, companies, notifications, competitors
+from app.api.v1.endpoints import auth, news, users, digest, companies, notifications, competitors, telegram
 from app.api.v1.endpoints.admin import scraping as admin_scraping
 
 # Create main API router with enhanced configuration
@@ -77,10 +77,19 @@ api_router.include_router(
 
 api_router.include_router(
     competitors.router, 
-    prefix="/competitors", 
+    prefix="/competitors",
     tags=["Competitors"],
     responses={
         404: {"description": "Competitor not found"}
+    }
+)
+
+api_router.include_router(
+    telegram.router, 
+    prefix="/telegram",
+    tags=["Telegram"],
+    responses={
+        500: {"description": "Telegram API error"}
     }
 )
 

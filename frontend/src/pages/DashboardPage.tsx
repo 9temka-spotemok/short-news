@@ -1,5 +1,6 @@
 import CompanyMultiSelect from '@/components/CompanyMultiSelect'
 import api from '@/services/api'
+import { useAuthStore } from '@/store/authStore'
 import { formatDistance } from 'date-fns'
 import { enUS } from 'date-fns/locale'
 import { Bell, Calendar, Filter, Search, TrendingUp } from 'lucide-react'
@@ -43,6 +44,7 @@ interface DigestData {
 }
 
 export default function DashboardPage() {
+  const { isAuthenticated, user, accessToken } = useAuthStore()
   const [activeTab, setActiveTab] = useState('overview')
   const [recentNews, setRecentNews] = useState<NewsItem[]>([])
   const [stats, setStats] = useState<DashboardStats | null>(null)
@@ -55,6 +57,16 @@ export default function DashboardPage() {
   const [digest, setDigest] = useState<DigestData | null>(null)
   const [digestLoading, setDigestLoading] = useState(false)
   const [digestError, setDigestError] = useState<string | null>(null)
+  
+  // Debug authentication state
+  useEffect(() => {
+    console.log('DashboardPage auth state:', {
+      isAuthenticated,
+      user: user?.email,
+      hasToken: !!accessToken,
+      tokenPreview: accessToken ? accessToken.substring(0, 50) + '...' : 'None'
+    })
+  }, [isAuthenticated, user, accessToken])
 
   const tabs = [
     { id: 'overview', label: 'Overview' },
@@ -164,6 +176,8 @@ export default function DashboardPage() {
       setDigestLoading(true)
       setDigestError(null)
       
+      console.log('Fetching digest:', type)
+      
       let endpoint = ''
       switch (type) {
         case 'daily':
@@ -180,12 +194,20 @@ export default function DashboardPage() {
           break
       }
       
+      console.log('Making request to:', endpoint)
       const response = await api.get(endpoint)
+      console.log('Digest response:', response.data)
       setDigest(response.data)
       
     } catch (error: any) {
       console.error('Failed to fetch digest:', error)
-      setDigestError(error.response?.data?.detail || 'Failed to load digest')
+      console.error('Error details:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data
+      })
+      setDigestError(error.response?.data?.detail || error.response?.data?.message || 'Failed to load digest')
     } finally {
       setDigestLoading(false)
     }
@@ -542,23 +564,34 @@ export default function DashboardPage() {
                 <button 
                   onClick={() => fetchDigest('daily')}
                   disabled={digestLoading}
-                  className="btn btn-primary btn-md"
+                  className="btn btn-outline btn-md flex flex-col items-center p-4"
                 >
-                  {digestLoading ? 'Loading...' : 'Daily Digest'}
+                  <span className="font-medium">
+                    {digestLoading ? 'Loading...' : 'Daily Digest'}
+                  </span>
+                  <span className="text-xs text-gray-500 mt-1">
+                    Today's news (00:00 - 23:59)
+                  </span>
                 </button>
                 <button 
                   onClick={() => fetchDigest('weekly')}
                   disabled={digestLoading}
-                  className="btn btn-outline btn-md"
+                  className="btn btn-outline btn-md flex flex-col items-center p-4"
                 >
-                  Weekly Digest
+                  <span className="font-medium">Weekly Digest</span>
+                  <span className="text-xs text-gray-500 mt-1">
+                    This week (Sunday - Saturday)
+                  </span>
                 </button>
                 <button 
                   onClick={() => fetchDigest('custom')}
                   disabled={digestLoading}
-                  className="btn btn-outline btn-md"
+                  className="btn btn-outline btn-md flex flex-col items-center p-4"
                 >
-                  Custom (Last 7 Days)
+                  <span className="font-medium">Custom Period</span>
+                  <span className="text-xs text-gray-500 mt-1">
+                    Last 7 days
+                  </span>
                 </button>
               </div>
             </div>
@@ -601,6 +634,30 @@ export default function DashboardPage() {
 
               {!digestLoading && digest && (
                 <div className="space-y-6">
+                  {/* Period Information */}
+                  <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-medium text-gray-900">Digest Period</h4>
+                        <p className="text-sm text-gray-600">
+                          {new Date(digest.date_from).toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          })} - {new Date(digest.date_to).toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          })}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-medium text-gray-900">{digest.news_count} news items</p>
+                        <p className="text-xs text-gray-500 capitalize">{digest.format} format</p>
+                      </div>
+                    </div>
+                  </div>
+
                   {digest.categories && Object.entries(digest.categories).map(([category, items]) => (
                     <div key={category}>
                       <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
