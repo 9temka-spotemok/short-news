@@ -69,3 +69,5 @@ if __name__ == "__main__":
     count = asyncio.run(init_user_preferences())
     logger.info(f"Completed! Created {count} preferences")
 
+
+

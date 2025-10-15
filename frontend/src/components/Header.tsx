@@ -17,15 +17,31 @@ export default function Header() {
     { name: 'News', href: '/news' },
   ]
 
+  const dashboardNavigation = [
+    { name: 'Dashboard', href: '/dashboard' },
+    { name: 'News', href: '/news' },
+    { name: 'Analytics', href: '/news-analytics' },
+    { name: 'Competitors', href: '/competitor-analysis' },
+  ]
+
   const isActive = (path: string) => location.pathname === path
   
-  // Проверяем, находимся ли мы на защищенной странице (Dashboard/Profile/Settings)
+  // Проверяем, находимся ли мы на защищенной странице (Dashboard/Profile/Settings/Analytics)
   const isDashboardPage = location.pathname.startsWith('/dashboard') || 
                           location.pathname.startsWith('/profile') || 
-                          location.pathname.startsWith('/settings')
+                          location.pathname.startsWith('/settings') ||
+                          location.pathname.startsWith('/news-analytics') ||
+                          location.pathname.startsWith('/competitor-analysis') ||
+                          location.pathname.startsWith('/notifications') ||
+                          location.pathname.startsWith('/digest-settings')
   
-  // Показываем навигацию только на публичных страницах
-  const showNavigation = !isDashboardPage
+  // Для страницы /news показываем dashboard навигацию только если пользователь авторизован
+  const isNewsPage = location.pathname === '/news'
+  const shouldShowDashboardNav = isDashboardPage || (isNewsPage && isAuthenticated)
+  
+  // Показываем навигацию только на публичных страницах (кроме news для авторизованных)
+  const showNavigation = !shouldShowDashboardNav
+  const showDashboardNavigation = shouldShowDashboardNav && isAuthenticated
 
   const handleLogout = () => {
     logout()
@@ -70,6 +86,25 @@ export default function Header() {
           {showNavigation && (
             <nav className="hidden md:flex space-x-8">
               {navigation.map((item) => (
+                <Link
+                  key={item.name}
+                  to={item.href}
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    isActive(item.href)
+                      ? 'text-primary-600 bg-primary-50'
+                      : 'text-gray-700 hover:text-primary-600 hover:bg-gray-50'
+                  }`}
+                >
+                  {item.name}
+                </Link>
+              ))}
+            </nav>
+          )}
+
+          {/* Dashboard Navigation */}
+          {showDashboardNavigation && (
+            <nav className="hidden md:flex space-x-8">
+              {dashboardNavigation.map((item) => (
                 <Link
                   key={item.name}
                   to={item.href}

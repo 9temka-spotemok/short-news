@@ -387,3 +387,5 @@ class CompetitorAnalysisService:
             await self.db.rollback()
             return False
 
+
+

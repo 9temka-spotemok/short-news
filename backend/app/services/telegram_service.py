@@ -222,3 +222,5 @@ class TelegramService:
 # Global instance
 telegram_service = TelegramService()
 
+
+

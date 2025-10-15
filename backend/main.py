@@ -46,7 +46,7 @@ if settings.ENVIRONMENT == "production":
 setup_exception_handlers(app)
 
 # Include API router
-app.include_router(api_router, prefix="/api/v1")
+app.include_router(api_router)
 
 
 @app.on_event("startup")

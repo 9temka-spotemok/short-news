@@ -368,3 +368,5 @@ npm test CompetitorAnalysisPage
 **Разработчик:** AI Assistant (Claude Sonnet 4.5)  
 **Проект:** AI Competitor Insight Hub
 
+
+

@@ -1,12 +1,37 @@
-// User types
+// User types - Enhanced with backend Pydantic schemas
 export interface User {
   id: string
   email: string
-  full_name: string
+  full_name: string | null
   is_active: boolean
   is_verified: boolean
   created_at: string
   updated_at: string
+}
+
+export interface UserCreateRequest {
+  email: string
+  password: string
+  full_name: string
+}
+
+export interface UserUpdateRequest {
+  full_name?: string
+  is_active?: boolean
+}
+
+export interface UserLoginRequest {
+  email: string
+  password: string
+}
+
+export interface PasswordResetRequest {
+  email: string
+}
+
+export interface PasswordResetConfirm {
+  token: string
+  new_password: string
 }
 
 export interface UserPreferences {
@@ -41,7 +66,7 @@ export interface CustomSchedule {
   timezone: string  // "UTC"
 }
 
-// News types
+// News types - Enhanced with backend enums and schemas
 export type NewsCategory = 
   | 'product_update'
   | 'pricing_change'
@@ -67,25 +92,56 @@ export type SourceType =
   | 'news_site'
   | 'press_release'
 
+export interface NewsCategoryInfo {
+  value: NewsCategory
+  description: string
+}
+
+export interface SourceTypeInfo {
+  value: SourceType
+  description: string
+}
+
 export type NotificationFrequency = 
   | 'realtime'
   | 'daily'
   | 'weekly'
   | 'never'
 
+// Enhanced NewsItem with backend improvements
 export interface NewsItem {
   id: string
   title: string
-  content: string
-  summary: string
+  title_truncated: string
+  content: string | null
+  summary: string | null
   source_url: string
   source_type: SourceType
-  company_id: string
-  category: NewsCategory
+  company_id: string | null
+  category: NewsCategory | null
   priority_score: number
+  priority_level: 'High' | 'Medium' | 'Low'
   published_at: string
   created_at: string
   updated_at: string
+  is_recent: boolean
+  company?: Company | null
+  keywords?: NewsKeyword[]
+  activities?: UserActivity[]
+}
+
+export interface NewsKeyword {
+  keyword: string
+  relevance: number
+  created_at: string
+}
+
+export interface NewsStats {
+  total_count: number
+  category_counts: Record<string, number>
+  source_type_counts: Record<string, number>
+  recent_count: number
+  high_priority_count: number
 }
 
 // Company types
@@ -102,23 +158,45 @@ export interface Company {
   updated_at: string
 }
 
-// API Response types
+// API Response types - Enhanced with backend response formats
 export interface ApiResponse<T> {
-  data: T
-  message: string
-  status: 'success' | 'error'
+  data?: T
+  message?: string
+  status?: 'success' | 'error'
+  error?: string
+  details?: Record<string, any>
+  status_code?: number
 }
 
 export interface PaginatedResponse<T> {
   items: T[]
   total: number
-  page: number
-  pages: number
   limit: number
   offset: number
+  has_more: boolean
+  filters?: Record<string, any>
 }
 
-// Auth types
+export interface NewsListResponse extends PaginatedResponse<NewsItem> {
+  filters: {
+    category?: NewsCategory | null
+    company_id?: string | null
+    source_type?: SourceType | null
+    search_query?: string | null
+    min_priority?: number | null
+  }
+}
+
+export interface NewsSearchResponse extends PaginatedResponse<NewsItem> {
+  query: string
+  filters: {
+    category?: NewsCategory | null
+    source_type?: SourceType | null
+    company_id?: string | null
+  }
+}
+
+// Auth types - Enhanced with backend schemas
 export interface LoginRequest {
   email: string
   password: string
@@ -137,6 +215,15 @@ export interface AuthResponse {
   user: User
 }
 
+export interface RefreshTokenRequest {
+  refresh_token: string
+}
+
+export interface RefreshTokenResponse {
+  access_token: string
+  token_type: string
+}
+
 // Digest types
 export interface Digest {
   date: string
@@ -152,20 +239,26 @@ export interface Digest {
   }
 }
 
-// Filter types
+// Filter types - Enhanced with backend parameters
 export interface NewsFilter {
   category?: NewsCategory
-  company?: string
-  date_from?: string
-  date_to?: string
-  keywords?: string[]
+  company_id?: string
+  company_ids?: string[]
+  source_type?: SourceType
+  search_query?: string
+  min_priority?: number
+  start_date?: string
+  end_date?: string
   limit?: number
   offset?: number
 }
 
-// Search types
+// Search types - Enhanced with backend search schema
 export interface SearchRequest {
   query: string
+  category?: NewsCategory
+  source_type?: SourceType
+  company_id?: string
   limit?: number
   offset?: number
 }

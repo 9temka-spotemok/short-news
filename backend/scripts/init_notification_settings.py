@@ -63,3 +63,5 @@ if __name__ == "__main__":
     count = asyncio.run(init_notification_settings())
     logger.info(f"Completed! Created {count} notification settings")
 
+
+

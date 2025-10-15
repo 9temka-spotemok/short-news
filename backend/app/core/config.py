@@ -2,8 +2,8 @@
 Application configuration using Pydantic Settings
 """
 
-from typing import List, Optional
-from pydantic import Field
+from typing import List, Optional, Union
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings
 
 
@@ -15,6 +15,14 @@ class Settings(BaseSettings):
     VERSION: str = "0.1.0"
     ENVIRONMENT: str = Field(default="development", description="Environment: development, staging, production")
     DEBUG: bool = Field(default=True, description="Debug mode")
+    
+    @field_validator('DEBUG', mode='before')
+    @classmethod
+    def validate_debug(cls, v):
+        """Validate DEBUG field to handle string inputs"""
+        if isinstance(v, str):
+            return v.lower() in ('true', '1', 'yes', 'on')
+        return bool(v)
     
     # Security
     SECRET_KEY: str = Field(..., description="Secret key for JWT tokens")

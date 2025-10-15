@@ -79,3 +79,5 @@ class Notification(BaseModel):
     def __repr__(self) -> str:
         return f"<Notification(id={self.id}, type={self.type}, user_id={self.user_id})>"
 
+
+

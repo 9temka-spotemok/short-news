@@ -345,3 +345,5 @@ async def update_notification_settings(
         await db.rollback()
         raise HTTPException(status_code=500, detail="Failed to update notification settings")
 
+
+

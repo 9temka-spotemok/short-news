@@ -321,3 +321,5 @@ curl -X POST http://localhost:8000/api/v1/competitors/compare \
 **Версия:** 1.0.0  
 **Статус:** ✅ Готово к использованию
 
+
+

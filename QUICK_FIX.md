@@ -54,3 +54,5 @@ python -m uvicorn main:app --reload
 
 См. подробную инструкцию: `FIX_NOTIFICATIONS_ERROR.md`
 
+
+

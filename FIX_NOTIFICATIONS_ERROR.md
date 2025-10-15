@@ -250,3 +250,5 @@ docker exec -it short-news-postgres-1 psql -U postgres -d short_news -c "\dt"
 
 Это поможет точно определить проблему!
 
+
+

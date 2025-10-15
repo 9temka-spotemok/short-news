@@ -253,3 +253,5 @@ docker-compose restart backend
 
 *Отчет создан: 14 октября 2025*
 
+
+

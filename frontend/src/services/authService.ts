@@ -1,49 +1,96 @@
-import { AuthResponse, LoginRequest, RegisterRequest, User } from '@/types'
-import api from './api'
+import {
+    AuthResponse,
+    LoginRequest,
+    RefreshTokenRequest,
+    RefreshTokenResponse,
+    RegisterRequest,
+    User
+} from '@/types'
+import { ApiService } from './api'
 
 export const authService = {
-  // Login
+  // Login with enhanced error handling
   login: async (credentials: LoginRequest): Promise<AuthResponse> => {
-    const formData = new FormData()
-    formData.append('username', credentials.email)
-    formData.append('password', credentials.password)
-    
-    const response = await api.post('/auth/login', formData, {
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-    })
-    
-    return response.data
+    try {
+      return await ApiService.login(credentials)
+    } catch (error) {
+      console.error('Login error:', error)
+      throw error
+    }
   },
 
-  // Register
-  register: async (userData: RegisterRequest): Promise<{ message: string }> => {
-    const response = await api.post('/auth/register', userData)
-    return response.data
+  // Register with enhanced validation
+  register: async (userData: RegisterRequest): Promise<AuthResponse> => {
+    try {
+      return await ApiService.register(userData)
+    } catch (error) {
+      console.error('Registration error:', error)
+      throw error
+    }
   },
 
   // Logout
-  logout: async (): Promise<{ message: string }> => {
-    const response = await api.post('/auth/logout')
-    return response.data
+  logout: async (): Promise<void> => {
+    try {
+      await ApiService.logout()
+    } catch (error) {
+      console.error('Logout error:', error)
+      // Don't throw error on logout to ensure user is always logged out locally
+    }
   },
 
   // Get current user
   getCurrentUser: async (): Promise<User> => {
-    const response = await api.get('/users/me')
-    return response.data
+    try {
+      return await ApiService.getCurrentUser()
+    } catch (error) {
+      console.error('Get current user error:', error)
+      throw error
+    }
   },
 
   // Refresh token
-  refreshToken: async (refreshToken: string): Promise<AuthResponse> => {
-    const response = await api.post('/auth/refresh', { refresh_token: refreshToken })
-    return response.data
+  refreshToken: async (refreshToken: string): Promise<RefreshTokenResponse> => {
+    try {
+      const refreshData: RefreshTokenRequest = { refresh_token: refreshToken }
+      return await ApiService.refreshToken(refreshData)
+    } catch (error) {
+      console.error('Refresh token error:', error)
+      throw error
+    }
   },
 
   // Reset password
-  resetPassword: async (email: string): Promise<{ message: string }> => {
-    const response = await api.post('/auth/reset-password', { email })
-    return response.data
+  resetPassword: async (_email: string): Promise<{ message: string }> => {
+    try {
+      // Note: This endpoint might not exist in the current backend
+      // You may need to implement it or use a different approach
+      throw new Error('Password reset endpoint not implemented')
+    } catch (error) {
+      console.error('Reset password error:', error)
+      throw error
+    }
   },
+
+  // Update user profile
+  updateProfile: async (userData: Partial<User>): Promise<User> => {
+    try {
+      return await ApiService.updateUser(userData)
+    } catch (error) {
+      console.error('Update profile error:', error)
+      throw error
+    }
+  },
+
+  // Verify email (if implemented)
+  verifyEmail: async (_token: string): Promise<{ message: string }> => {
+    try {
+      // Note: This endpoint might not exist in the current backend
+      // You may need to implement it
+      throw new Error('Email verification endpoint not implemented')
+    } catch (error) {
+      console.error('Email verification error:', error)
+      throw error
+    }
+  }
 }

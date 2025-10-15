@@ -39,3 +39,5 @@ class CompetitorComparison(BaseModel):
     def __repr__(self) -> str:
         return f"<CompetitorComparison(id={self.id}, user_id={self.user_id}, companies={len(self.company_ids)})>"
 
+
+

@@ -17,7 +17,7 @@ from app.core.security import (
     create_refresh_token,
 )
 from app.models.user import User
-from app.schemas.auth import UserRegister, AuthResponse, UserResponse
+from app.schemas.auth import UserRegister, UserLogin, AuthResponse, UserResponse
 
 router = APIRouter()
 
@@ -73,23 +73,23 @@ async def register(
 
 @router.post("/login", response_model=AuthResponse)
 async def login(
-    form_data: OAuth2PasswordRequestForm = Depends(),
+    credentials: UserLogin,
     db: AsyncSession = Depends(get_db)
 ):
     """
     User login endpoint
     """
-    logger.info(f"User login attempt: {form_data.username}")
+    logger.info(f"User login attempt: {credentials.email}")
     
     # Find user by email
     result = await db.execute(
-        select(User).where(User.email == form_data.username)
+        select(User).where(User.email == credentials.email)
     )
     user = result.scalar_one_or_none()
     
     # Verify credentials
-    if not user or not verify_password(form_data.password, user.password_hash):
-        logger.warning(f"Login failed: Invalid credentials for {form_data.username}")
+    if not user or not verify_password(credentials.password, user.password_hash):
+        logger.warning(f"Login failed: Invalid credentials for {credentials.email}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Неверный email или пароль",
@@ -98,7 +98,7 @@ async def login(
     
     # Check if user is active
     if not user.is_active:
-        logger.warning(f"Login failed: User {form_data.username} is inactive")
+        logger.warning(f"Login failed: User {credentials.email} is inactive")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Аккаунт деактивирован"
