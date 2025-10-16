@@ -1,0 +1,14 @@
+# News Scraper Cron Jobs
+# Format: minute hour day month day-of-week command
+
+# Run news scraper every hour at minute 0
+0 * * * * root cd /app && /usr/local/bin/run-scraper.sh >> /var/log/scraper.log 2>&1
+
+# Run news population every 6 hours (at 00:00, 06:00, 12:00, 18:00)
+0 */6 * * * root cd /app && python scripts/populate_news.py >> /var/log/scraper.log 2>&1
+
+# Clean old logs weekly (every Sunday at 2 AM)
+0 2 * * 0 root find /var/log -name "scraper.log*" -mtime +7 -delete
+
+# Empty line at the end is required
+

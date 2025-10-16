@@ -25,11 +25,14 @@ async def handle_start(chat_id: str, username: Optional[str] = None) -> str:
     keyboard = {
         "inline_keyboard": [
             [
-                {"text": "📊 Получить дайджест", "callback_data": "digest_daily"},
-                {"text": "⚙️ Настройки", "callback_data": "settings_view"}
+                {"text": "📅 Дневной дайджест", "callback_data": "digest_daily"},
+                {"text": "📊 Недельный дайджест", "callback_data": "digest_weekly"}
             ],
             [
-                {"text": "📚 Помощь", "callback_data": "help"},
+                {"text": "⚙️ Настройки", "callback_data": "settings_view"},
+                {"text": "📚 Помощь", "callback_data": "help"}
+            ],
+            [
                 {"text": "🔗 Открыть веб-приложение", "url": "https://yourdomain.com"}
             ]
         ]

@@ -78,7 +78,7 @@ class SourceType(str, enum.Enum):
 # Define PostgreSQL ENUMs that already exist in database
 source_type_enum = ENUM(
     'blog', 'twitter', 'github', 'reddit', 'news_site', 'press_release',
-    name='source_type',
+    name='sourcetype',
     create_type=False
 )
 
@@ -87,7 +87,7 @@ news_category_enum = ENUM(
     'technical_update', 'funding_news', 'research_paper', 'community_event',
     'partnership', 'acquisition', 'integration', 'security_update',
     'api_update', 'model_release', 'performance_improvement', 'feature_deprecation',
-    name='news_category',
+    name='newscategory',
     create_type=False
 )
 

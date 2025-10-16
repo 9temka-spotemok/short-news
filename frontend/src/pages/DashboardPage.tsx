@@ -569,9 +569,6 @@ export default function DashboardPage() {
                   <span className="font-medium">
                     {digestLoading ? 'Loading...' : 'Daily Digest'}
                   </span>
-                  <span className="text-xs text-gray-500 mt-1">
-                    Today's news (00:00 - 23:59)
-                  </span>
                 </button>
                 <button 
                   onClick={() => fetchDigest('weekly')}
@@ -579,9 +576,6 @@ export default function DashboardPage() {
                   className="btn btn-outline btn-md flex flex-col items-center p-4"
                 >
                   <span className="font-medium">Weekly Digest</span>
-                  <span className="text-xs text-gray-500 mt-1">
-                    This week (Sunday - Saturday)
-                  </span>
                 </button>
                 <button 
                   onClick={() => fetchDigest('custom')}
@@ -589,9 +583,6 @@ export default function DashboardPage() {
                   className="btn btn-outline btn-md flex flex-col items-center p-4"
                 >
                   <span className="font-medium">Custom Period</span>
-                  <span className="text-xs text-gray-500 mt-1">
-                    Last 7 days
-                  </span>
                 </button>
               </div>
             </div>

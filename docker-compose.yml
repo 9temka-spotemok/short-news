@@ -104,6 +104,36 @@ services:
         condition: service_healthy
     command: celery -A celery_app beat --loglevel=info
 
+  # News Scraper (Runs every hour)
+  news-scraper:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.scraper
+    container_name: shot-news-scraper
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://shot_news:shot_news_dev@postgres:5432/shot_news
+      - REDIS_URL=redis://redis:6379
+      - ENVIRONMENT=development
+      - DEBUG=true
+      - SECRET_KEY=dev-secret-key-change-in-production
+      - TELEGRAM_BOT_TOKEN=8358550051:AAFVEGVvywc3n636YgYnHFT56JAbYgGIKLA
+      - PYTHONPATH=/app
+    volumes:
+      - ./backend:/app
+      - scraper_logs:/var/log
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "cron"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
   # Frontend (React)
   frontend:
     build:
@@ -122,6 +152,7 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  scraper_logs:
 
 networks:
   default:

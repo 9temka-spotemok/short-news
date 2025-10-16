@@ -113,4 +113,3 @@ if __name__ == "__main__":
     print(f"\n✅ News population completed:")
     print(f"   Added: {result['added']}")
     print(f"   Total: {result['total']}")
-

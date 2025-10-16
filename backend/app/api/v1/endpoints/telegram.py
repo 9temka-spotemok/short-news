@@ -100,6 +100,10 @@ async def handle_telegram_callback(callback_query: Dict[str, Any], db: AsyncSess
             await handle_digest_callback(chat_id, data, db)
         elif data.startswith("settings_"):
             await handle_settings_callback(chat_id, data, db)
+        elif data == "help":
+            await handle_help_callback(chat_id, db)
+        elif data == "main_menu":
+            await handle_main_menu_callback(chat_id, db)
         
         # Answer callback query to remove loading state
         await telegram_service.answer_callback_query(callback_query["id"])
@@ -329,3 +333,73 @@ async def send_test_message(
     except Exception as e:
         logger.error(f"Error sending test message: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+async def handle_help_callback(chat_id: str, db: AsyncSession):
+    """Handle help callback query"""
+    try:
+        help_text = (
+            "🤖 **AI Competitor Insight Hub - Помощь**\n\n"
+            "**Доступные команды:**\n"
+            "• /start - Главное меню\n"
+            "• /help - Показать эту справку\n"
+            "• /digest - Получить дайджест новостей\n"
+            "• /subscribe - Подписаться на уведомления\n"
+            "• /unsubscribe - Отписаться от уведомлений\n"
+            "• /settings - Настройки профиля\n\n"
+            "**Кнопки в меню:**\n"
+            "• 📅 Дневной дайджест - новости за последние 24 часа\n"
+            "• 📊 Недельный дайджест - новости за последние 7 дней\n"
+            "• ⚙️ Настройки - управление предпочтениями\n"
+            "• 🔗 Веб-приложение - переход на сайт\n\n"
+            "**Настройка:**\n"
+            "1. Скопируйте ваш Chat ID из главного меню\n"
+            "2. Откройте веб-приложение\n"
+            "3. Добавьте Chat ID в настройки профиля\n"
+            "4. Включите отправку в Telegram\n"
+            "5. Настройте категории новостей и компании\n\n"
+            "**Поддержка:**\n"
+            "Если у вас есть вопросы, обратитесь к администратору."
+        )
+        
+        # Create keyboard to return to main menu
+        keyboard = {
+            "inline_keyboard": [
+                [
+                    {"text": "🏠 Главное меню", "callback_data": "main_menu"}
+                ]
+            ]
+        }
+        
+        await telegram_service.send_message_with_keyboard(chat_id, help_text, keyboard)
+        
+    except Exception as e:
+        logger.error(f"Error handling help callback: {e}")
+        await telegram_service.send_digest(
+            chat_id,
+            "❌ Ошибка при показе справки. Попробуйте позже."
+        )
+
+
+async def handle_main_menu_callback(chat_id: str, db: AsyncSession):
+    """Handle main menu callback query - return to start menu"""
+    try:
+        from app.bot.handlers import handle_start
+        
+        # Get username from database if available
+        from sqlalchemy import select
+        result = await db.execute(
+            select(UserPreferences).where(UserPreferences.telegram_chat_id == chat_id)
+        )
+        user_prefs = result.scalar_one_or_none()
+        username = None  # We don't store username, but this is fine
+        
+        # Use the existing handle_start function to show main menu
+        await handle_start(chat_id, username)
+        
+    except Exception as e:
+        logger.error(f"Error handling main menu callback: {e}")
+        await telegram_service.send_digest(
+            chat_id,
+            "❌ Ошибка при возврате в главное меню. Используйте /start"
+        )
