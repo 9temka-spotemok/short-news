@@ -113,14 +113,36 @@ class TelegramService:
         current_message = ""
         
         for line in lines:
-            if len(current_message) + len(line) + 1 <= max_length:
-                current_message += line + "\n"
-            else:
-                if current_message:
+            # If adding this line would exceed the limit
+            if len(current_message) + len(line) + 1 > max_length:
+                # If current message has content, save it
+                if current_message.strip():
                     messages.append(current_message.strip())
-                current_message = line + "\n"
+                    current_message = ""
+                
+                # If single line is too long, split it
+                if len(line) > max_length:
+                    # Split long line by words
+                    words = line.split(' ')
+                    temp_line = ""
+                    for word in words:
+                        if len(temp_line) + len(word) + 1 > max_length:
+                            if temp_line:
+                                messages.append(temp_line.strip())
+                                temp_line = word
+                            else:
+                                # Single word is too long, truncate it
+                                messages.append(word[:max_length-3] + "...")
+                                temp_line = ""
+                        else:
+                            temp_line += (" " + word) if temp_line else word
+                    current_message = temp_line
+                else:
+                    current_message = line
+            else:
+                current_message += line + "\n"
         
-        if current_message:
+        if current_message.strip():
             messages.append(current_message.strip())
         
         return messages

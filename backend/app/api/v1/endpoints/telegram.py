@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 from loguru import logger
 import json
+from datetime import datetime, timedelta
 
 from app.core.database import get_db
 from app.services.telegram_service import telegram_service
@@ -17,6 +18,26 @@ from app.tasks.digest import generate_user_digest
 from sqlalchemy import select
 
 router = APIRouter()
+
+# Simple in-memory cache for user preferences (expires after 5 minutes)
+_user_prefs_cache = {}
+_cache_expiry = {}
+
+def _get_cached_user_prefs(chat_id: str) -> Optional[UserPreferences]:
+    """Get cached user preferences if not expired"""
+    if chat_id in _user_prefs_cache and chat_id in _cache_expiry:
+        if datetime.utcnow() < _cache_expiry[chat_id]:
+            return _user_prefs_cache[chat_id]
+        else:
+            # Remove expired cache
+            del _user_prefs_cache[chat_id]
+            del _cache_expiry[chat_id]
+    return None
+
+def _cache_user_prefs(chat_id: str, user_prefs: UserPreferences):
+    """Cache user preferences for 5 minutes"""
+    _user_prefs_cache[chat_id] = user_prefs
+    _cache_expiry[chat_id] = datetime.utcnow().replace(microsecond=0) + timedelta(minutes=5)
 
 
 class TelegramWebhookUpdate(BaseModel):
@@ -167,14 +188,21 @@ async def handle_digest_callback(chat_id: str, data: str, db: AsyncSession):
     from sqlalchemy import select
     
     try:
-        # Find user by telegram_chat_id
-        result = await db.execute(
-            select(UserPreferences).where(
-                UserPreferences.telegram_chat_id == chat_id,
-                UserPreferences.telegram_enabled == True
+        # Try to get cached user preferences first
+        user_prefs = _get_cached_user_prefs(chat_id)
+        
+        if not user_prefs:
+            # Find user by telegram_chat_id and cache the result
+            result = await db.execute(
+                select(UserPreferences).where(
+                    UserPreferences.telegram_chat_id == chat_id,
+                    UserPreferences.telegram_enabled == True
+                )
             )
-        )
-        user_prefs = result.scalar_one_or_none()
+            user_prefs = result.scalar_one_or_none()
+            
+            if user_prefs:
+                _cache_user_prefs(chat_id, user_prefs)
         
         if not user_prefs:
             await telegram_service.send_digest(

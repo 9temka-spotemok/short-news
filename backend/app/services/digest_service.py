@@ -442,9 +442,13 @@ class DigestService:
             category_emoji = self._get_category_emoji(category)
             lines.append(f"\n{category_emoji} **{self._format_category_name(category)}** ({len(news_items)})")
             
-            for i, news in enumerate(news_items[:5], 1):  # Limit to top 5 per category
+            for i, news in enumerate(news_items, 1):  # Show all news items
                 company_name = news.get("company", {}).get("name", "Unknown") if news.get("company") else "Unknown"
-                lines.append(f"{i}. [{company_name}] {news['title']}")
+                # Truncate long titles to save space
+                title = news['title']
+                if len(title) > 80:
+                    title = title[:77] + "..."
+                lines.append(f"{i}. [{company_name}] {title}")
                 lines.append(f"   🔗 {news['source_url']}")
         
         return "\n".join(lines)

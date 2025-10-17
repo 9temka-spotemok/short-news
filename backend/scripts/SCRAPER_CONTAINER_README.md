@@ -134,3 +134,5 @@ docker-compose exec news-scraper cat /etc/cron.d/scraper-cron
 2024-01-15 10:05:31: Scheduled scraping completed successfully
 ```
 
+
+

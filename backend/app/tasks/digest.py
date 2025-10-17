@@ -195,7 +195,7 @@ async def _send_channel_digest_async():
         digest_service = DigestService(db)
         
         # Create a mock user preference for general digest
-        from app.models.preferences import UserPreferences
+        from app.models import UserPreferences
         import uuid
         
         # Get top news from last 24 hours

@@ -64,6 +64,11 @@ class Settings(BaseSettings):
     TELEGRAM_BOT_TOKEN: Optional[str] = Field(default=None, description="Telegram bot token")
     TELEGRAM_CHANNEL_ID: Optional[str] = Field(default=None, description="Telegram channel ID for public digests")
     
+    # Frontend URLs for Telegram bot buttons
+    FRONTEND_BASE_URL: str = Field(default="http://localhost:5173", description="Frontend base URL")
+    FRONTEND_SETTINGS_URL: str = Field(default="http://localhost:5173/settings", description="Frontend settings URL")
+    FRONTEND_DIGEST_SETTINGS_URL: str = Field(default="http://localhost:5173/settings/digest", description="Frontend digest settings URL")
+    
     # Celery
     CELERY_BROKER_URL: str = Field(default="redis://localhost:6379/0", description="Celery broker URL")
     CELERY_RESULT_BACKEND: str = Field(default="redis://localhost:6379/0", description="Celery result backend URL")

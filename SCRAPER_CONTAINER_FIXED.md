@@ -106,3 +106,5 @@ docker-compose exec news-scraper python scripts/check_database.py
 - ✅ Имеет health check для мониторинга
 
 Контейнер готов к продуктивному использованию! 🎉
+
+

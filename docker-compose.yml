@@ -104,6 +104,41 @@ services:
         condition: service_healthy
     command: celery -A celery_app beat --loglevel=info
 
+  # Telegram Bot (Polling mode)
+  telegram-bot:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.bot
+    container_name: shot-news-telegram-bot
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://shot_news:shot_news_dev@postgres:5432/shot_news
+      - REDIS_URL=redis://redis:6379
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - ENVIRONMENT=development
+      - DEBUG=true
+      - SECRET_KEY=dev-secret-key-change-in-production
+      - TELEGRAM_BOT_TOKEN=8358550051:AAFVEGVvywc3n636YgYnHFT56JAbYgGIKLA
+      - FRONTEND_BASE_URL=http://localhost:5173
+      - FRONTEND_SETTINGS_URL=http://localhost:5173/settings
+      - FRONTEND_DIGEST_SETTINGS_URL=http://localhost:5173/settings/digest
+      - PYTHONPATH=/app
+    volumes:
+      - ./backend:/app
+      - bot_logs:/var/log
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getMe')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
   # News Scraper (Runs every hour)
   news-scraper:
     build:
@@ -153,6 +188,7 @@ volumes:
   postgres_data:
   redis_data:
   scraper_logs:
+  bot_logs:
 
 networks:
   default:
