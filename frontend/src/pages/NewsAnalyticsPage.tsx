@@ -79,7 +79,7 @@ export default function NewsAnalyticsPage() {
           </div>
           
           {/* Time Range Selector */}
-          <div className="flex space-x-2">
+          {/* <div className="flex space-x-2">
             {(['7d', '30d', '90d'] as const).map((range) => (
               <button
                 key={range}
@@ -91,7 +91,8 @@ export default function NewsAnalyticsPage() {
                 {range === '7d' ? '7 Days' : range === '30d' ? '30 Days' : '90 Days'}
               </button>
             ))}
-          </div>
+          </div> */} 
+          {/* //TODO исправить временной диапазон */}
         </div>
       </div>
 

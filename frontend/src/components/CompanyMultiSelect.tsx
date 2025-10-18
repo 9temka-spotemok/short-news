@@ -88,7 +88,7 @@ export default function CompanyMultiSelect({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full input pl-3 pr-10 text-left flex items-center justify-between"
+        className="w-full input pl-3 text-left flex items-center justify-between"
       >
         <span className="block truncate">
           {selectedNames.length > 0 ? (
@@ -111,7 +111,7 @@ export default function CompanyMultiSelect({
             <span className="text-gray-500">{placeholder}</span>
           )}
         </span>
-        <div className="flex items-center space-x-1">
+        <div className="flex items-center space-x-1 ml-auto">
           {selectedNames.length > 0 && (
             <button
               type="button"
@@ -133,7 +133,7 @@ export default function CompanyMultiSelect({
       </button>
 
       {isOpen && (
-        <div className="absolute z-10 mt-1 w-full bg-white shadow-lg rounded-md border border-gray-200 max-h-60 overflow-auto">
+        <div className="absolute z-50 mt-1 w-full bg-white shadow-lg rounded-md border border-gray-200 max-h-60 overflow-auto">
           {/* Search Input */}
           <div className="sticky top-0 bg-white border-b border-gray-200 p-2">
             <div className="relative">
@@ -181,9 +181,10 @@ export default function CompanyMultiSelect({
                     <span className={isSelected ? 'font-medium text-primary-700' : 'text-gray-900'}>
                       {company.name}
                     </span>
-                    {company.category && (
+                    {/* {company.category && (
                       <span className="text-xs text-gray-500 ml-auto">{company.category}</span>
-                    )}
+                    )} */}
+                    {/* //TODO исправить отображение категории компании */}
                   </button>
                 )
               })

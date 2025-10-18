@@ -70,9 +70,9 @@ export default function DashboardPage() {
 
   const tabs = [
     { id: 'overview', label: 'Overview' },
-    { id: 'news', label: 'News' },
+    // { id: 'news', label: 'News' },
     { id: 'digest', label: 'Digests' },
-    { id: 'analytics', label: 'Analytics' },
+    // { id: 'analytics', label: 'Analytics' },
   ]
 
   const categoryLabels: Record<string, string> = {
@@ -695,94 +695,6 @@ export default function DashboardPage() {
                   )}
                 </div>
               )}
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'analytics' && (
-          <div className="space-y-6">
-            <div className="card p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Analytics and Trends
-              </h3>
-              <p className="text-gray-600 mb-6">
-                Analysis of activity and trends in AI industry
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <h4 className="font-medium text-gray-900 mb-2">Total News</h4>
-                  <p className="text-2xl font-bold text-primary-600">{stats?.totalNews || 0}</p>
-                  <p className="text-sm text-gray-600">in database</p>
-                </div>
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <h4 className="font-medium text-gray-900 mb-2">News Today</h4>
-                  <p className="text-2xl font-bold text-green-600">{stats?.todayNews || 0}</p>
-                  <p className="text-sm text-gray-600">published today</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Category Trends */}
-            <div className="card p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Category Distribution
-              </h3>
-              <div className="space-y-4">
-                {stats?.categoriesBreakdown.map((category) => (
-                  <div key={category.category} className="flex items-center justify-between">
-                    <span className="text-sm text-gray-700">{category.category}</span>
-                    <div className="flex items-center space-x-2">
-                      <div className="w-32 h-2 bg-gray-200 rounded-full">
-                        <div
-                          className="h-2 bg-primary-600 rounded-full transition-all"
-                          style={{ width: `${category.percentage}%` }}
-                        ></div>
-                      </div>
-                      <span className="text-xs text-gray-500 w-12 text-right">
-                        {category.count} ({category.percentage}%)
-                      </span>
-                    </div>
-                  </div>
-                ))}
-                {(!stats || stats.categoriesBreakdown.length === 0) && (
-                  <p className="text-sm text-gray-500 text-center py-4">No data yet</p>
-                )}
-              </div>
-            </div>
-
-            {/* Recent Activity */}
-            <div className="card p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Recent Activity
-              </h3>
-              <div className="space-y-3">
-                {recentNews.slice(0, 8).map((item) => (
-                  <div key={item.id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-gray-900 truncate">{item.title}</p>
-                      <div className="flex items-center space-x-2 mt-1">
-                        <p className="text-xs text-gray-500">
-                          {formatDate(item.published_at || item.created_at)}
-                        </p>
-                        {item.company && (
-                          <>
-                            <span className="text-xs text-gray-400">•</span>
-                            <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">
-                              {item.company.name}
-                            </span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                    <span className="ml-4 px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-600 capitalize">
-                      {item.source_type}
-                    </span>
-                  </div>
-                ))}
-                {recentNews.length === 0 && (
-                  <p className="text-sm text-gray-500 text-center py-4">No activity yet</p>
-                )}
-              </div>
             </div>
           </div>
         )}
