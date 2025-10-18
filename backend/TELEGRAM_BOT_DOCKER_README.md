@@ -276,3 +276,4 @@ git pull
 docker-compose build telegram-bot
 docker-compose up -d telegram-bot
 ```
+
