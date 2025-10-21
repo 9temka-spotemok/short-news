@@ -18,7 +18,7 @@ npm run build
 3. Выберите ваш GitHub репозиторий
 4. Настройте:
    - **Build command:** `npm run build`
-   - **Publish directory:** `frontend/dist`
+   - **Publish directory:** `dist`
    - **Base directory:** `frontend`
 5. Нажмите "Deploy site"
 

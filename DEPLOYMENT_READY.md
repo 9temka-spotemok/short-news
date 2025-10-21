@@ -31,7 +31,7 @@
 # 2. New site from Git → выберите репозиторий
 # 3. Настройки сборки:
 #    - Build command: npm run build
-#    - Publish directory: frontend/dist
+#    - Publish directory: dist
 #    - Base directory: frontend
 # 4. Добавьте переменную окружения:
 #    - VITE_API_URL = https://your-backend-url.com

@@ -67,7 +67,7 @@
 
 2. **Настройте сборку:**
    - Build command: `npm run build`
-   - Publish directory: `frontend/dist`
+   - Publish directory: `dist`
    - Base directory: `frontend`
 
 3. **Настройте переменные окружения:**
