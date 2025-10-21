@@ -7,7 +7,14 @@ import uvicorn
 
 if __name__ == "__main__":
     # Get port from environment variable, default to 8000
-    port = int(os.environ.get("PORT", 8000))
+    port_str = os.environ.get("PORT", "8000")
+    try:
+        port = int(port_str)
+    except ValueError:
+        print(f"Warning: Invalid PORT value '{port_str}', using default port 8000")
+        port = 8000
+    
+    print(f"Starting server on port {port}")
     
     # Start the application
     uvicorn.run(
