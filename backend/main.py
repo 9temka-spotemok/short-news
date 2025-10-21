@@ -96,14 +96,20 @@ async def root():
 
 if __name__ == "__main__":
     import os
-    port_str = os.environ.get("PORT", "8000")
+    import sys
+    
+    # Get port from environment variable with multiple fallbacks
+    port_str = os.environ.get("PORT") or os.environ.get("PORT_NUMBER") or "8000"
+    
     try:
         port = int(port_str)
     except ValueError:
-        print(f"Warning: Invalid PORT value '{port_str}', using default port 8000")
+        print(f"ERROR: Invalid PORT value '{port_str}'. Using default port 8000.")
         port = 8000
     
     print(f"Starting server on port {port}")
+    print(f"Environment: {os.environ.get('RAILWAY_ENVIRONMENT', 'unknown')}")
+    
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
