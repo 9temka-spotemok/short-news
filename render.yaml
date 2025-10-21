@@ -20,7 +20,7 @@ services:
     name: shot-news-celery-worker
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: celery -A celery_app worker --loglevel=info
+    startCommand: cd backend && celery -A app.celery_app worker --loglevel=info
     envVars:
       - key: ENVIRONMENT
         value: production
@@ -31,7 +31,7 @@ services:
     name: shot-news-celery-beat
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: celery -A celery_app beat --loglevel=info
+    startCommand: cd backend && celery -A app.celery_app beat --loglevel=info
     envVars:
       - key: ENVIRONMENT
         value: production

@@ -4,10 +4,11 @@
     "builder": "nixpacks"
   },
   "deploy": {
-    "startCommand": "cd backend && celery -A app.celery_app worker --loglevel=info --concurrency=4",
+    "startCommand": "python -m celery -A app.celery_app worker --loglevel=info --concurrency=4",
     "healthcheckPath": "/api/v1/health",
     "healthcheckTimeout": 300,
     "restartPolicyType": "on_failure",
-    "restartPolicyMaxRetries": 3
+    "restartPolicyMaxRetries": 3,
+    "workingDirectory": "backend"
   }
 }
