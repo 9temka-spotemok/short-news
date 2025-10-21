@@ -38,7 +38,9 @@ export default function LoginPage() {
       toast.success('Login successful!')
       navigate('/dashboard')
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Login error')
+      // Error is already handled by the API interceptor
+      // No need to show additional toast here
+      console.error('Login failed:', error)
     } finally {
       setIsLoading(false)
     }
@@ -121,7 +123,7 @@ export default function LoginPage() {
 
           {/* Remember me & Forgot password */}
           <div className="flex items-center justify-between">
-            <div className="flex items-center">
+            {/* <div className="flex items-center">
               <input
                 id="remember-me"
                 name="remember-me"
@@ -131,13 +133,14 @@ export default function LoginPage() {
               <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900">
                 Remember me
               </label>
-            </div>
+            </div> */}
 
-            <div className="text-sm">
+            {/* <div className="text-sm">
               <a href="#" className="font-medium text-primary-600 hover:text-primary-500">
                 Forgot password?
               </a>
-            </div>
+            </div> */}
+            {/* //TODO add forgot password link */}
           </div>
 
           {/* Submit button */}
@@ -153,7 +156,7 @@ export default function LoginPage() {
         </form>
 
         {/* Demo credentials */}
-        <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+        {/* <div className="mt-6 p-4 bg-blue-50 rounded-lg">
           <h3 className="text-sm font-medium text-blue-900 mb-2">
             Demo Access:
           </h3>
@@ -161,7 +164,7 @@ export default function LoginPage() {
             Email: demo@shot-news.com<br />
             Password: demo123
           </p>
-        </div>
+        </div> */}
       </div>
     </div>
   )

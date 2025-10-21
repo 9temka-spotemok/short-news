@@ -38,7 +38,6 @@ async def init_notification_settings():
             if not existing_settings:
                 # Create default settings
                 settings = NotificationSettings(
-                    id=uuid.uuid4(),
                     user_id=user.id,
                     enabled=True,
                     notification_types={},  # Empty = all enabled by default

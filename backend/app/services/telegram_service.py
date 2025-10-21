@@ -185,59 +185,59 @@ class TelegramService:
         elif command == "digest":
             return self._handle_digest_command(chat_id)
         else:
-            return "❓ Неизвестная команда. Используйте /help для списка команд."
+            return "❓ Unknown command. Use /help for available commands."
     
     def _handle_start_command(self, chat_id: str) -> str:
         """Handle /start command"""
         return (
-            "👋 Добро пожаловать в AI Competitor Insight Hub!\n\n"
-            f"Ваш Chat ID: `{chat_id}`\n\n"
-            "Скопируйте этот ID и добавьте его в настройки вашего профиля на веб-платформе, "
-            "чтобы получать персонализированные дайджесты новостей.\n\n"
-            "Используйте /help для списка доступных команд."
+            "👋 Welcome to AI Competitor Insight Hub!\n\n"
+            f"Your Chat ID: `{chat_id}`\n\n"
+            "Copy this ID and add it to your profile settings on the web platform "
+            "to receive personalized news digests.\n\n"
+            "Use /help for a list of available commands."
         )
     
     def _handle_help_command(self) -> str:
         """Handle /help command"""
         return (
-            "📚 **Доступные команды:**\n\n"
-            "/start - Начать работу и получить Chat ID\n"
-            "/help - Показать эту справку\n"
-            "/subscribe - Подписаться на дайджесты\n"
-            "/unsubscribe - Отписаться от дайджестов\n"
-            "/settings - Показать текущие настройки\n"
-            "/digest - Получить последний дайджест\n\n"
-            "Для настройки персонализированных дайджестов используйте веб-приложение."
+            "📚 **Available commands:**\n\n"
+            "/start - Start and get Chat ID\n"
+            "/help - Show this help\n"
+            "/subscribe - Subscribe to digests\n"
+            "/unsubscribe - Unsubscribe from digests\n"
+            "/settings - Show current settings\n"
+            "/digest - Get latest digest\n\n"
+            "Use the web application to configure personalized digests."
         )
     
     def _handle_subscribe_command(self, chat_id: str) -> str:
         """Handle /subscribe command"""
         return (
-            "✅ Вы подписаны на дайджесты!\n\n"
-            "Для настройки частоты и содержания дайджестов перейдите в настройки на веб-платформе.\n"
-            f"Ваш Chat ID: `{chat_id}`"
+            "✅ You are subscribed to digests!\n\n"
+            "To configure digest frequency and content, go to settings on the web platform.\n"
+            f"Your Chat ID: `{chat_id}`"
         )
     
     def _handle_unsubscribe_command(self, chat_id: str) -> str:
         """Handle /unsubscribe command"""
         return (
-            "❌ Вы отписаны от дайджестов.\n\n"
-            "Используйте /subscribe для повторной подписки."
+            "❌ You are unsubscribed from digests.\n\n"
+            "Use /subscribe to resubscribe."
         )
     
     def _handle_settings_command(self, chat_id: str) -> str:
         """Handle /settings command"""
         return (
-            "⚙️ **Настройки**\n\n"
+            "⚙️ **Settings**\n\n"
             f"Chat ID: `{chat_id}`\n\n"
-            "Для изменения настроек дайджестов и уведомлений используйте веб-приложение."
+            "Use the web application to change digest and notification settings."
         )
     
     def _handle_digest_command(self, chat_id: str) -> str:
         """Handle /digest command"""
         return (
-            "📰 Генерация дайджеста...\n\n"
-            "Ваш персонализированный дайджест будет отправлен в ближайшее время!"
+            "📰 Generating digest...\n\n"
+            "Your personalized digest will be sent shortly!"
         )
     
     async def set_webhook(self, webhook_url: str) -> bool:

@@ -53,13 +53,17 @@
     @apply cursor-pointer;
   }
   
-  input[type="date"]::-webkit-calendar-picker-indicator {
-    @apply cursor-pointer opacity-100;
-    position: absolute;
-    right: 8px;
-    top: 50%;
-    transform: translateY(-50%);
-  }
+/* Hide native date picker icon across browsers */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  display: none;
+}
+input[type="date"]::-ms-clear,
+input[type="date"]::-ms-reveal {
+  display: none;
+}
+input[type="date"]::-o-calendar-picker-indicator {
+  display: none;
+}
   
   .badge {
     @apply inline-flex items-center rounded-xl px-2.5 py-0.5 text-xs font-medium;

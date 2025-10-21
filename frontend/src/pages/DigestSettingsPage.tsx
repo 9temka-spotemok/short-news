@@ -1,5 +1,6 @@
 import { Calendar, Clock, MessageSquare, Save, Settings as SettingsIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import toast from 'react-hot-toast'
 import api from '../services/api'
 import { CustomSchedule, DigestSettings } from '../types'
 
@@ -18,7 +19,6 @@ export default function DigestSettingsPage() {
   
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
-  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
 
   useEffect(() => {
     fetchSettings()
@@ -31,7 +31,7 @@ export default function DigestSettingsPage() {
       setSettings(response.data)
     } catch (error) {
       console.error('Error fetching digest settings:', error)
-      setMessage({ type: 'error', text: 'Failed to load digest settings' })
+      toast.error('Failed to load digest settings')
     } finally {
       setIsLoading(false)
     }
@@ -40,20 +40,13 @@ export default function DigestSettingsPage() {
   const saveSettings = async () => {
     try {
       setIsSaving(true)
-      setMessage(null)
       
       await api.put('/users/preferences/digest', settings)
       
-      setMessage({ type: 'success', text: 'Digest settings saved successfully!' })
-      
-      // Clear message after 3 seconds
-      setTimeout(() => setMessage(null), 3000)
+      toast.success('Digest settings saved successfully!')
     } catch (error: any) {
       console.error('Error saving digest settings:', error)
-      setMessage({ 
-        type: 'error',
-        text: error.response?.data?.detail || 'Failed to save digest settings' 
-      })
+      toast.error(error.response?.data?.detail || 'Failed to save digest settings')
     } finally {
       setIsSaving(false)
     }
@@ -100,18 +93,6 @@ export default function DigestSettingsPage() {
             Configure your personalized news digest delivery
           </p>
         </div>
-
-        {message && (
-          <div
-            className={`mb-6 p-4 rounded-lg ${
-              message.type === 'success' 
-                ? 'bg-green-50 text-green-800 border border-green-200' 
-                : 'bg-red-50 text-red-800 border border-red-200'
-            }`}
-          >
-            {message.text}
-          </div>
-        )}
 
         <div className="bg-white rounded-lg shadow-md p-6 space-y-6">
           {/* Enable/Disable Digest */}
@@ -291,7 +272,7 @@ export default function DigestSettingsPage() {
                   }`}
                 >
                   <div className="font-medium">Sunday</div>
-                  <div className="text-xs mt-1 opacity-75">US/GitHub style</div>
+                  {/* <div className="text-xs mt-1 opacity-75">US/GitHub style</div> */}
                 </button>
                 <button
                   onClick={() => setSettings({ ...settings, week_start_day: 1 })}
@@ -302,12 +283,15 @@ export default function DigestSettingsPage() {
                   }`}
                 >
                   <div className="font-medium">Monday</div>
-                  <div className="text-xs mt-1 opacity-75">ISO 8601</div>
+                  {/* <div className="text-xs mt-1 opacity-75">ISO 8601</div> */}
                 </button>
               </div>
               <p className="text-xs text-gray-600 mt-2">
-                <strong>Sunday:</strong> Week runs Sun-Sat (like GitHub, US calendars)<br />
-                <strong>Monday:</strong> Week runs Mon-Sun (ISO 8601, EU standard)
+                {/* <strong>Sunday:</strong> Week runs Sun-Sat (like GitHub, US calendars)<br />
+                <strong>Monday:</strong> Week runs Mon-Sun (ISO 8601, EU standard) */}
+
+                <strong>Sunday:</strong> Week runs Sun-Sat<br />
+                <strong>Monday:</strong> Week runs Mon-Sun
               </p>
             </div>
           </div>

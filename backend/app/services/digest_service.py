@@ -448,7 +448,10 @@ class DigestService:
                 title = news['title']
                 if len(title) > 80:
                     title = title[:77] + "..."
-                lines.append(f"{i}. [{company_name}] {title}")
+                
+                # Добавляем жирный шрифт для заголовка и отступ
+                lines.append(f"\n{i}. **{title}**")
+                lines.append(f"   🏢 {company_name}")
                 lines.append(f"   🔗 {news['source_url']}")
         
         return "\n".join(lines)

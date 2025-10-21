@@ -13,12 +13,14 @@ interface CompanyMultiSelectProps {
   selectedCompanies: string[]
   onSelectionChange: (companies: string[]) => void
   placeholder?: string
+  availableCompanyIds?: string[]
 }
 
 export default function CompanyMultiSelect({
   selectedCompanies,
   onSelectionChange,
-  placeholder = 'Select companies...'
+  placeholder = 'Select companies...',
+  availableCompanyIds
 }: CompanyMultiSelectProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -59,9 +61,13 @@ export default function CompanyMultiSelect({
     }
   }
 
-  const filteredCompanies = companies.filter((company) =>
+  const baseFiltered = companies.filter((company) =>
     company.name.toLowerCase().includes(searchQuery.toLowerCase())
   )
+
+  const filteredCompanies = (availableCompanyIds && availableCompanyIds.length > 0)
+    ? baseFiltered.filter((c) => availableCompanyIds.includes(c.id))
+    : baseFiltered
 
   const toggleCompany = (companyId: string) => {
     if (selectedCompanies.includes(companyId)) {
@@ -93,14 +99,31 @@ export default function CompanyMultiSelect({
         <span className="block truncate">
           {selectedNames.length > 0 ? (
             <span className="flex flex-wrap gap-1">
-              {selectedNames.slice(0, 2).map((name, index) => (
-                <span
-                  key={index}
-                  className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary-100 text-primary-700"
-                >
-                  {name}
-                </span>
-              ))}
+              {selectedNames.slice(0, 2).map((name, index) => {
+                const companyId = companies.find((c) => c.name === name)?.id
+                return (
+                  <span
+                    key={index}
+                    className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary-100 text-primary-700"
+                  >
+                    {name}
+                    {companyId && (
+                      <button
+                        type="button"
+                        className="ml-1 text-primary-600 hover:text-primary-700"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onSelectionChange(selectedCompanies.filter((id) => id !== companyId))
+                        }}
+                        aria-label="Remove company"
+                        title="Удалить из выбора"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </span>
+                )
+              })}
               {selectedNames.length > 2 && (
                 <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">
                   +{selectedNames.length - 2}

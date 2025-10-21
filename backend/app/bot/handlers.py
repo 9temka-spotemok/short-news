@@ -14,26 +14,26 @@ async def handle_start(chat_id: str, username: Optional[str] = None) -> str:
     
     # Create welcome message with inline keyboard
     welcome_text = (
-        "👋 Добро пожаловать в AI Competitor Insight Hub!\n\n"
-        f"Ваш Chat ID: `{chat_id}`\n\n"
-        "Скопируйте этот ID и добавьте его в настройки вашего профиля на веб-платформе, "
-        "чтобы получать персонализированные дайджесты новостей.\n\n"
-        "Выберите действие:"
+        "👋 Welcome to AI Competitor Insight Hub!\n\n"
+        f"Your Chat ID: `{chat_id}`\n\n"
+        "Copy this ID and add it to your profile settings on the web platform "
+        "to receive personalized news digests.\n\n"
+        "Choose an action:"
     )
     
     # Create inline keyboard
     keyboard = {
         "inline_keyboard": [
             [
-                {"text": "📅 Дневной дайджест", "callback_data": "digest_daily"},
-                {"text": "📊 Недельный дайджест", "callback_data": "digest_weekly"}
+                {"text": "📅 Daily Digest", "callback_data": "digest_daily"},
+                {"text": "📊 Weekly Digest", "callback_data": "digest_weekly"}
             ],
             [
-                {"text": "⚙️ Настройки", "callback_data": "settings_view"},
-                {"text": "📚 Помощь", "callback_data": "help"}
+                {"text": "⚙️ Settings", "callback_data": "settings_view"},
+                {"text": "📚 Help", "callback_data": "help"}
             ],
             [
-                {"text": "🔗 Открыть веб-приложение", "url": "https://yourdomain.com"}
+                {"text": "🔗 Open Web App", "url": "https://yourdomain.com"}
             ]
         ]
     }
@@ -87,19 +87,19 @@ async def handle_digest(chat_id: str) -> str:
             
             if not user_prefs:
                 error_text = (
-                    "❌ Пользователь не найден или Telegram не настроен.\n\n"
-                    "Убедитесь, что вы:\n"
-                    "1. Добавили Chat ID в настройки профиля\n"
-                    "2. Включили отправку в Telegram\n"
-                    "3. Настроили дайджесты\n\n"
-                    f"Ваш Chat ID: `{chat_id}`"
+                    "❌ User not found or Telegram not configured.\n\n"
+                    "Make sure you:\n"
+                    "1. Added Chat ID to your profile settings\n"
+                    "2. Enabled Telegram notifications\n"
+                    "3. Configured digests\n\n"
+                    f"Your Chat ID: `{chat_id}`"
                 )
                 
                 # Send error message with setup keyboard
                 keyboard = {
                     "inline_keyboard": [
                         [
-                            {"text": "🔗 Открыть настройки", "url": "https://yourdomain.com/settings"}
+                            {"text": "🔗 Open Settings", "url": "https://yourdomain.com/settings"}
                         ]
                     ]
                 }
@@ -107,15 +107,15 @@ async def handle_digest(chat_id: str) -> str:
                 return ""
             
             # Create digest selection keyboard
-            digest_text = "📰 Выберите тип дайджеста:"
+            digest_text = "📰 Choose digest type:"
             keyboard = {
                 "inline_keyboard": [
                     [
-                        {"text": "📅 Дневной дайджест", "callback_data": "digest_daily"},
-                        {"text": "📊 Недельный дайджест", "callback_data": "digest_weekly"}
+                        {"text": "📅 Daily Digest", "callback_data": "digest_daily"},
+                        {"text": "📊 Weekly Digest", "callback_data": "digest_weekly"}
                     ],
                     [
-                        {"text": "⚙️ Настройки дайджеста", "callback_data": "settings_digest"}
+                        {"text": "⚙️ Digest Settings", "callback_data": "settings_digest"}
                     ]
                 ]
             }
@@ -125,7 +125,7 @@ async def handle_digest(chat_id: str) -> str:
             
     except Exception as e:
         logger.error(f"Error in handle_digest: {e}")
-        error_text = "❌ Ошибка при генерации дайджеста. Попробуйте позже."
+        error_text = "❌ Error generating digest. Please try again later."
         await telegram_service.send_digest(chat_id, error_text)
         return ""
 

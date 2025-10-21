@@ -50,6 +50,10 @@ celery_app.conf.beat_schedule = {
         "task": "app.tasks.digest.generate_daily_digests",
         "schedule": 60 * 60,  # Every hour (will check user preferences for timing)
     },
+    "generate-weekly-digests": {
+        "task": "app.tasks.digest.generate_weekly_digests",
+        "schedule": 60 * 60,  # Every hour (will check user preferences for timing)
+    },
     "send-channel-digest": {
         "task": "app.tasks.digest.send_channel_digest",
         "schedule": 24 * 60 * 60,  # Daily at midnight UTC

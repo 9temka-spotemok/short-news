@@ -72,10 +72,20 @@ api.interceptors.response.use(
     // Handle different error status codes
     switch (response?.status) {
       case 401:
-        // Token expired or invalid
-        useAuthStore.getState().logout()
-        toast.error('Session expired. Please log in again.')
-        window.location.href = '/login'
+        // Check if this is a login request - don't redirect if we're already on login page
+        const isLoginRequest = config?.url?.includes('/auth/login')
+        const isOnLoginPage = window.location.pathname === '/login'
+        
+        if (isLoginRequest || isOnLoginPage) {
+          // This is a login error or we're already on login page - just show error
+          const errorData = response.data as ApiResponse<any>
+          toast.error(errorData?.message || 'Неверный email или пароль')
+        } else {
+          // Token expired or invalid - redirect to login
+          useAuthStore.getState().logout()
+          toast.error('Session expired. Please log in again.')
+          window.location.href = '/login'
+        }
         break
         
       case 403:
@@ -230,6 +240,71 @@ export class ApiService {
   static async getCompany(id: string): Promise<Company> {
     const response = await api.get<Company>(`/companies/${id}`)
     return response.data
+  }
+  
+  // User preferences endpoints
+  static async getUserPreferences(): Promise<{
+    subscribed_companies: string[]
+    interested_categories: string[]
+    keywords: string[]
+    notification_frequency: string
+    digest_enabled: boolean
+    digest_frequency: string
+    digest_custom_schedule: Record<string, any>
+    digest_format: string
+    digest_include_summaries: boolean
+    telegram_chat_id: string | null
+    telegram_enabled: boolean
+    timezone: string
+    week_start_day: number
+  }> {
+    const response = await api.get('/users/preferences')
+    return response.data
+  }
+  
+  static async updateUserPreferences(preferences: {
+    subscribed_companies?: string[]
+    interested_categories?: string[]
+    keywords?: string[]
+    notification_frequency?: string
+  }): Promise<{
+    status: string
+    preferences: {
+      subscribed_companies: string[]
+      interested_categories: string[]
+      keywords: string[]
+      notification_frequency: string
+    }
+  }> {
+    const response = await api.put('/users/preferences', preferences)
+    return response.data
+  }
+  
+  static async subscribeToCompany(companyId: string): Promise<{
+    status: string
+    company_id: string
+    company_name: string
+    message: string
+  }> {
+    const response = await api.post(`/users/companies/${companyId}/subscribe`)
+    return response.data
+  }
+  
+  static async unsubscribeFromCompany(companyId: string): Promise<{
+    status: string
+    company_id: string
+    message: string
+  }> {
+    const response = await api.delete(`/users/companies/${companyId}/unsubscribe`)
+    return response.data
+  }
+  
+  static async getCompaniesByIds(companyIds: string[]): Promise<Company[]> {
+    if (companyIds.length === 0) return []
+    
+    // Get all companies and filter by IDs (backend max limit is 200)
+    const allCompanies = await this.getCompanies('', 200, 0)
+    return allCompanies.items.filter(company => companyIds.includes(company.id))
   }
   
   // Health check

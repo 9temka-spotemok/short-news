@@ -66,11 +66,19 @@ export default function AuthNewsPage() {
   })
 
   useEffect(() => {
-    if (categoriesData) {
+    if (!categoriesData) return
+    if (statsData) {
+      const categoryCounts = statsData.category_counts || {}
+      const sourceCounts = statsData.source_type_counts || {}
+      setCategories(categoriesData.categories.filter(c => (categoryCounts as Record<string, number>)[c.value] > 0))
+      setSourceTypes(categoriesData.source_types.filter(s => (sourceCounts as Record<string, number>)[s.value] > 0))
+    } else {
       setCategories(categoriesData.categories)
       setSourceTypes(categoriesData.source_types)
     }
-  }, [categoriesData])
+  }, [categoriesData, statsData])
+
+  // Дропдауны ориентируются только на статистику (а не на текущую страницу)
 
   useEffect(() => {
     if (statsData) {
@@ -82,6 +90,8 @@ export default function AuthNewsPage() {
   useEffect(() => {
     setCurrentPage(0)
   }, [selectedCategory, selectedSourceType, selectedCompanies, searchQuery, minPriority, selectedDate])
+
+  
 
   const formatDate = (dateString: string) => {
     try {
@@ -265,14 +275,14 @@ export default function AuthNewsPage() {
           {/* Advanced Filters */}
           <div className="relative z-0">
             <h4 className="text-xs sm:text-sm font-medium text-gray-700 mb-2 sm:mb-3">Advanced Filters</h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+            <div className="flex flex-row gap-2">
               {/* Priority Filter */}
               <div className="relative z-0">
                 <Star className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none z-10" />
                 <select
                   value={minPriority || ''}
                   onChange={(e) => setMinPriority(e.target.value ? Number(e.target.value) : undefined)}
-                  className="input pl-10 appearance-none w-full text-sm sm:text-base"
+                  className="input pl-10 appearance-none w-full sm:w-56 text-sm sm:text-base"
                 >
                   <option value="">All Priorities</option>
                   <option value="0.8">High Priority (0.8+)</option>
@@ -286,9 +296,19 @@ export default function AuthNewsPage() {
                 <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none z-10" />
                 <input
                   type="date"
+                  lang="en-US"
                   value={selectedDate}
                   onChange={(e) => setSelectedDate(e.target.value)}
-                  className="input pl-10 w-full text-sm sm:text-base cursor-pointer"
+                  onClick={(e) => (e.currentTarget as HTMLInputElement).showPicker?.()}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      (e.currentTarget as HTMLInputElement).showPicker?.()
+                    }
+                  }}
+                  title="Select date"
+                  placeholder="11.11.2025"
+                  aria-label="Select date"
+                  className="input pl-10 w-full sm:w-56 text-sm sm:text-base cursor-pointer"
                 />
               </div>
             </div>

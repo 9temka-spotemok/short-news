@@ -94,27 +94,63 @@ async def update_current_user(
 
 @router.get("/preferences")
 async def get_user_preferences(
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Get user preferences
     """
-    logger.info("User preferences request")
+    logger.info(f"Get user preferences for user {current_user.id}")
     
-    # TODO: Implement get user preferences
-    # 1. Extract user from JWT token
-    # 2. Query user preferences from database
-    # 3. Return preferences
-    
-    return {
-        "message": "User preferences endpoint - TODO: Implement",
-        "preferences": {
-            "subscribed_companies": [],
-            "interested_categories": [],
-            "keywords": [],
-            "notification_frequency": "daily"
+    try:
+        result = await db.execute(
+            select(UserPreferences).where(UserPreferences.user_id == current_user.id)
+        )
+        preferences = result.scalar_one_or_none()
+        
+        # Create default preferences if they don't exist
+        if not preferences:
+            logger.info(f"Creating default preferences for user {current_user.id}")
+            preferences = UserPreferences(
+                id=uuid.uuid4(),
+                user_id=current_user.id,
+                subscribed_companies=[],
+                interested_categories=[],
+                keywords=[],
+                notification_frequency='daily',
+                digest_enabled=False,
+                digest_frequency='daily',
+                digest_custom_schedule={},
+                digest_format='short',
+                digest_include_summaries=True,
+                telegram_chat_id=None,
+                telegram_enabled=False,
+                timezone='UTC',
+                week_start_day=0
+            )
+            db.add(preferences)
+            await db.commit()
+            await db.refresh(preferences)
+        
+        return {
+            "subscribed_companies": [str(company_id) for company_id in (preferences.subscribed_companies or [])],
+            "interested_categories": [cat.value for cat in (preferences.interested_categories or [])],
+            "keywords": preferences.keywords or [],
+            "notification_frequency": preferences.notification_frequency or "daily",
+            "digest_enabled": preferences.digest_enabled,
+            "digest_frequency": preferences.digest_frequency or "daily",
+            "digest_custom_schedule": preferences.digest_custom_schedule or {},
+            "digest_format": preferences.digest_format or "short",
+            "digest_include_summaries": preferences.digest_include_summaries,
+            "telegram_chat_id": preferences.telegram_chat_id,
+            "telegram_enabled": preferences.telegram_enabled,
+            "timezone": preferences.timezone or "UTC",
+            "week_start_day": preferences.week_start_day or 0
         }
-    }
+        
+    except Exception as e:
+        logger.error(f"Error fetching user preferences: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch user preferences")
 
 
 @router.put("/preferences")
@@ -123,51 +159,164 @@ async def update_user_preferences(
     interested_categories: List[str] = None,
     keywords: List[str] = None,
     notification_frequency: str = None,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Update user preferences
     """
-    logger.info("Update user preferences request")
+    logger.info(f"Update user preferences for user {current_user.id}")
     
-    # TODO: Implement update user preferences
-    # 1. Extract user from JWT token
-    # 2. Validate input data
-    # 3. Update preferences in database
-    # 4. Return updated preferences
-    
-    return {
-        "message": "Update preferences endpoint - TODO: Implement",
-        "preferences": {
-            "subscribed_companies": subscribed_companies or [],
-            "interested_categories": interested_categories or [],
-            "keywords": keywords or [],
-            "notification_frequency": notification_frequency or "daily"
+    try:
+        result = await db.execute(
+            select(UserPreferences).where(UserPreferences.user_id == current_user.id)
+        )
+        preferences = result.scalar_one_or_none()
+        
+        # Create default preferences if they don't exist
+        if not preferences:
+            logger.info(f"Creating default preferences for user {current_user.id}")
+            preferences = UserPreferences(
+                id=uuid.uuid4(),
+                user_id=current_user.id,
+                subscribed_companies=[],
+                interested_categories=[],
+                keywords=[],
+                notification_frequency='daily',
+                digest_enabled=False,
+                digest_frequency='daily',
+                digest_custom_schedule={},
+                digest_format='short',
+                digest_include_summaries=True,
+                telegram_chat_id=None,
+                telegram_enabled=False,
+                timezone='UTC',
+                week_start_day=0
+            )
+            db.add(preferences)
+        
+        # Update preferences
+        if subscribed_companies is not None:
+            # Convert string IDs to UUIDs
+            try:
+                preferences.subscribed_companies = [uuid.UUID(company_id) for company_id in subscribed_companies]
+            except ValueError as e:
+                raise HTTPException(status_code=400, detail=f"Invalid company ID format: {e}")
+        
+        if interested_categories is not None:
+            # Convert string categories to enum values
+            from app.models.news import NewsCategory
+            try:
+                preferences.interested_categories = [NewsCategory(cat) for cat in interested_categories]
+            except ValueError as e:
+                raise HTTPException(status_code=400, detail=f"Invalid category: {e}")
+        
+        if keywords is not None:
+            preferences.keywords = keywords
+        
+        if notification_frequency is not None:
+            if notification_frequency not in ['realtime', 'daily', 'weekly', 'never']:
+                raise HTTPException(status_code=400, detail="Invalid notification frequency")
+            preferences.notification_frequency = notification_frequency
+        
+        await db.commit()
+        await db.refresh(preferences)
+        
+        return {
+            "status": "success",
+            "preferences": {
+                "subscribed_companies": [str(company_id) for company_id in (preferences.subscribed_companies or [])],
+                "interested_categories": [cat.value for cat in (preferences.interested_categories or [])],
+                "keywords": preferences.keywords or [],
+                "notification_frequency": preferences.notification_frequency or "daily"
+            }
         }
-    }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating user preferences: {e}")
+        await db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to update user preferences")
 
 
 @router.post("/companies/{company_id}/subscribe")
 async def subscribe_to_company(
     company_id: str,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Subscribe to a company
     """
-    logger.info(f"Subscribe to company: {company_id}")
+    logger.info(f"Subscribe to company {company_id} for user {current_user.id}")
     
-    # TODO: Implement subscribe to company
-    # 1. Extract user from JWT token
-    # 2. Verify company exists
-    # 3. Add company to user's subscriptions
-    # 4. Return success
-    
-    return {
-        "message": "Subscribe to company endpoint - TODO: Implement",
-        "company_id": company_id,
-        "status": "subscribed"
-    }
+    try:
+        # Validate company ID format
+        try:
+            company_uuid = uuid.UUID(company_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid company ID format")
+        
+        # Verify company exists
+        from app.models.company import Company
+        result = await db.execute(
+            select(Company).where(Company.id == company_uuid)
+        )
+        company = result.scalar_one_or_none()
+        
+        if not company:
+            raise HTTPException(status_code=404, detail="Company not found")
+        
+        # Get user preferences
+        result = await db.execute(
+            select(UserPreferences).where(UserPreferences.user_id == current_user.id)
+        )
+        preferences = result.scalar_one_or_none()
+        
+        # Create default preferences if they don't exist
+        if not preferences:
+            logger.info(f"Creating default preferences for user {current_user.id}")
+            preferences = UserPreferences(
+                id=uuid.uuid4(),
+                user_id=current_user.id,
+                subscribed_companies=[],
+                interested_categories=[],
+                keywords=[],
+                notification_frequency='daily',
+                digest_enabled=False,
+                digest_frequency='daily',
+                digest_custom_schedule={},
+                digest_format='short',
+                digest_include_summaries=True,
+                telegram_chat_id=None,
+                telegram_enabled=False,
+                timezone='UTC',
+                week_start_day=0
+            )
+            db.add(preferences)
+        
+        # Add company to subscriptions if not already subscribed
+        if not preferences.subscribed_companies:
+            preferences.subscribed_companies = []
+        
+        if company_uuid not in preferences.subscribed_companies:
+            preferences.subscribed_companies.append(company_uuid)
+            await db.commit()
+        
+        return {
+            "status": "success",
+            "company_id": company_id,
+            "company_name": company.name,
+            "message": "Successfully subscribed to company"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error subscribing to company: {e}")
+        await db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to subscribe to company")
 
 
 @router.delete("/companies/{company_id}/unsubscribe")

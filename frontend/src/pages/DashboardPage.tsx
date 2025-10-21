@@ -1,10 +1,14 @@
 import CompanyMultiSelect from '@/components/CompanyMultiSelect'
-import api from '@/services/api'
+import TrackedCompaniesManager from '@/components/TrackedCompaniesManager'
+import { useNewsAnalytics } from '@/hooks/useNews'
+import api, { ApiService } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
+import { useQuery } from '@tanstack/react-query'
 import { formatDistance } from 'date-fns'
 import { enUS } from 'date-fns/locale'
 import { Bell, Calendar, Filter, Search, TrendingUp } from 'lucide-react'
 import { useEffect, useState } from 'react'
+ 
 
 interface NewsItem {
   id: string
@@ -23,7 +27,6 @@ interface NewsItem {
 }
 
 interface DashboardStats {
-  totalCompanies: number
   todayNews: number
   totalNews: number
   categoriesBreakdown: { category: string; count: number; percentage: number }[]
@@ -52,11 +55,19 @@ export default function DashboardPage() {
   const [selectedCategory, setSelectedCategory] = useState('')
   const [selectedCompanies, setSelectedCompanies] = useState<string[]>([])
   const [selectedDate, setSelectedDate] = useState('')
+  const [availableCategories, setAvailableCategories] = useState<{ value: string; description: string }[]>([])
+  const [showAllCategories, setShowAllCategories] = useState(false)
+  const [showAllCompanies, setShowAllCompanies] = useState(false)
+  const [showTrackedOnly, setShowTrackedOnly] = useState(false) // Переключатель: все новости (false) / только отслеживаемые компании (true)
+  // Notifications are handled globally in NotificationCenter
   
   // Digest state
   const [digest, setDigest] = useState<DigestData | null>(null)
   const [digestLoading, setDigestLoading] = useState(false)
   const [digestError, setDigestError] = useState<string | null>(null)
+  
+  // Use news analytics for comprehensive statistics
+  const { stats: allStats, categoryTrends } = useNewsAnalytics()
   
   // Debug authentication state
   useEffect(() => {
@@ -93,10 +104,44 @@ export default function DashboardPage() {
     'feature_deprecation': 'Feature Deprecations',
   }
 
+  // Load categories/source types metadata
+  const { data: categoriesData } = useQuery({
+    queryKey: ['news-categories'],
+    queryFn: ApiService.getNewsCategories,
+    staleTime: 1000 * 60 * 60,
+  })
+
+  // Load user preferences for personalization
+  const { data: userPreferences } = useQuery({
+    queryKey: ['user-preferences'],
+    queryFn: ApiService.getUserPreferences,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  })
+
   useEffect(() => {
     fetchDashboardData()
+  }, [userPreferences?.subscribed_companies, showTrackedOnly])
+
+  // Listen for global refresh event from NotificationCenter
+  useEffect(() => {
+    const handler = () => {
+      fetchDashboardData()
+    }
+    window.addEventListener('app:refresh-news', handler as EventListener)
+    return () => window.removeEventListener('app:refresh-news', handler as EventListener)
   }, [])
   
+  // Recompute available categories based on recentNews usage
+  useEffect(() => {
+    if (!categoriesData) return
+    const used = new Set(recentNews.map((n) => n.category).filter(Boolean))
+    const all = categoriesData.categories
+    const filtered = all.filter((c: any) => used.has(c.value))
+    setAvailableCategories(showAllCategories ? all : filtered)
+  }, [categoriesData, recentNews, showAllCategories])
+
+  // Уведомления перенесены в глобальный NotificationCenter
+
   // Refetch when filters change on news tab
   useEffect(() => {
     if (activeTab === 'news') {
@@ -108,37 +153,61 @@ export default function DashboardPage() {
     try {
       setLoading(true)
       
-      // Fetch recent news
-      const newsResponse = await api.get('/news/', { params: { limit: 20 } })
+      // Build query parameters for news
+      const params: any = { limit: 20 }
+      
+      // Apply company filter only if user wants to see tracked companies AND has them
+      if (showTrackedOnly && userPreferences?.subscribed_companies?.length) {
+        params.companies = userPreferences.subscribed_companies.join(',')
+      }
+      
+      // Fetch news
+      const newsResponse = await api.get('/news/', { params })
       setRecentNews(newsResponse.data.items)
       
-      // Calculate stats
-      const total = newsResponse.data.total
+      // Calculate stats from loaded news (for today's news count)
       const items = newsResponse.data.items
+      const todayNews = items.filter((item: NewsItem) => {
+        const published = new Date(item.published_at || item.created_at)
+        const today = new Date()
+        return published.toDateString() === today.toDateString()
+      }).length
       
-      // Count by category
-      const categoryCount: Record<string, number> = {}
-      items.forEach((item: NewsItem) => {
-        const cat = item.category || 'other'
-        categoryCount[cat] = (categoryCount[cat] || 0) + 1
-      })
+      // Use stats based on current mode
+      let categoriesBreakdown
+      let totalNews
       
-      const categoriesBreakdown = Object.entries(categoryCount)
-        .map(([category, count]) => ({
-          category: categoryLabels[category] || category,
-          count,
-          percentage: total > 0 ? Math.round((count / total) * 100) : 0
+      if (showTrackedOnly) {
+        // Build stats from loaded news (for tracked companies)
+        const categoryCount: Record<string, number> = {}
+        items.forEach((item: NewsItem) => {
+          const cat = item.category || 'other'
+          categoryCount[cat] = (categoryCount[cat] || 0) + 1
+        })
+        
+        const total = newsResponse.data.total
+        categoriesBreakdown = Object.entries(categoryCount)
+          .map(([category, count]) => ({
+            category: categoryLabels[category] || category,
+            count,
+            percentage: total > 0 ? Math.round((count / total) * 100) : 0
+          }))
+          .sort((a, b) => b.count - a.count)
+        
+        totalNews = total
+      } else {
+        // Use comprehensive stats from API for all news
+        categoriesBreakdown = categoryTrends.map(trend => ({
+          category: trend.category,
+          count: trend.count,
+          percentage: Math.round(trend.percentage)
         }))
-        .sort((a, b) => b.count - a.count)
+        totalNews = allStats?.total_count || newsResponse.data.total
+      }
       
       setStats({
-        totalCompanies: 10, // Known from seed
-        todayNews: items.filter((item: NewsItem) => {
-          const published = new Date(item.published_at || item.created_at)
-          const today = new Date()
-          return published.toDateString() === today.toDateString()
-        }).length,
-        totalNews: total,
+        todayNews,
+        totalNews,
         categoriesBreakdown
       })
       
@@ -235,9 +304,42 @@ export default function DashboardPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Dashboard
-          </h1>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">Dashboard</h1>
+              <div className="flex items-center space-x-4">
+                {userPreferences?.subscribed_companies?.length ? (
+                  <p className="text-gray-600">
+                    {showTrackedOnly ? `Personalized for ${userPreferences.subscribed_companies.length} tracked companies` : 'Showing all news'}
+                  </p>
+                ) : (
+                  <p className="text-gray-600">
+                    Showing all news • <span className="text-primary-600">Add companies to personalize</span>
+                  </p>
+                )}
+                
+                {/* Toggle Switch */}
+                {userPreferences?.subscribed_companies?.length && (
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm text-gray-600">All News</span>
+                    <button
+                      onClick={() => setShowTrackedOnly(!showTrackedOnly)}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                        showTrackedOnly ? 'bg-primary-600' : 'bg-gray-200'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          showTrackedOnly ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                    <span className="text-sm text-gray-600">Tracked Only</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Tabs */}
@@ -270,19 +372,7 @@ export default function DashboardPage() {
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  <div className="card p-6">
-                    <div className="flex items-center">
-                      <div className="w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center">
-                        <TrendingUp className="h-6 w-6 text-primary-600" />
-                      </div>
-                      <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-600">Tracked Companies</p>
-                        <p className="text-2xl font-bold text-gray-900">{stats?.totalCompanies || 0}</p>
-                      </div>
-                    </div>
-                  </div>
-
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   <div className="card p-6">
                     <div className="flex items-center">
                       <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
@@ -320,13 +410,23 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
+                {/* Tracked Companies Manager */}
+                <TrackedCompaniesManager />
+
                 {/* Recent News and Categories */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                   {/* Recent News */}
                   <div className="card p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                      Recent News
-                    </h3>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold text-gray-900">
+                        Recent News
+                        {/* {userPreferences?.subscribed_companies?.length && showTrackedOnly && (
+                          <span className="ml-2 text-sm font-normal text-primary-600">
+                            (from tracked companies)
+                          </span>
+                        )} */}
+                      </h3>
+                    </div>
                     <div className="space-y-4">
                       {recentNews.slice(0, 5).map((item) => (
                         <div key={item.id} className="flex items-start space-x-3">
@@ -362,23 +462,42 @@ export default function DashboardPage() {
                     </div>
                   </div>
 
-                  {/* Popular Categories */}
+                  {/* Top Categories */}
                   <div className="card p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                      Popular Categories
-                    </h3>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                        <TrendingUp className="h-5 w-5 mr-2 text-green-600" />
+                        Top Categories
+                        {/* {userPreferences?.subscribed_companies?.length && showTrackedOnly && (
+                          <span className="ml-2 text-sm font-normal text-primary-600">
+                            (from tracked companies)
+                          </span>
+                        )} */}
+                        {!showTrackedOnly && (
+                          <span className="ml-2 text-sm font-normal text-gray-600">
+                            (all news)
+                          </span>
+                        )}
+                      </h3>
+                    </div>
                     <div className="space-y-3">
-                      {stats?.categoriesBreakdown.slice(0, 4).map((category) => (
+                      {stats?.categoriesBreakdown.map((category, index) => (
                         <div key={category.category} className="flex items-center justify-between">
-                          <span className="text-sm text-gray-700">{category.category}</span>
+                          <div className="flex items-center">
+                            <span className="text-sm font-medium text-gray-500 w-6">
+                              #{index + 1}
+                            </span>
+                            <span className="text-sm font-medium text-gray-900 ml-2">
+                              {category.category}
+                            </span>
+                          </div>
                           <div className="flex items-center space-x-2">
-                            <div className="w-16 h-2 bg-gray-200 rounded-full">
-                              <div
-                                className="h-2 bg-primary-600 rounded-full"
-                                style={{ width: `${category.percentage}%` }}
-                              ></div>
-                            </div>
-                            <span className="text-xs text-gray-500">{category.count}</span>
+                            <span className="text-sm text-gray-500">
+                              {category.count}
+                            </span>
+                            <span className="text-xs text-gray-400">
+                              ({category.percentage}%)
+                            </span>
                           </div>
                         </div>
                       ))}
@@ -410,27 +529,18 @@ export default function DashboardPage() {
                   value={selectedCategory}
                   onChange={(e) => setSelectedCategory(e.target.value)}
                 >
-                  <option value="">All Categories</option>
-                  <option value="product_update">Product Updates</option>
-                  <option value="technical_update">Technical Updates</option>
-                  <option value="strategic_announcement">Strategic Announcements</option>
-                  <option value="funding_news">Funding News</option>
-                  <option value="pricing_change">Pricing Changes</option>
-                  <option value="research_paper">Research Papers</option>
-                  <option value="community_event">Community Events</option>
-                  <option value="partnership">Partnerships</option>
-                  <option value="acquisition">Acquisitions</option>
-                  <option value="integration">Integrations</option>
-                  <option value="security_update">Security Updates</option>
-                  <option value="api_update">API Updates</option>
-                  <option value="model_release">Model Releases</option>
-                  <option value="performance_improvement">Performance Improvements</option>
-                  <option value="feature_deprecation">Feature Deprecations</option>
+                  <option value="">Все категории</option>
+                  {availableCategories.map((cat) => (
+                    <option key={cat.value} value={cat.value}>
+                      {categoryLabels[cat.value] || cat.description || cat.value}
+                    </option>
+                  ))}
                 </select>
                 <CompanyMultiSelect
                   selectedCompanies={selectedCompanies}
                   onSelectionChange={setSelectedCompanies}
-                  placeholder="Select companies..."
+                  placeholder="Выберите компании..."
+                  availableCompanyIds={showAllCompanies ? undefined : Array.from(new Set(recentNews.map((n) => n.company?.id).filter((id): id is string => Boolean(id))))}
                 />
                 <input 
                   type="date" 
@@ -438,6 +548,26 @@ export default function DashboardPage() {
                   value={selectedDate}
                   onChange={(e) => setSelectedDate(e.target.value)}
                 />
+              </div>
+              <div className="flex items-center gap-3 mt-2">
+                <label className="text-xs text-gray-600 inline-flex items-center gap-1">
+                  <input
+                    type="checkbox"
+                    className="mr-1"
+                    checked={showAllCategories}
+                    onChange={(e) => setShowAllCategories(e.target.checked)}
+                  />
+                  Показать все категории
+                </label>
+                <label className="text-xs text-gray-600 inline-flex items-center gap-1">
+                  <input
+                    type="checkbox"
+                    className="mr-1"
+                    checked={showAllCompanies}
+                    onChange={(e) => setShowAllCompanies(e.target.checked)}
+                  />
+                  Показать все компании
+                </label>
               </div>
               {(selectedCategory || selectedCompanies.length > 0 || selectedDate) && (
                 <div className="mt-4 flex items-center justify-between">

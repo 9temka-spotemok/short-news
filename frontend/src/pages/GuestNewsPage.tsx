@@ -55,10 +55,9 @@ export default function GuestNewsPage() {
   })
 
   useEffect(() => {
-    if (categoriesData) {
-      setCategories(categoriesData.categories)
-      setSourceTypes(categoriesData.source_types)
-    }
+    if (!categoriesData) return
+    setCategories(categoriesData.categories)
+    setSourceTypes(categoriesData.source_types)
   }, [categoriesData])
 
   // Reset page when filters change

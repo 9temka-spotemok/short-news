@@ -11,6 +11,7 @@ from urllib.parse import urljoin, urlparse
 import re
 
 from app.core.config import settings
+from app.models.news import NewsCategory
 
 
 class UniversalBlogScraper:
@@ -154,6 +155,43 @@ class UniversalBlogScraper:
                         elif '/press/' in article['url'].lower():
                             source_type = 'press_release'
                         
+                        # Infer category from title heuristics
+                        title_lower = article['title'].lower()
+                        inferred_category = None
+                        try:
+                            if any(k in title_lower for k in ['price', 'pricing', 'plan', 'billing']):
+                                inferred_category = NewsCategory.PRICING_CHANGE.value
+                            elif any(k in title_lower for k in ['funding', 'seed', 'series a', 'series b', 'investment']):
+                                inferred_category = NewsCategory.FUNDING_NEWS.value
+                            elif any(k in title_lower for k in ['release', 'launched', 'launch', 'introducing']):
+                                inferred_category = NewsCategory.PRODUCT_UPDATE.value
+                            elif any(k in title_lower for k in ['security', 'vulnerability', 'patch', 'cve']):
+                                inferred_category = NewsCategory.SECURITY_UPDATE.value
+                            elif any(k in title_lower for k in ['api', 'sdk']):
+                                inferred_category = NewsCategory.API_UPDATE.value
+                            elif any(k in title_lower for k in ['integration', 'integrates with']):
+                                inferred_category = NewsCategory.INTEGRATION.value
+                            elif any(k in title_lower for k in ['deprecated', 'deprecation', 'sunset']):
+                                inferred_category = NewsCategory.FEATURE_DEPRECATION.value
+                            elif any(k in title_lower for k in ['acquires', 'acquisition', 'merger']):
+                                inferred_category = NewsCategory.ACQUISITION.value
+                            elif any(k in title_lower for k in ['partner', 'partnership']):
+                                inferred_category = NewsCategory.PARTNERSHIP.value
+                            elif any(k in title_lower for k in ['model', 'gpt', 'llama', 'release']):
+                                inferred_category = NewsCategory.MODEL_RELEASE.value
+                            elif any(k in title_lower for k in ['performance', 'faster', 'improvement']):
+                                inferred_category = NewsCategory.PERFORMANCE_IMPROVEMENT.value
+                            elif any(k in title_lower for k in ['paper', 'arxiv', 'research']):
+                                inferred_category = NewsCategory.RESEARCH_PAPER.value
+                            elif any(k in title_lower for k in ['webinar', 'event', 'conference', 'meetup']):
+                                inferred_category = NewsCategory.COMMUNITY_EVENT.value
+                            elif any(k in title_lower for k in ['strategy', 'vision', 'roadmap']):
+                                inferred_category = NewsCategory.STRATEGIC_ANNOUNCEMENT.value
+                            elif any(k in title_lower for k in ['technical', 'architecture', 'infra', 'infrastructure']):
+                                inferred_category = NewsCategory.TECHNICAL_UPDATE.value
+                        except Exception:
+                            inferred_category = None
+
                         news_items.append({
                             'title': article['title'],
                             'content': f"Article from {company_name}: {article['title']}",
@@ -161,7 +199,7 @@ class UniversalBlogScraper:
                             'source_url': article['url'],
                             'source_type': source_type,
                             'company_name': company_name,
-                            'category': 'product_update',
+                            'category': inferred_category or NewsCategory.PRODUCT_UPDATE.value,
                             'published_at': datetime.now() - timedelta(days=idx),
                         })
                     

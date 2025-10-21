@@ -1,5 +1,6 @@
 import { Bell, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import toast from 'react-hot-toast'
 import api from '../services/api'
 import { Notification } from '../types'
 
@@ -8,22 +9,88 @@ export default function NotificationCenter() {
   const [unreadCount, setUnreadCount] = useState(0)
   const [isOpen, setIsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [lastSeenLatestPublishedAt, setLastSeenLatestPublishedAt] = useState<string | null>(null)
 
   useEffect(() => {
+    // Initialize last seen from localStorage to avoid missing first toast
+    const stored = localStorage.getItem('lastSeenNewsTs')
+    if (stored) {
+      setLastSeenLatestPublishedAt(stored)
+    }
+
     fetchUnreadNotifications()
+    checkLatestNews()
     
-    // Poll for new notifications every 30 seconds
-    const interval = setInterval(fetchUnreadNotifications, 30000)
-    return () => clearInterval(interval)
+    // Poll for unread notifications and latest news
+    const notifInterval = setInterval(fetchUnreadNotifications, 30000)
+    const newsInterval = setInterval(checkLatestNews, 90000)
+    return () => {
+      clearInterval(notifInterval)
+      clearInterval(newsInterval)
+    }
   }, [])
 
   const fetchUnreadNotifications = async () => {
     try {
       const response = await api.get('/notifications/unread')
       setNotifications(response.data.notifications)
-      setUnreadCount(response.data.unread_count)
+      setUnreadCount((prev: number) => {
+        const base = response.data.unread_count as number
+        // preserve any extra badge from latest news detection until user opens panel
+        const extra = Math.max(0, prev - base)
+        return base + extra
+      })
     } catch (error) {
       console.error('Error fetching notifications:', error)
+    }
+  }
+
+  // Lightweight latest news polling integrated into the bell
+  const checkLatestNews = async () => {
+    try {
+      const res = await api.get('/news/', { params: { limit: 5 } })
+      const items = res?.data?.items || []
+      if (!items.length) return
+      const latest = items[0]
+      const latestTs: string | undefined = latest.published_at || latest.created_at
+      if (!latestTs) return
+
+      // If first run and no stored lastSeen, initialize without toasting
+      if (!lastSeenLatestPublishedAt && !localStorage.getItem('lastSeenNewsTs')) {
+        setLastSeenLatestPublishedAt(latestTs)
+        localStorage.setItem('lastSeenNewsTs', latestTs)
+        return
+      }
+
+      if (lastSeenLatestPublishedAt && new Date(latestTs) > new Date(lastSeenLatestPublishedAt)) {
+        const newerCount = items.filter((n: any) => {
+          const ts = n.published_at || n.created_at
+          return ts && new Date(ts) > new Date(lastSeenLatestPublishedAt)
+        }).length
+        if (newerCount > 0) setUnreadCount((c) => c + newerCount)
+
+        toast((t) => (
+          <div className="text-sm">
+            Появились новые новости.
+            <button
+              className="ml-3 text-primary-600 font-medium"
+              onClick={() => {
+                window.dispatchEvent(new CustomEvent('app:refresh-news'))
+                // Mark latest as seen on refresh
+                setLastSeenLatestPublishedAt(latestTs)
+                localStorage.setItem('lastSeenNewsTs', latestTs)
+                toast.dismiss(t.id)
+              }}
+            >
+              Обновить
+            </button>
+          </div>
+        ))
+      }
+      setLastSeenLatestPublishedAt(latestTs)
+      localStorage.setItem('lastSeenNewsTs', latestTs)
+    } catch (err) {
+      // ignore
     }
   }
 
@@ -79,7 +146,16 @@ export default function NotificationCenter() {
     <div className="relative">
       {/* Notification Bell Icon */}
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => {
+          const next = !isOpen
+          setIsOpen(next)
+          // When opening, mark current latest as seen to reset extra badge
+          if (next && lastSeenLatestPublishedAt) {
+            localStorage.setItem('lastSeenNewsTs', lastSeenLatestPublishedAt)
+          }
+          // Refresh server unread count
+          fetchUnreadNotifications()
+        }}
         className="relative p-2 hover:bg-gray-100 rounded-full transition-colors"
       >
         <Bell className="w-6 h-6 text-gray-700" />

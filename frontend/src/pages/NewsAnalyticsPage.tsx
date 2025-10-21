@@ -7,7 +7,7 @@ import { useState } from 'react'
 export default function NewsAnalyticsPage() {
   const [selectedCategory, setSelectedCategory] = useState<NewsCategory | ''>('')
   const [selectedSourceType, setSelectedSourceType] = useState<SourceType | ''>('')
-  const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d'>('30d')
+  // const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d'>('30d')
 
   const {
     stats,
@@ -18,6 +18,14 @@ export default function NewsAnalyticsPage() {
     sourceTrends,
     refetch
   } = useNewsAnalytics()
+
+  // Use only categories/sources that exist in stats
+  const filteredCategories = (categories?.categories || []).filter((c) =>
+    stats && (stats.category_counts as any)?.[c.value] > 0
+  )
+  const filteredSourceTypes = (categories?.source_types || []).filter((s) =>
+    stats && (stats.source_type_counts as any)?.[s.value] > 0
+  )
 
   // Get recent news for selected filters
   const { data: recentNews, isLoading: newsLoading } = useNews({
@@ -114,7 +122,7 @@ export default function NewsAnalyticsPage() {
             className="input w-full"
           >
             <option value="">All Categories</option>
-            {categories?.categories.map((category) => (
+            {filteredCategories.map((category) => (
               <option key={category.value} value={category.value}>
                 {category.description}
               </option>
@@ -135,7 +143,7 @@ export default function NewsAnalyticsPage() {
             className="input w-full"
           >
             <option value="">All Sources</option>
-            {categories?.source_types.map((sourceType) => (
+            {filteredSourceTypes.map((sourceType) => (
               <option key={sourceType.value} value={sourceType.value}>
                 {sourceType.description}
               </option>
@@ -232,12 +240,12 @@ export default function NewsAnalyticsPage() {
             Recent News
             {selectedCategory && (
               <span className="ml-2 badge badge-primary">
-                {categories?.categories.find(c => c.value === selectedCategory)?.description}
+                {filteredCategories.find(c => c.value === selectedCategory)?.description || selectedCategory}
               </span>
             )}
             {selectedSourceType && (
               <span className="ml-2 badge badge-secondary">
-                {categories?.source_types.find(s => s.value === selectedSourceType)?.description}
+                {filteredSourceTypes.find(s => s.value === selectedSourceType)?.description || selectedSourceType}
               </span>
             )}
           </h3>

@@ -1,11 +1,11 @@
 import { ApiService } from '@/services/api'
 import type {
-    NewsCategory,
-    NewsCategoryInfo,
-    NewsSearchResponse,
-    SearchRequest,
-    SourceType,
-    SourceTypeInfo
+  NewsCategory,
+  NewsCategoryInfo,
+  NewsSearchResponse,
+  SearchRequest,
+  SourceType,
+  SourceTypeInfo
 } from '@/types'
 import { useQuery } from '@tanstack/react-query'
 import { Clock, FileText, Filter, Search, Star, X } from 'lucide-react'
@@ -37,6 +37,13 @@ export default function NewsSearch({
     staleTime: 1000 * 60 * 60, // 1 hour
   })
 
+  // Fetch news stats to determine which categories/source types actually exist
+  const { data: statsData } = useQuery({
+    queryKey: ['news-stats'],
+    queryFn: ApiService.getNewsStats,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  })
+
   // Search query
   const {
     data: searchResults,
@@ -63,11 +70,25 @@ export default function NewsSearch({
   })
 
   useEffect(() => {
-    if (categoriesData) {
-      setCategories(categoriesData.categories)
-      setSourceTypes(categoriesData.source_types)
-    }
-  }, [categoriesData])
+    if (!searchResults || !categoriesData) return
+    const items = searchResults.items || []
+    if (items.length === 0) return
+  
+    const usedCategories = new Set<string>(
+      items.map((i: any) => i.category).filter(Boolean)
+    )
+    const usedSources = new Set<string>(
+      items.map((i: any) => i.source_type).filter(Boolean)
+    )
+  
+    const filteredCats = categoriesData.categories.filter((c) => usedCategories.has(c.value))
+    const filteredSources = categoriesData.source_types.filter((s) => usedSources.has(s.value))
+  
+    if (filteredCats.length > 0) setCategories(filteredCats)
+    if (filteredSources.length > 0) setSourceTypes(filteredSources)
+  }, [searchResults, categoriesData])
+
+  // Дропдауны ориентируются только на статистику (а не на текущую выдачу)
 
   useEffect(() => {
     if (onLoading) {

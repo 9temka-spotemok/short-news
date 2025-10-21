@@ -30,12 +30,12 @@ async def simulate_digest_button_click():
         keyboard = {
             "inline_keyboard": [
                 [
-                    {"text": "📅 Дневной дайджест", "callback_data": "digest_daily"},
-                    {"text": "📊 Недельный дайджест", "callback_data": "digest_weekly"}
+                    {"text": "📅 Daily digest", "callback_data": "digest_daily"},
+                    {"text": "📊 Weekly digest", "callback_data": "digest_weekly"}
                 ],
                 [
-                    {"text": "⚙️ Настройки", "callback_data": "settings_view"},
-                    {"text": "📚 Помощь", "callback_data": "help"}
+                    {"text": "⚙️ Settings", "callback_data": "settings_view"},
+                    {"text": "📚 Help", "callback_data": "help"}
                 ]
             ]
         }
@@ -62,21 +62,21 @@ async def simulate_digest_button_click():
             
             if not user_prefs:
                 print("❌ User not found or Telegram not enabled")
-                await telegram_service.send_digest(chat_id, "❌ Пользователь не найден или Telegram не настроен.")
+                await telegram_service.send_digest(chat_id, "❌ User not found or Telegram not configured.")
                 return
             
             print(f"✅ User found: {user_prefs.user_id}")
             
             # Simulate daily digest button click
             print("\n📅 Simulating daily digest button click...")
-            await telegram_service.send_digest(chat_id, "🔄 Генерирую дневной дайджест...")
+            await telegram_service.send_digest(chat_id, "🔄 Generating a daily digest...")
             
             task = generate_user_digest.delay(str(user_prefs.user_id), "daily")
             print(f"✅ Daily digest task created: {task.id}")
             
             # Simulate weekly digest button click
             print("\n📊 Simulating weekly digest button click...")
-            await telegram_service.send_digest(chat_id, "🔄 Генерирую недельный дайджест...")
+            await telegram_service.send_digest(chat_id, "🔄 Generating a weekly digest...")
             
             task = generate_user_digest.delay(str(user_prefs.user_id), "weekly")
             print(f"✅ Weekly digest task created: {task.id}")
@@ -96,7 +96,7 @@ async def simulate_digest_button_click():
                 print(f"⏳ Task still running: {task.state}")
             
             # Send completion message
-            await telegram_service.send_digest(chat_id, "✅ Дайджесты генерируются в фоне и будут отправлены в ближайшее время!")
+            await telegram_service.send_digest(chat_id, "✅ Digests are being generated in the background and will be sent shortly!")
             
     except Exception as e:
         print(f"❌ Error: {e}")
@@ -104,7 +104,7 @@ async def simulate_digest_button_click():
         traceback.print_exc()
         
         # Send error message to user
-        await telegram_service.send_digest(chat_id, f"❌ Ошибка при тестировании: {str(e)}")
+        await telegram_service.send_digest(chat_id, f"❌ Testing error: {str(e)}")
 
 async def main():
     """Main test function"""

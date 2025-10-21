@@ -91,7 +91,7 @@ class TelegramPolling:
                         await telegram_service.send_digest(chat_id, response)
             except Exception as db_error:
                 logger.error(f"Database error handling message: {db_error}")
-                await telegram_service.send_digest(chat_id, "❌ Ошибка подключения к базе данных. Попробуйте позже.")
+                await telegram_service.send_digest(chat_id, "❌ Database connection error. Please try again later.")
                     
         except Exception as e:
             logger.error(f"Error handling message: {e}")
@@ -126,7 +126,7 @@ class TelegramPolling:
                         await self.handle_main_menu_callback(chat_id, db)
             except Exception as db_error:
                 logger.error(f"Database error handling callback: {db_error}")
-                await telegram_service.send_digest(chat_id, "❌ Ошибка подключения к базе данных. Попробуйте позже.")
+                await telegram_service.send_digest(chat_id, "❌ Database connection error. Please try again later.")
                     
         except Exception as e:
             logger.error(f"Error handling callback query: {e}")
@@ -149,29 +149,29 @@ class TelegramPolling:
             
             if not user_prefs:
                 error_text = (
-                    "❌ Пользователь не найден или Telegram не настроен.\n\n"
-                    "Убедитесь, что вы:\n"
-                    "1. Добавили Chat ID в настройки профиля\n"
-                    "2. Включили отправку в Telegram\n"
-                    "3. Настроили дайджесты\n\n"
-                    f"Ваш Chat ID: `{chat_id}`"
+                    "❌ User not found or Telegram not configured.\n\n"
+                    "Make sure you:\n"
+                    "1. Added Chat ID to your profile settings\n"
+                    "2. Enabled Telegram notifications\n"
+                    "3. Configured digests\n\n"
+                    f"Your Chat ID: `{chat_id}`"
                 )
                 await telegram_service.send_digest(chat_id, error_text)
                 return
             
             # Send processing message
-            await telegram_service.send_digest(chat_id, "🔄 Генерирую дайджест...")
+            await telegram_service.send_digest(chat_id, "🔄 Generating digest...")
             
             # Generate digest using Celery task
             task = generate_user_digest.delay(str(user_prefs.user_id), digest_type)
             logger.info(f"Digest generation task started: {task.id} for user {user_prefs.user_id}")
             
             # Send completion message
-            await telegram_service.send_digest(chat_id, "✅ Дайджест генерируется в фоне и будет отправлен в ближайшее время!")
+            await telegram_service.send_digest(chat_id, "✅ Digest is being generated in the background and will be sent shortly!")
             
         except Exception as e:
             logger.error(f"Error handling digest callback: {e}")
-            await telegram_service.send_digest(chat_id, "❌ Ошибка при генерации дайджеста")
+            await telegram_service.send_digest(chat_id, "❌ Error generating digest")
     
     async def handle_settings_callback(self, chat_id: str, db):
         """Handle settings callback"""
@@ -186,18 +186,18 @@ class TelegramPolling:
             
             if user_prefs:
                 settings_text = (
-                    f"⚙️ **Настройки**\n\n"
+                    f"⚙️ **Settings**\n\n"
                     f"Chat ID: `{chat_id}`\n"
-                    f"Дайджесты: {'✅' if user_prefs.digest_enabled else '❌'}\n"
-                    f"Частота: {user_prefs.digest_frequency or 'Не настроено'}\n"
-                    f"Формат: {user_prefs.digest_format or 'Не настроено'}\n\n"
-                    "Для изменения настроек используйте веб-приложение."
+                    f"Digests: {'✅' if user_prefs.digest_enabled else '❌'}\n"
+                    f"Frequency: {user_prefs.digest_frequency or 'Not configured'}\n"
+                    f"Format: {user_prefs.digest_format or 'Not configured'}\n\n"
+                    "Use the web application to change settings."
                 )
             else:
                 settings_text = (
-                    "⚙️ **Настройки**\n\n"
+                    "⚙️ **Settings**\n\n"
                     f"Chat ID: `{chat_id}`\n\n"
-                    "Пользователь не найден. Настройте профиль в веб-приложении."
+                    "User not found. Configure your profile in the web application."
                 )
             
             await telegram_service.send_digest(chat_id, settings_text)
@@ -209,16 +209,16 @@ class TelegramPolling:
         """Handle help callback"""
         try:
             help_text = (
-                "📚 **Доступные команды:**\n\n"
-                "/start - Начать работу и получить Chat ID\n"
-                "/help - Показать эту справку\n"
-                "/digest - Получить дайджест\n"
-                "/settings - Показать настройки\n\n"
-                "**Интерактивные кнопки:**\n"
-                "📅 Дневной дайджест - Получить дайджест за день\n"
-                "📊 Недельный дайджест - Получить дайджест за неделю\n"
-                "⚙️ Настройки - Показать текущие настройки\n\n"
-                "Для настройки персонализированных дайджестов используйте веб-приложение."
+                "📚 **Available commands:**\n\n"
+                "/start - Start and get Chat ID\n"
+                "/help - Show this help\n"
+                "/digest - Get digest\n"
+                "/settings - Show settings\n\n"
+                "**Interactive buttons:**\n"
+                "📅 Daily digest - Get daily digest\n"
+                "📊 Weekly digest - Get weekly digest\n"
+                "⚙️ Settings - Show current settings\n\n"
+                "Use the web application to configure personalized digests."
             )
             
             await telegram_service.send_digest(chat_id, help_text)
@@ -240,36 +240,36 @@ class TelegramPolling:
             
             if user_prefs:
                 # Safe access to enum values
-                frequency = user_prefs.digest_frequency.value if user_prefs.digest_frequency else 'Не настроено'
-                format_type = user_prefs.digest_format.value if user_prefs.digest_format else 'Не настроено'
+                frequency = user_prefs.digest_frequency.value if user_prefs.digest_frequency else 'Not configured'
+                format_type = user_prefs.digest_format.value if user_prefs.digest_format else 'Not configured'
                 timezone = getattr(user_prefs, 'timezone', 'UTC')
                 
                 settings_text = f"""
-⚙️ **Настройки дайджеста:**
+⚙️ **Digest Settings:**
 
-📊 Дайджесты: {'✅ Включены' if user_prefs.digest_enabled else '❌ Отключены'}
-📅 Частота: {frequency}
-📝 Формат: {format_type}
-🌐 Часовой пояс: {timezone}
+📊 Digests: {'✅ Enabled' if user_prefs.digest_enabled else '❌ Disabled'}
+📅 Frequency: {frequency}
+📝 Format: {format_type}
+🌐 Timezone: {timezone}
 
-Для изменения настроек используйте веб-приложение.
+Use the web application to change settings.
                 """
                 
                 keyboard = {
                     "inline_keyboard": [
                         [
-                            {"text": "🔗 Открыть настройки", "url": settings.FRONTEND_DIGEST_SETTINGS_URL}
+                            {"text": "🔗 Open Settings", "url": settings.FRONTEND_DIGEST_SETTINGS_URL}
                         ]
                     ]
                 }
                 
                 await telegram_service.send_message_with_keyboard(chat_id, settings_text, keyboard)
             else:
-                await telegram_service.send_digest(chat_id, "❌ Пользователь не найден. Настройте профиль в веб-приложении.")
+                await telegram_service.send_digest(chat_id, "❌ User not found. Configure your profile in the web application.")
             
         except Exception as e:
             logger.error(f"Error handling digest settings callback: {e}")
-            await telegram_service.send_digest(chat_id, "❌ Ошибка при получении настроек. Попробуйте позже.")
+            await telegram_service.send_digest(chat_id, "❌ Error getting settings. Please try again later.")
     
     async def handle_main_menu_callback(self, chat_id: str, db):
         """Handle main menu callback - return to start menu"""
@@ -281,7 +281,7 @@ class TelegramPolling:
             
         except Exception as e:
             logger.error(f"Error handling main menu callback: {e}")
-            await telegram_service.send_digest(chat_id, "❌ Ошибка при возврате в главное меню. Используйте /start")
+            await telegram_service.send_digest(chat_id, "❌ Error returning to main menu. Use /start")
     
     async def start_polling(self):
         """Start polling for updates"""
