@@ -10,7 +10,7 @@
 1. Зайдите на [railway.app](https://railway.app)
 2. "New Project" → "Deploy from GitHub repo"
 3. Выберите репозиторий `short-news`
-4. Выберите папку `backend/` как корневую
+4. **ВАЖНО:** В Settings → Root Directory измените с `/` на `/backend`
 
 ### 3. Добавление сервисов
 1. **PostgreSQL:** "+ New" → "Database" → "PostgreSQL"
