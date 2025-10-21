@@ -78,6 +78,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    working_dir: /app
     command: celery -A app.celery_app worker --loglevel=info
 
   # Celery Beat (Scheduler)
@@ -102,7 +103,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: celery -A app.celery_app beat --loglevel=info
+    working_dir: /app
+    command: celery -A app.celery_app beat --loglevel=info --pidfile=/tmp/celerybeat.pid --schedule=/tmp/celerybeat-schedule
 
   # Telegram Bot (Polling mode)
   telegram-bot:
