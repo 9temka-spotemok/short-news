@@ -38,11 +38,11 @@ export default function NewsSearch({
   })
 
   // Fetch news stats to determine which categories/source types actually exist
-  const { data: statsData } = useQuery({
-    queryKey: ['news-stats'],
-    queryFn: ApiService.getNewsStats,
-    staleTime: 1000 * 60 * 5, // 5 minutes
-  })
+  // const { data: statsData } = useQuery({
+  //   queryKey: ['news-stats'],
+  //   queryFn: ApiService.getNewsStats,
+  //   staleTime: 1000 * 60 * 5, // 5 minutes
+  // })
 
   // Search query
   const {
