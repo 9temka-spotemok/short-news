@@ -3,7 +3,7 @@
 Send digest to Telegram
 """
 
-from celery_app import celery_app
+from app.celery_app import celery_app
 from app.tasks.digest import generate_user_digest
 
 if __name__ == "__main__":
