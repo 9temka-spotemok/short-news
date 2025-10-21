@@ -98,6 +98,19 @@ if __name__ == "__main__":
     import os
     import sys
     
+    # Check for required environment variables
+    required_vars = ["SECRET_KEY", "DATABASE_URL", "REDIS_URL"]
+    missing_vars = []
+    
+    for var in required_vars:
+        if not os.environ.get(var):
+            missing_vars.append(var)
+    
+    if missing_vars:
+        print(f"ERROR: Missing required environment variables: {', '.join(missing_vars)}")
+        print("Please set these variables in Railway dashboard or .env file")
+        sys.exit(1)
+    
     # Get port from environment variable with multiple fallbacks
     port_str = os.environ.get("PORT") or os.environ.get("PORT_NUMBER") or "8000"
     
@@ -108,7 +121,10 @@ if __name__ == "__main__":
         port = 8000
     
     print(f"Starting server on port {port}")
-    print(f"Environment: {os.environ.get('RAILWAY_ENVIRONMENT', 'unknown')}")
+    print(f"Environment: {os.environ.get('ENVIRONMENT', 'unknown')}")
+    print(f"Debug mode: {os.environ.get('DEBUG', 'false')}")
+    print(f"Database URL: {os.environ.get('DATABASE_URL', 'not set')[:50]}...")
+    print(f"Redis URL: {os.environ.get('REDIS_URL', 'not set')[:50]}...")
     
     uvicorn.run(
         "main:app",
