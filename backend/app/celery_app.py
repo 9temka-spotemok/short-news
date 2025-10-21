@@ -30,6 +30,12 @@ celery_app.conf.update(
     task_soft_time_limit=25 * 60,  # 25 minutes
     worker_prefetch_multiplier=1,
     worker_max_tasks_per_child=1000,
+    # Security settings
+    worker_disable_rate_limits=True,
+    worker_hijack_root_logger=False,
+    # Performance settings
+    worker_pool_restarts=True,
+    worker_max_memory_per_child=200000,  # 200MB
 )
 
 # Beat schedule for periodic tasks

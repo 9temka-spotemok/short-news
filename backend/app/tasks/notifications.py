@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from celery import current_task
 from loguru import logger
 
-from celery_app import celery_app
+from app.celery_app import celery_app
 from app.core.database import AsyncSessionLocal
 from app.models import NewsItem, Notification
 from app.services.notification_service import NotificationService

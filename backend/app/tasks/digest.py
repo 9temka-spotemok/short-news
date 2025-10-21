@@ -6,7 +6,7 @@ import asyncio
 from celery import current_task
 from loguru import logger
 
-from celery_app import celery_app
+from app.celery_app import celery_app
 from app.core.database import AsyncSessionLocal
 from app.models import UserPreferences
 from app.services.digest_service import DigestService

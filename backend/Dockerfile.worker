@@ -1,0 +1,32 @@
+FROM python:3.11-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gosu \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create a non-root user for security
+RUN groupadd -r celery && useradd -r -g celery celery
+
+# Set workdir
+WORKDIR /app
+
+# Copy only requirements and install them first (cache layer)
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy app code
+COPY . .
+
+# Copy startup script
+COPY start-worker.sh /usr/local/bin/start-worker.sh
+RUN chmod +x /usr/local/bin/start-worker.sh
+
+# Change ownership to celery user
+RUN chown -R celery:celery /app
+
+# Expose port (if needed for health checks)
+EXPOSE 8000
+
+# Start using the secure startup script
+CMD ["/usr/local/bin/start-worker.sh"]

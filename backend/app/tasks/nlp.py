@@ -5,7 +5,7 @@ NLP processing tasks
 from celery import current_task
 from loguru import logger
 
-from celery_app import celery_app
+from app.celery_app import celery_app
 
 
 @celery_app.task(bind=True)
