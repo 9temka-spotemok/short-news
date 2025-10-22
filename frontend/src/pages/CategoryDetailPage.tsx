@@ -1,7 +1,7 @@
 import { ApiService } from '@/services/api'
 import type { NewsItem, SourceType } from '@/types'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, BarChart3, Building2, Calendar, ExternalLink, Filter, TrendingUp } from 'lucide-react'
+import { ArrowLeft, BarChart3, Calendar, ExternalLink, Filter } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
@@ -37,7 +37,8 @@ export default function CategoryDetailPage() {
   const [categoryData, setCategoryData] = useState<CategoryData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [selectedCompanyId, setSelectedCompanyId] = useState<string>('')
+//   const [setSelectedCompanyId] = useState<string>('')
+  const [selectedCompanyId] = useState<string>('')
   const [selectedSourceType, setSelectedSourceType] = useState<SourceType | ''>('')
   const [currentPage, setCurrentPage] = useState(0)
   const [showTrackedOnly, setShowTrackedOnly] = useState(isTrackedMode)
@@ -88,10 +89,10 @@ export default function CategoryDetailPage() {
     setCurrentPage(0) // Reset to first page when filters change
   }
 
-  const handleCompanyFilterChange = (companyId: string) => {
-    setSelectedCompanyId(companyId)
-    handleFilterChange()
-  }
+//   const handleCompanyFilterChange = (companyId: string) => {
+//     setSelectedCompanyId(companyId)
+//     handleFilterChange()
+//   }
 
   const handleSourceTypeFilterChange = (sourceType: SourceType | '') => {
     setSelectedSourceType(sourceType)
@@ -213,7 +214,7 @@ export default function CategoryDetailPage() {
         </div>
 
         {/* Selected Companies */}
-        <div className="card p-6 border border-gray-200">
+        {/* <div className="card p-6 border border-gray-200">
           <div className="flex items-center mb-3">
             <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
               <Building2 className="h-5 w-5 text-blue-600" />
@@ -232,10 +233,10 @@ export default function CategoryDetailPage() {
               <p className="text-sm text-gray-500">No companies data</p>
             )}
           </div>
-        </div>
+        </div> */}
 
         {/* Source Distribution */}
-        <div className="card p-6 border border-gray-200">
+        {/* <div className="card p-6 border border-gray-200">
           <div className="flex items-center mb-3">
             <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mr-3">
               <TrendingUp className="h-5 w-5 text-green-600" />
@@ -257,7 +258,7 @@ export default function CategoryDetailPage() {
               <p className="text-sm text-gray-500">No sources data</p>
             )}
           </div>
-        </div>
+        </div> */}
       </div>
 
       {/* Filters */}
@@ -271,7 +272,7 @@ export default function CategoryDetailPage() {
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Company Filter */}
-          <div>
+          {/* <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Filter by Company
             </label>
@@ -287,7 +288,7 @@ export default function CategoryDetailPage() {
                 </option>
               ))}
             </select>
-          </div>
+          </div> */}
 
           {/* Source Type Filter */}
           <div>
