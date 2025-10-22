@@ -329,6 +329,126 @@ async def search_news(
 
 
 
+@router.get("/category/{category_name}", response_model=Dict[str, Any])
+async def get_news_by_category(
+    category_name: str,
+    company_id: Optional[str] = Query(None, description="Filter by single company ID"),
+    company_ids: Optional[str] = Query(None, description="Filter by multiple company IDs (comma-separated)"),
+    source_type: Optional[SourceType] = Query(None, description="Filter by source type"),
+    limit: int = Query(20, ge=1, le=100, description="Number of news items to return"),
+    offset: int = Query(0, ge=0, description="Number of news items to skip"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get news items by category with statistics
+    
+    Returns paginated list of news items for a specific category along with
+    statistics about top companies and source distribution.
+    """
+    logger.info(f"News by category request: category={category_name}, company_id={company_id}, source_type={source_type}, limit={limit}, offset={offset}")
+    
+    async with NewsService(db) as news_service:
+        try:
+            # Validate category name
+            valid_categories = [cat.value for cat in NewsCategory]
+            if category_name not in valid_categories:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid category. Valid categories are: {', '.join(valid_categories)}"
+                )
+            
+            # Convert string to enum
+            category_enum = NewsCategory(category_name)
+            
+            # Parse company IDs if provided
+            parsed_company_ids = None
+            if company_ids:
+                parsed_company_ids = [cid.strip() for cid in company_ids.split(',') if cid.strip()]
+            elif company_id:
+                parsed_company_ids = [company_id]
+            
+            # Get news items
+            news_items, total_count = await news_service.get_news_items(
+                category=category_enum,
+                company_id=company_id,
+                company_ids=parsed_company_ids,
+                source_type=source_type,
+                limit=limit,
+                offset=offset
+            )
+            
+            # Convert to response format
+            items = []
+            for item in news_items:
+                company_info = None
+                if item.company:
+                    company_info = {
+                        "id": str(item.company.id),
+                        "name": item.company.name,
+                        "website": item.company.website,
+                        "description": item.company.description,
+                        "category": item.company.category
+                    }
+                
+                keywords = [{"keyword": kw.keyword, "relevance": kw.relevance_score} for kw in item.keywords] if item.keywords else []
+                
+                items.append({
+                    "id": str(item.id),
+                    "title": item.title,
+                    "title_truncated": item.title_truncated,
+                    "summary": item.summary,
+                    "content": item.content,
+                    "source_url": item.source_url,
+                    "source_type": item.source_type,
+                    "category": item.category,
+                    "priority_score": item.priority_score,
+                    "priority_level": item.priority_level,
+                    "published_at": item.published_at.isoformat() if item.published_at else None,
+                    "created_at": item.created_at.isoformat() if item.created_at else None,
+                    "updated_at": item.updated_at.isoformat() if item.updated_at else None,
+                    "is_recent": item.is_recent,
+                    "company": company_info,
+                    "keywords": keywords
+                })
+            
+            # Get statistics for this category
+            category_stats = await news_service.get_category_statistics(category_enum, parsed_company_ids)
+            
+            return {
+                "category": category_name,
+                "category_description": NewsCategory.get_descriptions().get(category_enum),
+                "items": items,
+                "total": total_count,
+                "limit": limit,
+                "offset": offset,
+                "has_more": offset + len(items) < total_count,
+                "statistics": {
+                    "top_companies": category_stats.get("top_companies", []),
+                    "source_distribution": category_stats.get("source_distribution", {}),
+                    "total_in_category": category_stats.get("total_in_category", 0)
+                },
+                "filters": {
+                    "company_id": company_id,
+                    "source_type": source_type.value if source_type else None
+                }
+            }
+            
+        except HTTPException:
+            raise
+        except ValidationError as e:
+            logger.warning(f"Validation error in category news request: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid request parameters: {e.message}"
+            )
+        except Exception as e:
+            logger.error(f"Failed to get news by category {category_name}: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to retrieve news by category"
+            )
+
+
 @router.get("/categories/list")
 async def get_news_categories():
     """

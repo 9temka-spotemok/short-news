@@ -501,3 +501,73 @@ class NewsService:
             logger.error(f"Failed to delete news item: {e}")
             await self.db.rollback()
             return False
+    
+    async def get_category_statistics(self, category: NewsCategory, company_ids: Optional[List[str]] = None) -> Dict[str, Any]:
+        """
+        Get statistics for a specific category
+        
+        Args:
+            category: News category to get statistics for
+            company_ids: Optional list of company IDs to filter by
+            
+        Returns:
+            Dictionary with category statistics
+        """
+        try:
+            # Build base query for top companies
+            query = select(
+                Company.name,
+                func.count(NewsItem.id).label('count')
+            ).select_from(NewsItem).join(Company, NewsItem.company_id == Company.id)
+            
+            # Apply filters
+            filters = [NewsItem.category == category]
+            if company_ids:
+                filters.append(NewsItem.company_id.in_(company_ids))
+            
+            # Get top 5 companies by news count in this category
+            top_companies_query = await self.db.execute(
+                query.where(and_(*filters))
+                .group_by(Company.name)
+                .order_by(desc(func.count(NewsItem.id)))
+                .limit(5)
+            )
+            top_companies = [
+                {"name": row.name, "count": row.count}
+                for row in top_companies_query
+            ]
+            
+            # Get source distribution for this category
+            source_query = select(
+                NewsItem.source_type,
+                func.count(NewsItem.id).label('count')
+            )
+            source_distribution_query = await self.db.execute(
+                source_query.where(and_(*filters))
+                .group_by(NewsItem.source_type)
+            )
+            source_distribution = {
+                row.source_type.value: row.count
+                for row in source_distribution_query
+            }
+            
+            # Get total count for this category
+            total_count = await self.db.execute(
+                select(func.count(NewsItem.id))
+                .where(and_(*filters))
+            )
+            total_in_category = total_count.scalar() or 0
+            
+            return {
+                "top_companies": top_companies,
+                "source_distribution": source_distribution,
+                "total_in_category": total_in_category
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to get category statistics: {e}")
+            return {
+                "top_companies": [],
+                "source_distribution": {},
+                "total_in_category": 0
+            }

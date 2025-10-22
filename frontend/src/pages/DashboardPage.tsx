@@ -8,6 +8,7 @@ import { formatDistance } from 'date-fns'
 import { enUS } from 'date-fns/locale'
 import { Bell, Calendar, Filter, Search, TrendingUp } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
  
 
 interface NewsItem {
@@ -29,7 +30,7 @@ interface NewsItem {
 interface DashboardStats {
   todayNews: number
   totalNews: number
-  categoriesBreakdown: { category: string; count: number; percentage: number }[]
+  categoriesBreakdown: { category: string; technicalCategory?: string; count: number; percentage: number }[]
 }
 
 interface DigestData {
@@ -48,6 +49,7 @@ interface DigestData {
 
 export default function DashboardPage() {
   const { isAuthenticated, user, accessToken } = useAuthStore()
+  const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('overview')
   const [recentNews, setRecentNews] = useState<NewsItem[]>([])
   const [stats, setStats] = useState<DashboardStats | null>(null)
@@ -103,6 +105,11 @@ export default function DashboardPage() {
     'performance_improvement': 'Performance Improvements',
     'feature_deprecation': 'Feature Deprecations',
   }
+
+  // Create reverse mapping from display names to technical names
+  const categoryTechnicalNames: Record<string, string> = Object.fromEntries(
+    Object.entries(categoryLabels).map(([tech, display]) => [display, tech])
+  )
 
   // Load categories/source types metadata
   const { data: categoriesData } = useQuery({
@@ -189,6 +196,7 @@ export default function DashboardPage() {
         categoriesBreakdown = Object.entries(categoryCount)
           .map(([category, count]) => ({
             category: categoryLabels[category] || category,
+            technicalCategory: category, // Keep original technical name
             count,
             percentage: total > 0 ? Math.round((count / total) * 100) : 0
           }))
@@ -199,6 +207,7 @@ export default function DashboardPage() {
         // Use comprehensive stats from API for all news
         categoriesBreakdown = categoryTrends.map(trend => ({
           category: trend.category,
+          technicalCategory: trend.technicalCategory,
           count: trend.count,
           percentage: Math.round(trend.percentage)
         }))
@@ -481,13 +490,27 @@ export default function DashboardPage() {
                       </h3>
                     </div>
                     <div className="space-y-3">
-                      {stats?.categoriesBreakdown.map((category, index) => (
-                        <div key={category.category} className="flex items-center justify-between">
+                      {stats?.categoriesBreakdown.map((category, index) => {
+                        // Get technical name for navigation - prefer technicalCategory if available
+                        const technicalName = category.technicalCategory || categoryTechnicalNames[category.category] || category.category
+                        return (
+                        <button
+                          key={category.category}
+                          onClick={() => {
+                            const params = new URLSearchParams()
+                            if (showTrackedOnly && userPreferences?.subscribed_companies?.length) {
+                              params.set('tracked', 'true')
+                            }
+                            const queryString = params.toString()
+                            navigate(`/category/${technicalName}${queryString ? `?${queryString}` : ''}`)
+                          }}
+                          className="w-full flex items-center justify-between hover:bg-gray-50 p-2 rounded-lg transition-colors cursor-pointer group"
+                        >
                           <div className="flex items-center">
                             <span className="text-sm font-medium text-gray-500 w-6">
                               #{index + 1}
                             </span>
-                            <span className="text-sm font-medium text-gray-900 ml-2">
+                            <span className="text-sm font-medium text-gray-900 ml-2 group-hover:text-primary-600">
                               {category.category}
                             </span>
                           </div>
@@ -499,8 +522,9 @@ export default function DashboardPage() {
                               ({category.percentage}%)
                             </span>
                           </div>
-                        </div>
-                      ))}
+                        </button>
+                        )
+                      })}
                       {(!stats || stats.categoriesBreakdown.length === 0) && (
                         <p className="text-sm text-gray-500">No data yet</p>
                       )}

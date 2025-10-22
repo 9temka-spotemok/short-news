@@ -6,6 +6,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import DashboardLayout from '@/components/DashboardLayout'
 import Layout from '@/components/Layout'
 import NewsPageWrapper from '@/components/NewsPageWrapper'
+import CategoryDetailPage from '@/pages/CategoryDetailPage'
 import CompetitorAnalysisPage from '@/pages/CompetitorAnalysisPage'
 import DashboardPage from '@/pages/DashboardPage'
 import DigestSettingsPage from '@/pages/DigestSettingsPage'
@@ -80,6 +81,10 @@ function App() {
             <Route 
               path="news-analytics" 
               element={isAuthenticated ? <NewsAnalyticsPage /> : <Navigate to="/login" />} 
+            />
+            <Route 
+              path="category/:categoryName" 
+              element={isAuthenticated ? <CategoryDetailPage /> : <Navigate to="/login" />} 
             />
           </Route>
 

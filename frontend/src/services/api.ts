@@ -185,6 +185,45 @@ export class ApiService {
     return response.data
   }
   
+  static async getNewsByCategory(
+    categoryName: string,
+    filters: {
+      company_id?: string
+      company_ids?: string
+      source_type?: string
+      limit?: number
+      offset?: number
+    } = {}
+  ): Promise<{
+    category: string
+    category_description: string
+    items: NewsItem[]
+    total: number
+    limit: number
+    offset: number
+    has_more: boolean
+    statistics: {
+      top_companies: Array<{ name: string; count: number }>
+      source_distribution: Record<string, number>
+      total_in_category: number
+    }
+    filters: {
+      company_id?: string
+      source_type?: string
+    }
+  }> {
+    const params = new URLSearchParams()
+    
+    if (filters.company_id) params.append('company_id', filters.company_id)
+    if (filters.company_ids) params.append('company_ids', filters.company_ids)
+    if (filters.source_type) params.append('source_type', filters.source_type)
+    if (filters.limit) params.append('limit', filters.limit.toString())
+    if (filters.offset) params.append('offset', filters.offset.toString())
+    
+    const response = await api.get(`/news/category/${categoryName}`, { params })
+    return response.data
+  }
+  
   // Auth endpoints
   static async login(credentials: LoginRequest): Promise<AuthResponse> {
     const response = await api.post<AuthResponse>('/auth/login', credentials)

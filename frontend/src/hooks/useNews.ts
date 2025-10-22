@@ -244,6 +244,7 @@ export function useNewsAnalytics() {
         const categoryInfo = categoriesQuery.data.categories.find(c => c.value === category)
         return {
           category: categoryInfo?.description || category,
+          technicalCategory: category, // Keep technical name for navigation
           count,
           percentage: (count / statsQuery.data.total_count) * 100,
         }
