@@ -65,7 +65,7 @@ export default function CompanySelector({ onSelect, selectedCompany }: CompanySe
             )}
             <div className="flex-1">
               <h3 className="font-semibold text-primary-900">{selectedCompany.name}</h3>
-              <p className="text-sm text-primary-700">{selectedCompany.category}</p>
+              {/* <p className="text-sm text-primary-700">{selectedCompany.category}</p> */}
             </div>
             <button
               onClick={() => onSelect(null)}
@@ -99,7 +99,7 @@ export default function CompanySelector({ onSelect, selectedCompany }: CompanySe
               )}
               <div>
                 <div className="font-medium text-gray-900">{company.name}</div>
-                <div className="text-sm text-gray-600">{company.category}</div>
+                {/* <div className="text-sm text-gray-600">{company.category}</div> */}
               </div>
             </button>
           ))}

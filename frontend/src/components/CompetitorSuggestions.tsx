@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { Company } from '../types'
+import { ManualCompetitorSelector } from './ManualCompetitorSelector'
 
 interface CompetitorSuggestionsProps {
   suggestions: Array<{
@@ -9,7 +11,7 @@ interface CompetitorSuggestionsProps {
   }>
   selectedCompetitors: string[]
   onToggleCompetitor: (companyId: string) => void
-  onAddManual: () => void
+  onAddManual: (company: Company) => void
 }
 
 export default function CompetitorSuggestions({
@@ -18,6 +20,12 @@ export default function CompetitorSuggestions({
   onToggleCompetitor,
   onAddManual
 }: CompetitorSuggestionsProps) {
+  const [isManualSelectorOpen, setIsManualSelectorOpen] = useState(false)
+
+  const handleAddManual = (company: Company) => {
+    onAddManual(company)
+    setIsManualSelectorOpen(false)
+  }
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -25,7 +33,7 @@ export default function CompetitorSuggestions({
           🤖 AI Suggested Competitors
         </h3>
         <button
-          onClick={onAddManual}
+          onClick={() => setIsManualSelectorOpen(true)}
           className="text-sm text-primary-600 hover:text-primary-700 font-medium"
         >
           + Add manually
@@ -96,6 +104,14 @@ export default function CompetitorSuggestions({
           <p className="text-sm mt-1">Try adding competitors manually.</p>
         </div>
       )}
+      
+      <ManualCompetitorSelector
+        isOpen={isManualSelectorOpen}
+        onClose={() => setIsManualSelectorOpen(false)}
+        onAddCompetitor={handleAddManual}
+        selectedCompanyIds={[]} // Основная компания не передается сюда
+        excludedCompanyIds={selectedCompetitors}
+      />
     </div>
   )
 }

@@ -1,10 +1,14 @@
 import { ArrowLeft, ArrowRight, BarChart3, Building2, Download, Users } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import BrandPreview from '../components/BrandPreview'
+import { BusinessIntelligence } from '../components/BusinessIntelligence'
 import CompanySelector from '../components/CompanySelector'
 import CompetitorSuggestions from '../components/CompetitorSuggestions'
 import { ExportMenu } from '../components/ExportMenu'
+import { InnovationMetrics } from '../components/InnovationMetrics'
+import { MarketPosition } from '../components/MarketPosition'
 import ProgressSteps from '../components/ProgressSteps'
+import { TeamInsights } from '../components/TeamInsights'
 import ThemeAnalysis from '../components/ThemeAnalysis'
 import { ApiService } from '../services/api'
 import { Company } from '../types'
@@ -18,6 +22,7 @@ export default function CompetitorAnalysisPage() {
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null)
   const [suggestedCompetitors, setSuggestedCompetitors] = useState<any[]>([])
   const [selectedCompetitors, setSelectedCompetitors] = useState<string[]>([])
+  const [manuallyAddedCompetitors, setManuallyAddedCompetitors] = useState<Company[]>([])
   const [analysisData, setAnalysisData] = useState<any>(null)
   const [themesData, setThemesData] = useState<any>(null)
   const [loading, setLoading] = useState(false)
@@ -97,6 +102,7 @@ export default function CompetitorAnalysisPage() {
             setStep('select')
             setSelectedCompetitors([])
             setSuggestedCompetitors([])
+            setManuallyAddedCompetitors([])
           }}
           className="bg-white rounded-lg shadow-md p-6 cursor-pointer hover:shadow-lg transition-shadow border-2 border-transparent hover:border-green-200"
         >
@@ -144,6 +150,7 @@ export default function CompetitorAnalysisPage() {
             setStep('select')
             setSelectedCompetitors([])
             setSuggestedCompetitors([])
+            setManuallyAddedCompetitors([])
           }}
           className="text-gray-600 hover:text-gray-800 flex items-center"
         >
@@ -200,6 +207,41 @@ export default function CompetitorAnalysisPage() {
               activity_score: analysisData.metrics.activity_score[selectedCompany.id] || 0,
               avg_priority: 0.5
             }}
+          />
+
+          {/* Business Intelligence */}
+          <BusinessIntelligence
+            company={selectedCompany}
+            metrics={analysisData.metrics.category_distribution[selectedCompany.id] || {}}
+            activityScore={analysisData.metrics.activity_score[selectedCompany.id] || 0}
+            competitorCount={suggestedCompetitors.length}
+          />
+
+          {/* Innovation & Technology */}
+          <InnovationMetrics
+            company={selectedCompany}
+            metrics={analysisData.metrics.category_distribution[selectedCompany.id] || {}}
+            totalNews={analysisData.metrics.news_volume[selectedCompany.id] || 0}
+          />
+
+          {/* Team & Culture */}
+          <TeamInsights
+            company={selectedCompany}
+            metrics={analysisData.metrics.category_distribution[selectedCompany.id] || {}}
+            totalNews={analysisData.metrics.news_volume[selectedCompany.id] || 0}
+            activityScore={analysisData.metrics.activity_score[selectedCompany.id] || 0}
+          />
+
+          {/* Market Position */}
+          <MarketPosition
+            company={selectedCompany}
+            metrics={{
+              news_volume: analysisData.metrics.news_volume[selectedCompany.id] || 0,
+              activity_score: analysisData.metrics.activity_score[selectedCompany.id] || 0,
+              category_distribution: analysisData.metrics.category_distribution[selectedCompany.id] || {}
+            }}
+            competitors={suggestedCompetitors}
+            totalNews={Object.values(analysisData.metrics.news_volume).reduce((sum: number, v: unknown) => sum + Number(v), 0)}
           />
           
           {/* News Volume Comparison */}
@@ -264,6 +306,7 @@ export default function CompetitorAnalysisPage() {
             setStep('select')
             setSelectedCompetitors([])
             setSuggestedCompetitors([])
+            setManuallyAddedCompetitors([])
           }}
           className="text-gray-600 hover:text-gray-800 flex items-center"
         >
@@ -384,12 +427,23 @@ export default function CompetitorAnalysisPage() {
         )}
         
         <CompetitorSuggestions
-          suggestions={suggestedCompetitors}
+          suggestions={[
+            ...suggestedCompetitors,
+            ...manuallyAddedCompetitors.map(company => ({
+              company,
+              similarity_score: 0, // Ручные добавления не имеют similarity score
+              common_categories: [],
+              reason: 'Manually added competitor'
+            }))
+          ]}
           selectedCompetitors={selectedCompetitors}
           onToggleCompetitor={toggleCompetitor}
-          onAddManual={() => {
-            // TODO: Implement manual competitor addition
-            console.log('Add manual competitor')
+          onAddManual={(company: Company) => {
+            setManuallyAddedCompetitors(prev => [...prev, company])
+            // Автоматически добавляем в selectedCompetitors
+            if (!selectedCompetitors.includes(company.id)) {
+              setSelectedCompetitors(prev => [...prev, company.id])
+            }
           }}
         />
         
