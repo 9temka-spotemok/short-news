@@ -346,6 +346,108 @@ export class ApiService {
     return allCompanies.items.filter(company => companyIds.includes(company.id))
   }
   
+  // Competitor analysis endpoints
+  static async suggestCompetitors(companyId: string, params: {
+    limit?: number
+    days?: number
+  } = {}): Promise<{
+    company_id: string
+    period_days: number
+    suggestions: Array<{
+      company: Company
+      similarity_score: number
+      common_categories: string[]
+      reason: string
+    }>
+  }> {
+    const response = await api.get(`/competitors/suggest/${companyId}`, { params })
+    return response.data
+  }
+  
+  static async analyzeThemes(companyIds: string[], params: {
+    date_from?: string
+    date_to?: string
+  } = {}): Promise<{
+    themes: Record<string, {
+      total_mentions: number
+      by_company: Record<string, number>
+      example_titles: string[]
+    }>
+    unique_themes: Record<string, string[]>
+  }> {
+    const response = await api.post('/competitors/themes', {
+      company_ids: companyIds,
+      ...params
+    })
+    return response.data
+  }
+  
+  static async getCompanyActivity(companyId: string, params: {
+    days?: number
+  } = {}): Promise<{
+    company_id: string
+    period_days: number
+    date_from: string
+    date_to: string
+    metrics: {
+      news_volume: number
+      category_distribution: Record<string, number>
+      activity_score: number
+      daily_activity: Record<string, number>
+      top_news: Array<{
+        id: string
+        title: string
+        category: string
+        published_at: string
+        source_url: string
+        priority_score: number
+      }>
+    }
+  }> {
+    const response = await api.get(`/competitors/activity/${companyId}`, { params })
+    return response.data
+  }
+  
+  static async searchCompanies(query: string, params: {
+    limit?: number
+  } = {}): Promise<{
+    items: Company[]
+    total: number
+    limit: number
+    offset: number
+  }> {
+    const response = await api.get('/companies/', { 
+      params: { search: query, ...params } 
+    })
+    return response.data
+  }
+  
+  static async compareCompanies(request: {
+    company_ids: string[]
+    date_from?: string
+    date_to?: string
+    name?: string
+  }): Promise<{
+    companies: Company[]
+    date_from: string
+    date_to: string
+    metrics: {
+      news_volume: Record<string, number>
+      category_distribution: Record<string, Record<string, number>>
+      activity_score: Record<string, number>
+      daily_activity?: Record<string, Record<string, number>>
+      top_news?: Record<string, any[]>
+    }
+  }> {
+    console.log('API Service - compareCompanies request:', request)
+    console.log('API Service - request type:', typeof request)
+    console.log('API Service - company_ids type:', typeof request.company_ids)
+    console.log('API Service - company_ids is array:', Array.isArray(request.company_ids))
+    
+    const response = await api.post('/competitors/compare', request)
+    return response.data
+  }
+
   // Health check
   static async healthCheck(): Promise<{
     status: string
@@ -355,6 +457,140 @@ export class ApiService {
   }> {
     const response = await api.get('/health')
     return response.data
+  }
+
+  // Export methods
+  static async exportAnalysis(
+    analysisData: any,
+    format: 'json' | 'pdf' | 'csv'
+  ): Promise<void> {
+    switch (format) {
+      case 'json':
+        this.exportAsJson(analysisData)
+        break
+      case 'pdf':
+        await this.exportAsPdf(analysisData)
+        break
+      case 'csv':
+        this.exportAsCsv(analysisData)
+        break
+    }
+  }
+
+  private static exportAsJson(data: any): void {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `competitor-analysis-${new Date().toISOString().split('T')[0]}.json`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
+
+  private static async exportAsPdf(data: any): Promise<void> {
+    // Для PDF используем простой HTML-to-PDF подход
+    const html = this.generatePdfHtml(data)
+    const printWindow = window.open('', '_blank')
+    if (printWindow) {
+      printWindow.document.write(html)
+      printWindow.document.close()
+      printWindow.focus()
+      printWindow.print()
+      printWindow.close()
+    }
+  }
+
+  private static exportAsCsv(data: any): void {
+    const csvContent = this.generateCsvContent(data)
+    const blob = new Blob([csvContent], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `competitor-analysis-${new Date().toISOString().split('T')[0]}.csv`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
+
+  private static generatePdfHtml(data: any): string {
+    const companies = data.companies || []
+    const metrics = data.metrics || {}
+    
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Competitor Analysis Report</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 20px; }
+          h1 { color: #2563eb; }
+          h2 { color: #374151; margin-top: 30px; }
+          table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+          th { background-color: #f3f4f6; }
+          .metric-card { display: inline-block; margin: 10px; padding: 15px; border: 1px solid #ddd; border-radius: 8px; }
+        </style>
+      </head>
+      <body>
+        <h1>Competitor Analysis Report</h1>
+        <p><strong>Date Range:</strong> ${data.date_from} to ${data.date_to}</p>
+        
+        <h2>Companies Analyzed</h2>
+        <table>
+          <tr><th>Name</th><th>Category</th><th>Website</th></tr>
+          ${companies.map((company: any) => 
+            `<tr><td>${company.name}</td><td>${company.category}</td><td>${company.website || 'N/A'}</td></tr>`
+          ).join('')}
+        </table>
+        
+        <h2>News Volume Comparison</h2>
+        <table>
+          <tr><th>Company</th><th>Total News</th><th>Activity Score</th><th>Avg Priority</th></tr>
+          ${companies.map((company: any) => {
+            const volume = metrics.news_volume?.[company.id] || 0
+            const activity = metrics.activity_score?.[company.id] || 0
+            const priority = metrics.avg_priority?.[company.id] || 0
+            return `<tr><td>${company.name}</td><td>${volume}</td><td>${activity.toFixed(2)}</td><td>${priority.toFixed(2)}</td></tr>`
+          }).join('')}
+        </table>
+        
+        <h2>Category Distribution</h2>
+        ${companies.map((company: any) => {
+          const categories = metrics.category_distribution?.[company.id] || {}
+          const categoryRows = Object.entries(categories).map(([cat, count]) => 
+            `<tr><td>${cat}</td><td>${count}</td></tr>`
+          ).join('')
+          return `
+            <h3>${company.name}</h3>
+            <table>
+              <tr><th>Category</th><th>Count</th></tr>
+              ${categoryRows}
+            </table>
+          `
+        }).join('')}
+      </body>
+      </html>
+    `
+  }
+
+  private static generateCsvContent(data: any): string {
+    const companies = data.companies || []
+    const metrics = data.metrics || {}
+    
+    let csv = 'Company,Category,Total News,Activity Score,Avg Priority\n'
+    
+    companies.forEach((company: any) => {
+      const volume = metrics.news_volume?.[company.id] || 0
+      const activity = metrics.activity_score?.[company.id] || 0
+      const priority = metrics.avg_priority?.[company.id] || 0
+      
+      csv += `"${company.name}","${company.category}",${volume},${activity.toFixed(2)},${priority.toFixed(2)}\n`
+    })
+    
+    return csv
   }
 }
 

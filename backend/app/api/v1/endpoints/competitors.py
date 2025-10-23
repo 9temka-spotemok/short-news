@@ -3,7 +3,7 @@ Competitor analysis endpoints
 """
 
 from typing import List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
@@ -27,7 +27,7 @@ class CompareRequest(BaseModel):
 
 @router.post("/compare")
 async def compare_companies(
-    request: CompareRequest,
+    request_data: dict = Body(...),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -42,46 +42,76 @@ async def compare_companies(
         "name": "Q1 2025 Comparison" // optional
     }
     """
-    logger.info(f"Compare companies request from user {current_user.id}: {len(request.company_ids)} companies")
+    logger.info(f"Compare companies request from user {current_user.id}")
+    logger.info(f"Request data: {request_data}")
+    logger.info(f"Request type: {type(request_data)}")
     
     try:
+        # Extract data from request
+        company_ids = request_data.get('company_ids', [])
+        date_from_str = request_data.get('date_from')
+        date_to_str = request_data.get('date_to')
+        name = request_data.get('name')
+        
+        logger.info(f"Company IDs: {company_ids}")
+        logger.info(f"Company IDs type: {type(company_ids)}")
+        
         # Validate input
-        if len(request.company_ids) < 2:
+        if not isinstance(company_ids, list):
+            raise HTTPException(status_code=400, detail="company_ids must be a list")
+        
+        if len(company_ids) < 2:
             raise HTTPException(status_code=400, detail="At least 2 companies required for comparison")
         
-        if len(request.company_ids) > 5:
+        if len(company_ids) > 5:
             raise HTTPException(status_code=400, detail="Maximum 5 companies can be compared at once")
         
-        # Parse dates
-        if request.date_from:
-            date_from = datetime.fromisoformat(request.date_from)
-        else:
-            date_from = datetime.utcnow() - timedelta(days=30)  # Default: last 30 days
+        # Validate UUIDs
+        import uuid as uuid_lib
+        for company_id in company_ids:
+            try:
+                uuid_lib.UUID(company_id)
+            except ValueError:
+                raise HTTPException(status_code=400, detail=f"Invalid company ID format: {company_id}")
         
-        if request.date_to:
-            date_to = datetime.fromisoformat(request.date_to)
+        # Parse dates
+        if date_from_str:
+            try:
+                date_from = datetime.fromisoformat(date_from_str.replace('Z', '+00:00')).replace(tzinfo=None)
+            except ValueError as e:
+                logger.error(f"Invalid date_from format: {date_from_str}, error: {e}")
+                raise HTTPException(status_code=400, detail=f"Invalid date_from format: {date_from_str}")
         else:
-            date_to = datetime.utcnow()
+            date_from = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=30)  # Default: last 30 days
+        
+        if date_to_str:
+            try:
+                date_to = datetime.fromisoformat(date_to_str.replace('Z', '+00:00')).replace(tzinfo=None)
+            except ValueError as e:
+                logger.error(f"Invalid date_to format: {date_to_str}, error: {e}")
+                raise HTTPException(status_code=400, detail=f"Invalid date_to format: {date_to_str}")
+        else:
+            date_to = datetime.now(timezone.utc).replace(tzinfo=None)
+        
+        logger.info(f"Parsed dates: from={date_from}, to={date_to}")
         
         # Perform comparison
         competitor_service = CompetitorAnalysisService(db)
         comparison_data = await competitor_service.compare_companies(
-            company_ids=request.company_ids,
+            company_ids=company_ids,
             date_from=date_from,
             date_to=date_to,
             user_id=str(current_user.id),
-            comparison_name=request.name
+            comparison_name=name
         )
         
         return comparison_data
         
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=f"Invalid date format: {e}")
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error comparing companies: {e}")
-        raise HTTPException(status_code=500, detail="Failed to compare companies")
+        logger.error(f"Error comparing companies: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to compare companies: {str(e)}")
 
 
 @router.get("/comparisons")
@@ -178,8 +208,8 @@ async def get_company_activity(
     try:
         import uuid as uuid_lib
         
-        date_from = datetime.utcnow() - timedelta(days=days)
-        date_to = datetime.utcnow()
+        date_from = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)
+        date_to = datetime.now(timezone.utc).replace(tzinfo=None)
         
         competitor_service = CompetitorAnalysisService(db)
         company_uuid = uuid_lib.UUID(company_id)
@@ -211,3 +241,109 @@ async def get_company_activity(
         logger.error(f"Error fetching company activity: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch company activity")
 
+
+@router.get("/suggest/{company_id}")
+async def suggest_competitors(
+    company_id: str,
+    limit: int = 5,
+    days: int = 30,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Автоматически подобрать конкурентов
+    
+    Query params:
+        limit: сколько конкурентов вернуть (default: 5, max: 10)
+        days: за какой период анализировать (default: 30)
+    """
+    try:
+        import uuid as uuid_lib
+        
+        company_uuid = uuid_lib.UUID(company_id)
+        
+        date_from = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)
+        date_to = datetime.now(timezone.utc).replace(tzinfo=None)
+        
+        competitor_service = CompetitorAnalysisService(db)
+        suggestions = await competitor_service.suggest_competitors(
+            company_id=company_uuid,
+            limit=min(limit, 10),
+            date_from=date_from,
+            date_to=date_to
+        )
+        
+        return {
+            "company_id": company_id,
+            "period_days": days,
+            "suggestions": suggestions
+        }
+        
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid company ID")
+    except Exception as e:
+        logger.error(f"Error suggesting competitors: {e}")
+        raise HTTPException(status_code=500, detail="Failed to suggest competitors")
+
+
+@router.post("/themes")
+async def analyze_themes(
+    request_data: dict = Body(...),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Анализ новостных тем для списка компаний
+    
+    Body:
+        {
+            "company_ids": ["uuid1", "uuid2", "uuid3"],
+            "date_from": "2025-01-01",  // optional
+            "date_to": "2025-01-31"     // optional
+        }
+    """
+    try:
+        import uuid as uuid_lib
+        
+        # Извлекаем данные из request_data
+        company_ids = request_data.get("company_ids", [])
+        date_from_str = request_data.get("date_from")
+        date_to_str = request_data.get("date_to")
+        
+        # Валидация company_ids
+        if not isinstance(company_ids, list):
+            raise HTTPException(status_code=400, detail="company_ids must be a list")
+        
+        company_uuids = []
+        for company_id in company_ids:
+            try:
+                company_uuids.append(uuid_lib.UUID(company_id))
+            except ValueError:
+                raise HTTPException(status_code=400, detail=f"Invalid company ID: {company_id}")
+        
+        # Парсинг дат
+        if date_from_str:
+            date_from_dt = datetime.fromisoformat(date_from_str).replace(tzinfo=None)
+        else:
+            date_from_dt = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=30)
+            
+        if date_to_str:
+            date_to_dt = datetime.fromisoformat(date_to_str).replace(tzinfo=None)
+        else:
+            date_to_dt = datetime.now(timezone.utc).replace(tzinfo=None)
+        
+        # Анализ тем
+        competitor_service = CompetitorAnalysisService(db)
+        themes_data = await competitor_service.analyze_news_themes(
+            company_ids=company_uuids,
+            date_from=date_from_dt,
+            date_to=date_to_dt
+        )
+        
+        return themes_data
+        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid date format: {e}")
+    except Exception as e:
+        logger.error(f"Error analyzing themes: {e}")
+        raise HTTPException(status_code=500, detail="Failed to analyze themes")
