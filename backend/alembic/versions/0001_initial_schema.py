@@ -21,32 +21,64 @@ def upgrade() -> None:
     op.execute("CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"")
     op.execute("CREATE EXTENSION IF NOT EXISTS \"pg_trgm\"")
     
-    # Create custom types
-    op.execute("""
-        CREATE TYPE news_category AS ENUM (
-            'PRODUCT_UPDATE', 'PRICING_CHANGE', 'STRATEGIC_ANNOUNCEMENT', 
-            'TECHNICAL_UPDATE', 'FUNDING_NEWS', 'RESEARCH_PAPER', 'COMMUNITY_EVENT',
-            'PARTNERSHIP', 'ACQUISITION', 'INTEGRATION', 'SECURITY_UPDATE',
-            'API_UPDATE', 'MODEL_RELEASE', 'PERFORMANCE_IMPROVEMENT', 'FEATURE_DEPRECATION'
+    # Check if tables already exist
+    connection = op.get_bind()
+    
+    # Check if companies table exists
+    result = connection.execute(sa.text("""
+        SELECT EXISTS (
+            SELECT 1 FROM information_schema.tables WHERE table_name = 'companies'
         )
+    """))
+    
+    tables_exist = result.scalar()
+    
+    if tables_exist:
+        print("Tables already exist, skipping initial schema creation")
+        return
+    
+    # Create custom types using raw SQL to avoid conflicts
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE news_category AS ENUM (
+                'PRODUCT_UPDATE', 'PRICING_CHANGE', 'STRATEGIC_ANNOUNCEMENT', 
+                'TECHNICAL_UPDATE', 'FUNDING_NEWS', 'RESEARCH_PAPER', 'COMMUNITY_EVENT',
+                'PARTNERSHIP', 'ACQUISITION', 'INTEGRATION', 'SECURITY_UPDATE',
+                'API_UPDATE', 'MODEL_RELEASE', 'PERFORMANCE_IMPROVEMENT', 'FEATURE_DEPRECATION'
+            );
+        EXCEPTION
+            WHEN duplicate_object THEN null;
+        END $$;
     """)
     
     op.execute("""
-        CREATE TYPE sourcetype AS ENUM (
-            'BLOG', 'TWITTER', 'GITHUB', 'REDDIT', 'NEWS_SITE', 'PRESS_RELEASE'
-        )
+        DO $$ BEGIN
+            CREATE TYPE sourcetype AS ENUM (
+                'BLOG', 'TWITTER', 'GITHUB', 'REDDIT', 'NEWS_SITE', 'PRESS_RELEASE'
+            );
+        EXCEPTION
+            WHEN duplicate_object THEN null;
+        END $$;
     """)
     
     op.execute("""
-        CREATE TYPE notificationfrequency AS ENUM (
-            'REALTIME', 'DAILY', 'WEEKLY', 'NEVER'
-        )
+        DO $$ BEGIN
+            CREATE TYPE notificationfrequency AS ENUM (
+                'REALTIME', 'DAILY', 'WEEKLY', 'NEVER'
+            );
+        EXCEPTION
+            WHEN duplicate_object THEN null;
+        END $$;
     """)
     
     op.execute("""
-        CREATE TYPE activitytype AS ENUM (
-            'VIEWED', 'FAVORITED', 'MARKED_READ', 'SHARED'
-        )
+        DO $$ BEGIN
+            CREATE TYPE activitytype AS ENUM (
+                'VIEWED', 'FAVORITED', 'MARKED_READ', 'SHARED'
+            );
+        EXCEPTION
+            WHEN duplicate_object THEN null;
+        END $$;
     """)
     
     # Create companies table
