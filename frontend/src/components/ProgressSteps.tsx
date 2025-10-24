@@ -23,7 +23,6 @@ export default function ProgressSteps({ current }: ProgressStepsProps) {
         {steps.map((step, index) => {
           const isActive = index === currentIndex
           const isCompleted = index < currentIndex
-          const isUpcoming = index > currentIndex
           
           return (
             <div key={step.id} className="flex items-center">

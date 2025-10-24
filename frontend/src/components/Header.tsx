@@ -12,12 +12,14 @@ export default function Header() {
   const navigate = useNavigate()
   const { isAuthenticated, user, logout } = useAuthStore()
 
-  const navigation = [
+  // Навигация для неавторизованных пользователей
+  const publicNavigation = [
     { name: 'Home', href: '/' },
     { name: 'News', href: '/news' },
   ]
 
-  const dashboardNavigation = [
+  // Навигация для авторизованных пользователей
+  const authenticatedNavigation = [
     { name: 'Dashboard', href: '/dashboard' },
     { name: 'News', href: '/news' },
     { name: 'Analytics', href: '/news-analytics' },
@@ -26,22 +28,9 @@ export default function Header() {
 
   const isActive = (path: string) => location.pathname === path
   
-  // Проверяем, находимся ли мы на защищенной странице (Dashboard/Profile/Settings/Analytics)
-  const isDashboardPage = location.pathname.startsWith('/dashboard') || 
-                          location.pathname.startsWith('/profile') || 
-                          location.pathname.startsWith('/settings') ||
-                          location.pathname.startsWith('/news-analytics') ||
-                          location.pathname.startsWith('/competitor-analysis') ||
-                          location.pathname.startsWith('/notifications') ||
-                          location.pathname.startsWith('/digest-settings')
-  
-  // Для страницы /news показываем dashboard навигацию только если пользователь авторизован
-  const isNewsPage = location.pathname === '/news'
-  const shouldShowDashboardNav = isDashboardPage || (isNewsPage && isAuthenticated)
-  
-  // Показываем навигацию только на публичных страницах (кроме news для авторизованных)
-  const showNavigation = !shouldShowDashboardNav
-  const showDashboardNavigation = shouldShowDashboardNav && isAuthenticated
+  // Простая логика: показываем соответствующую навигацию в зависимости от статуса авторизации
+  const showPublicNavigation = !isAuthenticated
+  const showAuthenticatedNavigation = isAuthenticated
 
   const handleLogout = () => {
     logout()
@@ -83,9 +72,9 @@ export default function Header() {
           </div>
 
           {/* Desktop Navigation */}
-          {showNavigation && (
+          {showPublicNavigation && (
             <nav className="hidden md:flex space-x-8">
-              {navigation.map((item) => (
+              {publicNavigation.map((item) => (
                 <Link
                   key={item.name}
                   to={item.href}
@@ -101,10 +90,10 @@ export default function Header() {
             </nav>
           )}
 
-          {/* Dashboard Navigation */}
-          {showDashboardNavigation && (
+          {/* Authenticated Navigation */}
+          {showAuthenticatedNavigation && (
             <nav className="hidden md:flex space-x-8">
-              {dashboardNavigation.map((item) => (
+              {authenticatedNavigation.map((item) => (
                 <Link
                   key={item.name}
                   to={item.href}
@@ -216,7 +205,24 @@ export default function Header() {
       {isMenuOpen && (
         <div className="md:hidden">
           <div className="px-2 pt-2 pb-3 space-y-1 bg-white border-t border-gray-200">
-            {showNavigation && navigation.map((item) => (
+            {/* Public Navigation */}
+            {showPublicNavigation && publicNavigation.map((item) => (
+              <Link
+                key={item.name}
+                to={item.href}
+                onClick={() => setIsMenuOpen(false)}
+                className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
+                  isActive(item.href)
+                    ? 'text-primary-600 bg-primary-50'
+                    : 'text-gray-700 hover:text-primary-600 hover:bg-gray-50'
+                }`}
+              >
+                {item.name}
+              </Link>
+            ))}
+
+            {/* Authenticated Navigation */}
+            {showAuthenticatedNavigation && authenticatedNavigation.map((item) => (
               <Link
                 key={item.name}
                 to={item.href}
@@ -231,8 +237,9 @@ export default function Header() {
               </Link>
             ))}
             
+            {/* User Actions */}
             {isAuthenticated ? (
-              <div className={`${showNavigation ? 'border-t border-gray-200 pt-4 mt-4' : ''}`}>
+              <div className={`${showAuthenticatedNavigation ? 'border-t border-gray-200 pt-4 mt-4' : ''}`}>
                 <div className="flex items-center px-3 py-2 mb-2">
                   <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center mr-3">
                     <User className="h-4 w-4 text-primary-600" />
@@ -248,12 +255,12 @@ export default function Header() {
                   Profile
                 </Link>
                 <Link
-                  to="/dashboard"
+                  to="/settings"
                   onClick={() => setIsMenuOpen(false)}
                   className="flex items-center px-3 py-2 text-gray-700 hover:text-primary-600 hover:bg-gray-50 rounded-md transition-colors"
                 >
                   <Settings className="h-4 w-4 mr-3 text-gray-400" />
-                  Dashboard
+                  Settings
                 </Link>
                 <button
                   onClick={handleLogout}
@@ -264,7 +271,7 @@ export default function Header() {
                 </button>
               </div>
             ) : (
-              <div className={`${showNavigation ? 'border-t border-gray-200 pt-4 mt-4' : ''} space-y-2`}>
+              <div className={`${showPublicNavigation ? 'border-t border-gray-200 pt-4 mt-4' : ''} space-y-2`}>
                 <Link
                   to="/login"
                   onClick={() => setIsMenuOpen(false)}

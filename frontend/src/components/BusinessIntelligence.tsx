@@ -71,7 +71,7 @@ export const BusinessIntelligence: React.FC<BusinessIntelligenceProps> = ({
 
   // Add top categories that are not business intelligence but show company activity
   const otherCategories = Object.entries(metrics)
-    .filter(([key]) => !businessCategoryMappings[key])
+    .filter(([key]) => !(key in businessCategoryMappings))
     .sort(([, a], [, b]) => b - a)
     .slice(0, 2) // Show top 2 other categories
 

@@ -17,7 +17,6 @@ interface TeamInsightsProps {
 }
 
 export const TeamInsights: React.FC<TeamInsightsProps> = ({
-  company,
   metrics,
   totalNews,
   activityScore
