@@ -362,23 +362,33 @@ export default function DashboardPage() {
                   </p>
                 )}
                 
-                {/* Toggle Switch */}
+                {/* Mode Tabs */}
                 {userPreferences?.subscribed_companies?.length && (
-                  <div className="flex items-center space-x-2">
-                    <span className="text-sm text-gray-600">All News</span>
+                  <div className="inline-flex items-center bg-gray-100 rounded-lg p-1">
                     <button
-                      onClick={() => handleToggleTrackedOnly(!showTrackedOnly)}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                        showTrackedOnly ? 'bg-primary-600' : 'bg-gray-200'
+                      onClick={() => handleToggleTrackedOnly(false)}
+                      className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                        !showTrackedOnly
+                          ? 'bg-white text-gray-900 shadow-sm'
+                          : 'text-gray-600 hover:text-gray-900'
                       }`}
                     >
-                      <span
-                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                          showTrackedOnly ? 'translate-x-6' : 'translate-x-1'
-                        }`}
-                      />
+                      <span className="flex items-center gap-2">
+                        🌍 All News
+                      </span>
                     </button>
-                    <span className="text-sm text-gray-600">Tracked Only</span>
+                    <button
+                      onClick={() => handleToggleTrackedOnly(true)}
+                      className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                        showTrackedOnly
+                          ? 'bg-white text-gray-900 shadow-sm'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      <span className="flex items-center gap-2">
+                        ⭐ Tracked ({userPreferences.subscribed_companies.length})
+                      </span>
+                    </button>
                   </div>
                 )}
               </div>
