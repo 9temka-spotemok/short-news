@@ -342,6 +342,37 @@ class TelegramService:
             logger.error(f"Error getting webhook info: {e}")
             return {}
     
+    async def send_digest_settings_menu(self, chat_id: str, current_mode: str) -> bool:
+        """Send digest settings menu with inline keyboard"""
+        
+        keyboard = {
+            "inline_keyboard": [
+                [
+                    {
+                        "text": f"{'[ON]' if current_mode == 'all' else '[OFF]'} All News",
+                        "callback_data": "digest_settings_all"
+                    },
+                    {
+                        "text": f"{'[ON]' if current_mode == 'tracked' else '[OFF]'} Tracked Only",
+                        "callback_data": "digest_settings_tracked"
+                    }
+                ],
+                [
+                    {"text": "🔙 Back to Main Menu", "callback_data": "main_menu"}
+                ]
+            ]
+        }
+        
+        message = (
+            "**Digest Settings**\n\n"
+            f"Current mode: **{'All News' if current_mode == 'all' else 'Tracked Only'}**\n\n"
+            "Choose digest mode:\n"
+            "• **All News** - All available news\n"
+            "• **Tracked Only** - Only news from your tracked companies"
+        )
+        
+        return await self.send_message_with_keyboard(chat_id, message, keyboard)
+    
     async def answer_callback_query(self, callback_query_id: str, text: str = None, show_alert: bool = False) -> bool:
         """
         Answer callback query to remove loading state
@@ -423,7 +454,8 @@ class TelegramService:
                 async with aiohttp.ClientSession() as session:
                     async with session.post(url, json=payload) as response:
                         if response.status != 200:
-                            logger.error(f"Failed to send Telegram message with keyboard: {response.status}")
+                            error_text = await response.text()
+                            logger.error(f"Failed to send Telegram message with keyboard: {response.status} - {error_text}")
                             return False
                         
                         result = await response.json()

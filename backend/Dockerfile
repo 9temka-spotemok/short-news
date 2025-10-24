@@ -15,6 +15,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy app code
 COPY . .
 
+# Create scripts directory and copy init scripts
+RUN mkdir -p /app/scripts
+COPY scripts/init.sh /app/scripts/init.sh
+COPY scripts/init_db.py /app/scripts/init_db.py
+RUN chmod +x /app/scripts/init.sh
+
 # Create non-root user for security
 RUN useradd --create-home --shell /bin/bash appuser
 RUN chown -R appuser:appuser /app

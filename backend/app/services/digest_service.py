@@ -469,8 +469,8 @@ class DigestService:
             "format": "short"
         }
     
-    def format_digest_for_telegram(self, digest_data: Dict[str, Any]) -> str:
-        """Format digest for Telegram message"""
+    def format_digest_for_telegram(self, digest_data: Dict[str, Any], user_prefs: UserPreferences = None) -> str:
+        """Format digest for Telegram message with company grouping"""
         
         if digest_data["news_count"] == 0:
             return "📭 Нет новостей за выбранный период"
@@ -478,27 +478,59 @@ class DigestService:
         lines = []
         lines.append(f"📰 **Дайджест новостей**")
         lines.append(f"📅 {digest_data['date_from'][:10]} - {digest_data['date_to'][:10]}")
-        lines.append(f"📊 Всего новостей: {digest_data['news_count']}\n")
+        lines.append(f"📊 Всего новостей: {digest_data['news_count']}")
         
-        # Group by category
-        for category, news_items in digest_data["categories"].items():
-            if not news_items:
-                continue
-            
-            category_emoji = self._get_category_emoji(category)
-            lines.append(f"\n{category_emoji} **{self._format_category_name(category)}** ({len(news_items)})")
-            
-            for i, news in enumerate(news_items, 1):  # Show all news items
-                company_name = news.get("company", {}).get("name", "Unknown") if news.get("company") else "Unknown"
-                # Truncate long titles to save space
-                title = news['title']
-                if len(title) > 80:
-                    title = title[:77] + "..."
+        if digest_data.get('companies_count'):
+            lines.append(f"🏢 Компаний: {digest_data['companies_count']}")
+        
+        lines.append("")  # Empty line
+        
+        # Format by companies (new format)
+        if digest_data.get('companies'):
+            for company_id, company_data in digest_data['companies'].items():
+                company = company_data['company']
+                stats = company_data['stats']
                 
-                # Добавляем жирный шрифт для заголовка и отступ
-                lines.append(f"\n{i}. **{title}**")
-                lines.append(f"   🏢 {company_name}")
-                lines.append(f"   🔗 {news['source_url']}")
+                lines.append(f"🏢 **{company['name']}** ({stats['total']} новостей)")
+                
+                # Group by categories within company
+                for category, count in stats['by_category'].items():
+                    category_emoji = self._get_category_emoji(category)
+                    lines.append(f"└─ {category_emoji} {self._format_category_name(category)} ({count})")
+                    
+                    # Show top 3 news items for this category
+                    category_news = [news for news in company_data['news'] 
+                                   if (news.get('category') or 'other') == category][:3]
+                    
+                    for news in category_news:
+                        title = news['title']
+                        if len(title) > 60:
+                            title = title[:57] + "..."
+                        lines.append(f"   • {title}")
+                        lines.append(f"     🔗 {news['source_url']}")
+                
+                lines.append("")  # Empty line between companies
+        
+        # Fallback to old format (by categories) if companies not available
+        elif digest_data.get('categories'):
+            for category, news_items in digest_data["categories"].items():
+                if not news_items:
+                    continue
+                
+                category_emoji = self._get_category_emoji(category)
+                lines.append(f"\n{category_emoji} **{self._format_category_name(category)}** ({len(news_items)})")
+                
+                for i, news in enumerate(news_items, 1):  # Show all news items
+                    company_name = news.get("company", {}).get("name", "Unknown") if news.get("company") else "Unknown"
+                    # Truncate long titles to save space
+                    title = news['title']
+                    if len(title) > 80:
+                        title = title[:77] + "..."
+                    
+                    # Добавляем жирный шрифт для заголовка и отступ
+                    lines.append(f"\n{i}. **{title}**")
+                    lines.append(f"   🏢 {company_name}")
+                    lines.append(f"   🔗 {news['source_url']}")
         
         return "\n".join(lines)
     

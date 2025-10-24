@@ -120,8 +120,14 @@ class TelegramPolling:
                         await self.handle_settings_callback(chat_id, db)
                     elif data == "settings_digest":
                         await self.handle_digest_settings_callback(chat_id, db)
+                    elif data == "digest_settings_all":
+                        await self.handle_digest_mode_change(chat_id, "all", db)
+                    elif data == "digest_settings_tracked":
+                        await self.handle_digest_mode_change(chat_id, "tracked", db)
                     elif data == "help":
                         await self.handle_help_callback(chat_id, db)
+                    elif data == "settings_menu":
+                        await self.handle_digest_settings_callback(chat_id, db)
                     elif data == "main_menu":
                         await self.handle_main_menu_callback(chat_id, db)
             except Exception as db_error:
@@ -162,9 +168,12 @@ class TelegramPolling:
             # Send processing message
             await telegram_service.send_digest(chat_id, "🔄 Generating digest...")
             
+            # Determine tracked_only based on telegram_digest_mode
+            tracked_only = (user_prefs.telegram_digest_mode == 'tracked') if user_prefs.telegram_digest_mode else False
+            
             # Generate digest using Celery task
-            task = generate_user_digest.delay(str(user_prefs.user_id), digest_type)
-            logger.info(f"Digest generation task started: {task.id} for user {user_prefs.user_id}")
+            task = generate_user_digest.delay(str(user_prefs.user_id), digest_type, tracked_only)
+            logger.info(f"Digest generation task started: {task.id} for user {user_prefs.user_id} (tracked_only: {tracked_only})")
             
             # Send completion message
             await telegram_service.send_digest(chat_id, "✅ Digest is being generated in the background and will be sent shortly!")
@@ -227,10 +236,9 @@ class TelegramPolling:
             logger.error(f"Error handling help callback: {e}")
     
     async def handle_digest_settings_callback(self, chat_id: str, db):
-        """Handle digest settings callback"""
+        """Handle digest settings callback - show digest mode selection menu"""
         try:
             from app.models import UserPreferences
-            from app.core.config import settings
             from sqlalchemy import select
             
             result = await db.execute(
@@ -239,37 +247,45 @@ class TelegramPolling:
             user_prefs = result.scalar_one_or_none()
             
             if user_prefs:
-                # Safe access to enum values
-                frequency = user_prefs.digest_frequency.value if user_prefs.digest_frequency else 'Not configured'
-                format_type = user_prefs.digest_format.value if user_prefs.digest_format else 'Not configured'
-                timezone = getattr(user_prefs, 'timezone', 'UTC')
-                
-                settings_text = f"""
-⚙️ **Digest Settings:**
-
-📊 Digests: {'✅ Enabled' if user_prefs.digest_enabled else '❌ Disabled'}
-📅 Frequency: {frequency}
-📝 Format: {format_type}
-🌐 Timezone: {timezone}
-
-Use the web application to change settings.
-                """
-                
-                keyboard = {
-                    "inline_keyboard": [
-                        [
-                            {"text": "🔗 Open Settings", "url": settings.FRONTEND_DIGEST_SETTINGS_URL}
-                        ]
-                    ]
-                }
-                
-                await telegram_service.send_message_with_keyboard(chat_id, settings_text, keyboard)
+                current_mode = user_prefs.telegram_digest_mode or 'all'
+                await telegram_service.send_digest_settings_menu(chat_id, current_mode)
             else:
-                await telegram_service.send_digest(chat_id, "❌ User not found. Configure your profile in the web application.")
+                await telegram_service.send_digest(chat_id, "❌ User not found. Use /start to configure.")
             
         except Exception as e:
             logger.error(f"Error handling digest settings callback: {e}")
             await telegram_service.send_digest(chat_id, "❌ Error getting settings. Please try again later.")
+    
+    async def handle_digest_mode_change(self, chat_id: str, new_mode: str, db):
+        """Handle digest mode change callback"""
+        try:
+            from app.models import UserPreferences
+            from sqlalchemy import select
+            
+            result = await db.execute(
+                select(UserPreferences).where(UserPreferences.telegram_chat_id == chat_id)
+            )
+            user_prefs = result.scalar_one_or_none()
+            
+            if not user_prefs:
+                await telegram_service.send_digest(chat_id, "❌ User not found. Use /start to configure.")
+                return
+            
+            # Update digest mode
+            user_prefs.telegram_digest_mode = new_mode
+            await db.commit()
+            
+            # Send confirmation and show updated menu
+            mode_text = "All News" if new_mode == "all" else "Tracked Only"
+            confirmation_text = f"✅ Digest mode changed to: **{mode_text}**"
+            await telegram_service.send_digest(chat_id, confirmation_text)
+            
+            # Show updated settings menu
+            await telegram_service.send_digest_settings_menu(chat_id, new_mode)
+            
+        except Exception as e:
+            logger.error(f"Error handling digest mode change: {e}")
+            await telegram_service.send_digest(chat_id, "❌ Error changing settings. Please try again later.")
     
     async def handle_main_menu_callback(self, chat_id: str, db):
         """Handle main menu callback - return to start menu"""

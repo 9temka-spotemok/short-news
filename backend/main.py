@@ -10,9 +10,61 @@ from loguru import logger
 import uvicorn
 
 from app.core.config import settings
-from app.core.database import init_db
+from app.core.database import init_db, engine
 from app.api.v1.api import api_router
 from app.core.exceptions import setup_exception_handlers
+import asyncio
+import subprocess
+import os
+from sqlalchemy import text
+
+
+async def wait_for_database(max_retries: int = 30, retry_delay: int = 2):
+    """Wait for database to be ready"""
+    logger.info("Waiting for database to be ready...")
+    
+    for attempt in range(max_retries):
+        try:
+            async with engine.begin() as conn:
+                await conn.execute(text("SELECT 1"))
+            logger.info("Database is ready!")
+            return True
+        except Exception as e:
+            logger.warning(f"Database not ready (attempt {attempt + 1}/{max_retries}): {e}")
+            if attempt < max_retries - 1:
+                await asyncio.sleep(retry_delay)
+            else:
+                logger.error("Database failed to become ready after maximum retries")
+                return False
+    
+    return False
+
+
+async def apply_migrations():
+    """Apply database migrations"""
+    logger.info("Applying database migrations...")
+    
+    try:
+        result = subprocess.run(
+            ["python", "-m", "alembic", "upgrade", "head"],
+            capture_output=True,
+            text=True,
+            cwd="/app" if os.path.exists("/.dockerenv") else "."
+        )
+        
+        if result.returncode == 0:
+            logger.info("Migrations applied successfully!")
+            if result.stdout:
+                logger.info(f"Migration output: {result.stdout}")
+            return True
+        else:
+            logger.error(f"Migration failed: {result.stderr}")
+            return False
+            
+    except Exception as e:
+        logger.error(f"Error applying migrations: {e}")
+        return False
+
 
 # Create FastAPI app
 app = FastAPI(
@@ -54,6 +106,10 @@ async def startup_event():
     """Initialize application on startup"""
     logger.info("Starting AI Competitor Insight Hub API...")
     
+    # Wait for database and apply migrations
+    await wait_for_database()
+    await apply_migrations()
+    
     # Initialize database
     await init_db()
     
@@ -78,6 +134,37 @@ async def health_check():
             "environment": settings.ENVIRONMENT
         }
     )
+
+
+@app.get("/migrations/status")
+async def migration_status():
+    """Check migration status"""
+    try:
+        result = subprocess.run(
+            ["python", "-m", "alembic", "current"],
+            capture_output=True,
+            text=True,
+            cwd="/app" if os.path.exists("/.dockerenv") else "."
+        )
+        
+        if result.returncode == 0:
+            return {
+                "status": "success",
+                "current_revision": result.stdout.strip(),
+                "message": "Migrations are up to date"
+            }
+        else:
+            return {
+                "status": "error",
+                "message": result.stderr,
+                "current_revision": None
+            }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": str(e),
+            "current_revision": None
+        }
 
 
 @app.get("/")

@@ -53,6 +53,7 @@ class UserPreferences(BaseModel):
     # Telegram integration
     telegram_chat_id = Column(String(255))
     telegram_enabled = Column(Boolean, default=False)
+    telegram_digest_mode = Column(SQLEnum('all', 'tracked', name='telegramdigestmode'), nullable=True, default='all')
     
     # Timezone and locale settings
     timezone = Column(String(50), default="UTC")  # e.g., "UTC", "America/New_York", "Europe/Moscow"

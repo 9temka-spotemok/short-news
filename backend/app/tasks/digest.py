@@ -53,14 +53,14 @@ def generate_weekly_digests(self):
 
 
 @celery_app.task(bind=True)
-def generate_user_digest(self, user_id: str, digest_type: str = "daily"):
+def generate_user_digest(self, user_id: str, digest_type: str = "daily", tracked_only: bool = False):
     """
     Generate digest for specific user
     """
-    logger.info(f"Starting digest generation for user: {user_id}, type: {digest_type}")
+    logger.info(f"Starting digest generation for user: {user_id}, type: {digest_type}, tracked_only: {tracked_only}")
     
     try:
-        result = asyncio.run(_generate_user_digest_async(user_id, digest_type))
+        result = asyncio.run(_generate_user_digest_async(user_id, digest_type, tracked_only))
         logger.info(f"Digest generation completed for user: {user_id}")
         return result
         
@@ -94,17 +94,22 @@ async def _generate_daily_digests_async():
                 
                 # Generate digest
                 digest_service = DigestService(db)
+                
+                # Determine tracked_only based on telegram_digest_mode
+                tracked_only = (user_prefs.telegram_digest_mode == 'tracked') if user_prefs.telegram_digest_mode else False
+                
                 digest_data = await digest_service.generate_user_digest(
                     user_id=str(user_prefs.user_id),
                     period=user_prefs.digest_frequency,
-                    format_type=user_prefs.digest_format if user_prefs.digest_format else "short"
+                    format_type=user_prefs.digest_format if user_prefs.digest_format else "short",
+                    tracked_only=tracked_only
                 )
                 
                 # Send via Telegram if enabled
                 if user_prefs.telegram_enabled and user_prefs.telegram_chat_id:
-                    digest_text = digest_service.format_digest_for_telegram(digest_data)
+                    digest_text = digest_service.format_digest_for_telegram(digest_data, user_prefs)
                     await telegram_service.send_digest(user_prefs.telegram_chat_id, digest_text)
-                    logger.info(f"Digest sent to Telegram for user {user_prefs.user_id}")
+                    logger.info(f"Digest sent to Telegram for user {user_prefs.user_id} (mode: {user_prefs.telegram_digest_mode or 'all'})")
                 
                 # Record last sent time
                 await _mark_user_sent_now(db, user_prefs)
@@ -143,17 +148,22 @@ async def _generate_weekly_digests_async():
                 
                 # Generate digest
                 digest_service = DigestService(db)
+                
+                # Determine tracked_only based on telegram_digest_mode
+                tracked_only = (user_prefs.telegram_digest_mode == 'tracked') if user_prefs.telegram_digest_mode else False
+                
                 digest_data = await digest_service.generate_user_digest(
                     user_id=str(user_prefs.user_id),
                     period="weekly",
-                    format_type=user_prefs.digest_format if user_prefs.digest_format else "short"
+                    format_type=user_prefs.digest_format if user_prefs.digest_format else "short",
+                    tracked_only=tracked_only
                 )
                 
                 # Send via Telegram if enabled
                 if user_prefs.telegram_enabled and user_prefs.telegram_chat_id:
-                    digest_text = digest_service.format_digest_for_telegram(digest_data)
+                    digest_text = digest_service.format_digest_for_telegram(digest_data, user_prefs)
                     await telegram_service.send_digest(user_prefs.telegram_chat_id, digest_text)
-                    logger.info(f"Weekly digest sent to Telegram for user {user_prefs.user_id}")
+                    logger.info(f"Weekly digest sent to Telegram for user {user_prefs.user_id} (mode: {user_prefs.telegram_digest_mode or 'all'})")
                 
                 # Record last sent time
                 await _mark_user_sent_now(db, user_prefs)
@@ -167,7 +177,7 @@ async def _generate_weekly_digests_async():
         return {"status": "success", "generated_count": generated_count}
 
 
-async def _generate_user_digest_async(user_id: str, digest_type: str):
+async def _generate_user_digest_async(user_id: str, digest_type: str, tracked_only: bool = False):
     """Async implementation of user digest generation"""
     async with AsyncSessionLocal() as db:
         # Get user preferences
@@ -181,15 +191,21 @@ async def _generate_user_digest_async(user_id: str, digest_type: str):
         
         # Generate digest
         digest_service = DigestService(db)
+        
+        # Use provided tracked_only parameter, or fallback to telegram_digest_mode
+        if tracked_only is None:
+            tracked_only = (user_prefs.telegram_digest_mode == 'tracked') if user_prefs.telegram_digest_mode else False
+        
         digest_data = await digest_service.generate_user_digest(
             user_id=user_id,
             period=digest_type,
-            format_type=user_prefs.digest_format if user_prefs.digest_format else "short"
+            format_type=user_prefs.digest_format if user_prefs.digest_format else "short",
+            tracked_only=tracked_only
         )
         
         # Send via Telegram if enabled
         if user_prefs.telegram_enabled and user_prefs.telegram_chat_id:
-            digest_text = digest_service.format_digest_for_telegram(digest_data)
+            digest_text = digest_service.format_digest_for_telegram(digest_data, user_prefs)
             await telegram_service.send_digest(user_prefs.telegram_chat_id, digest_text)
         
         return {"status": "success", "user_id": user_id, "digest_type": digest_type, "news_count": digest_data["news_count"]}

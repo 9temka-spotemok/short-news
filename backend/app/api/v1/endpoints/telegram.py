@@ -121,6 +121,8 @@ async def handle_telegram_callback(callback_query: Dict[str, Any], db: AsyncSess
             await handle_digest_callback(chat_id, data, db)
         elif data.startswith("settings_"):
             await handle_settings_callback(chat_id, data, db)
+        elif data.startswith("digest_settings_"):
+            await handle_digest_settings_callback(chat_id, data, db)
         elif data == "help":
             await handle_help_callback(chat_id, db)
         elif data == "main_menu":
@@ -212,17 +214,25 @@ async def handle_digest_callback(chat_id: str, data: str, db: AsyncSession):
             return
         
         if data == "digest_daily":
-            task = generate_user_digest.delay(str(user_prefs.user_id), "daily")
+            # Determine tracked_only based on telegram_digest_mode
+            tracked_only = (user_prefs.telegram_digest_mode == 'tracked') if user_prefs.telegram_digest_mode else False
+            
+            task = generate_user_digest.delay(str(user_prefs.user_id), "daily", tracked_only=tracked_only)
+            mode_text = "только отслеживаемых компаний" if tracked_only else "всех новостей"
             await telegram_service.send_digest(
                 chat_id,
-                "📅 Дневной дайджест генерируется...\n\n"
+                f"📅 Дневной дайджест ({mode_text}) генерируется...\n\n"
                 "Ваш персонализированный дайджест будет отправлен в ближайшее время!"
             )
         elif data == "digest_weekly":
-            task = generate_user_digest.delay(str(user_prefs.user_id), "weekly")
+            # Determine tracked_only based on telegram_digest_mode
+            tracked_only = (user_prefs.telegram_digest_mode == 'tracked') if user_prefs.telegram_digest_mode else False
+            
+            task = generate_user_digest.delay(str(user_prefs.user_id), "weekly", tracked_only=tracked_only)
+            mode_text = "только отслеживаемых компаний" if tracked_only else "всех новостей"
             await telegram_service.send_digest(
                 chat_id,
-                "📊 Недельный дайджест генерируется...\n\n"
+                f"📊 Недельный дайджест ({mode_text}) генерируется...\n\n"
                 "Ваш персонализированный дайджест будет отправлен в ближайшее время!"
             )
         elif data == "settings_digest":
@@ -245,26 +255,13 @@ async def handle_digest_settings_callback(chat_id: str, db: AsyncSession):
         user_prefs = result.scalar_one_or_none()
         
         if user_prefs:
-            settings_text = f"""
-⚙️ **Настройки дайджеста:**
-
-📊 Дайджесты: {'✅ Включены' if user_prefs.digest_enabled else '❌ Отключены'}
-📅 Частота: {user_prefs.digest_frequency.value if user_prefs.digest_frequency else 'Не настроено'}
-📝 Формат: {user_prefs.digest_format.value if user_prefs.digest_format else 'Не настроено'}
-🌐 Часовой пояс: {user_prefs.timezone if hasattr(user_prefs, 'timezone') else 'UTC'}
-
-Для изменения настроек используйте веб-приложение.
-            """
-            
-            keyboard = {
-                "inline_keyboard": [
-                    [
-                        {"text": "🔗 Открыть настройки", "url": "https://yourdomain.com/settings/digest"}
-                    ]
-                ]
-            }
-            
-            await telegram_service.send_message_with_keyboard(chat_id, settings_text, keyboard)
+            current_mode = user_prefs.telegram_digest_mode or 'all'
+            await telegram_service.send_digest_settings_menu(chat_id, current_mode)
+        else:
+            await telegram_service.send_digest(
+                chat_id,
+                "❌ Пользователь не найден. Используйте /start для настройки."
+            )
         
     except Exception as e:
         logger.error(f"Error handling digest settings callback: {e}")
@@ -295,6 +292,66 @@ async def handle_settings_callback(chat_id: str, data: str, db: AsyncSession):
 Для изменения настроек используйте веб-приложение.
             """
             await telegram_service.send_digest(chat_id, settings_text)
+    
+    elif data == "settings_digest":
+        # Show digest settings menu
+        result = await db.execute(
+            select(UserPreferences).where(UserPreferences.telegram_chat_id == chat_id)
+        )
+        user_prefs = result.scalar_one_or_none()
+        
+        if user_prefs:
+            current_mode = user_prefs.telegram_digest_mode or 'all'
+            await telegram_service.send_digest_settings_menu(chat_id, current_mode)
+        else:
+            await telegram_service.send_digest(
+                chat_id, 
+                "❌ Пользователь не найден. Используйте /start для настройки."
+            )
+
+
+async def handle_digest_settings_callback(chat_id: str, data: str, db: AsyncSession):
+    """Handle digest settings callback queries"""
+    try:
+        # Get user preferences
+        result = await db.execute(
+            select(UserPreferences).where(UserPreferences.telegram_chat_id == chat_id)
+        )
+        user_prefs = result.scalar_one_or_none()
+        
+        if not user_prefs:
+            await telegram_service.send_digest(
+                chat_id, 
+                "❌ Пользователь не найден. Используйте /start для настройки."
+            )
+            return
+        
+        # Determine new mode
+        if data == "digest_settings_all":
+            new_mode = "all"
+        elif data == "digest_settings_tracked":
+            new_mode = "tracked"
+        else:
+            await telegram_service.send_digest(chat_id, "❌ Неизвестная настройка.")
+            return
+        
+        # Update user preferences
+        user_prefs.telegram_digest_mode = new_mode
+        await db.commit()
+        
+        # Send confirmation and updated menu
+        confirmation_text = f"✅ Настройка изменена на: **{'All News' if new_mode == 'all' else 'Tracked Only'}**"
+        await telegram_service.send_digest(chat_id, confirmation_text)
+        
+        # Show updated settings menu
+        await telegram_service.send_digest_settings_menu(chat_id, new_mode)
+        
+    except Exception as e:
+        logger.error(f"Error handling digest settings callback: {e}")
+        await telegram_service.send_digest(
+            chat_id,
+            "❌ Ошибка при изменении настроек. Попробуйте позже."
+        )
 
 
 @router.get("/set-webhook")

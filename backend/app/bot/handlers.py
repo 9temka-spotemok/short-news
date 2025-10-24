@@ -29,7 +29,7 @@ async def handle_start(chat_id: str, username: Optional[str] = None) -> str:
                 {"text": "📊 Weekly Digest", "callback_data": "digest_weekly"}
             ],
             [
-                {"text": "⚙️ Settings", "callback_data": "settings_view"},
+                {"text": "⚙️ Digest Settings", "callback_data": "settings_digest"},
                 {"text": "📚 Help", "callback_data": "help"}
             ],
             [

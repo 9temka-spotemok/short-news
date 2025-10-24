@@ -32,6 +32,25 @@ services:
       timeout: 5s
       retries: 5
 
+  # Database Migration Service (runs once)
+  migration:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: shot-news-migration
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://shot_news:shot_news_dev@postgres:5432/shot_news
+      - ENVIRONMENT=development
+      - DEBUG=true
+      - SECRET_KEY=dev-secret-key-change-in-production
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: python -m alembic upgrade head
+    restart: "no"
+
   # Backend API (FastAPI)
   backend:
     build:
@@ -50,6 +69,8 @@ services:
     volumes:
       - ./backend:/app
     depends_on:
+      migration:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
@@ -74,6 +95,8 @@ services:
     volumes:
       - ./backend:/app
     depends_on:
+      migration:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
@@ -99,6 +122,8 @@ services:
     volumes:
       - ./backend:/app
     depends_on:
+      migration:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
@@ -129,6 +154,8 @@ services:
       - ./backend:/app
       - bot_logs:/var/log
     depends_on:
+      migration:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
@@ -159,6 +186,8 @@ services:
       - ./backend:/app
       - scraper_logs:/var/log
     depends_on:
+      migration:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
