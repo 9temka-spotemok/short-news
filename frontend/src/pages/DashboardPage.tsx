@@ -1,6 +1,5 @@
 import CompanyMultiSelect from '@/components/CompanyMultiSelect'
 import TrackedCompaniesManager from '@/components/TrackedCompaniesManager'
-import { useNewsAnalytics } from '@/hooks/useNews'
 import api, { ApiService } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -51,7 +50,10 @@ export default function DashboardPage() {
   const { isAuthenticated, user, accessToken } = useAuthStore()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const [activeTab, setActiveTab] = useState('overview')
+  const [activeTab, setActiveTab] = useState(() => {
+    const saved = localStorage.getItem('dashboard-activeTab')
+    return saved || 'overview'
+  })
   const [recentNews, setRecentNews] = useState<NewsItem[]>([])
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
@@ -61,7 +63,24 @@ export default function DashboardPage() {
   const [availableCategories, setAvailableCategories] = useState<{ value: string; description: string }[]>([])
   const [showAllCategories, setShowAllCategories] = useState(false)
   const [showAllCompanies, setShowAllCompanies] = useState(false)
-  const [showTrackedOnly, setShowTrackedOnly] = useState(false) // Переключатель: все новости (false) / только отслеживаемые компании (true)
+  // Load showTrackedOnly state from localStorage, default to false
+  const [showTrackedOnly, setShowTrackedOnly] = useState(() => {
+    const saved = localStorage.getItem('dashboard-showTrackedOnly')
+    return saved ? JSON.parse(saved) : false
+  })
+
+  // Save showTrackedOnly state to localStorage when it changes
+  const handleToggleTrackedOnly = (value: boolean) => {
+    setShowTrackedOnly(value)
+    localStorage.setItem('dashboard-showTrackedOnly', JSON.stringify(value))
+  }
+
+  // Save active tab state to localStorage when it changes
+  const handleTabChange = (tabId: string) => {
+    setActiveTab(tabId)
+    localStorage.setItem('dashboard-activeTab', tabId)
+  }
+
   // Notifications are handled globally in NotificationCenter
   
   // Digest state
@@ -69,8 +88,8 @@ export default function DashboardPage() {
   const [digestLoading, setDigestLoading] = useState(false)
   const [digestError, setDigestError] = useState<string | null>(null)
   
-  // Use news analytics for comprehensive statistics
-  const { stats: allStats, categoryTrends } = useNewsAnalytics()
+  // Note: We now build statistics locally instead of using useNewsAnalytics
+  // const { stats: allStats, categoryTrends } = useNewsAnalytics()
   
   // Debug authentication state
   useEffect(() => {
@@ -168,7 +187,7 @@ export default function DashboardPage() {
     try {
       setLoading(true)
       
-      // Build query parameters for news
+      // Load recent news for display (first 20)
       const params: any = { limit: 20 }
       
       // Apply company filter only if user wants to see tracked companies AND has them
@@ -176,11 +195,11 @@ export default function DashboardPage() {
         params.companies = userPreferences.subscribed_companies.join(',')
       }
       
-      // Fetch news
+      // Fetch recent news for UI
       const newsResponse = await api.get('/news/', { params })
       setRecentNews(newsResponse.data.items)
       
-      // Calculate stats from loaded news (for today's news count)
+      // Calculate today's news count
       const items = newsResponse.data.items
       const todayNews = items.filter((item: NewsItem) => {
         const published = new Date(item.published_at || item.created_at)
@@ -188,45 +207,46 @@ export default function DashboardPage() {
         return published.toDateString() === today.toDateString()
       }).length
       
-      // Use stats based on current mode
+      // Get accurate statistics using stats endpoint
       let categoriesBreakdown
       let totalNews
       
       if (showTrackedOnly && userPreferences?.subscribed_companies?.length) {
-        // For tracked companies, fetch more news to get accurate statistics
-        const statsParams: any = { limit: 100 } // Get more news for better stats
-        statsParams.companies = userPreferences.subscribed_companies.join(',')
-        
-        const statsResponse = await api.get('/news/', { params: statsParams })
-        const statsItems = statsResponse.data.items
-        
-        // Build stats from all fetched news
-        const categoryCount: Record<string, number> = {}
-        statsItems.forEach((item: NewsItem) => {
-          const cat = item.category || 'other'
-          categoryCount[cat] = (categoryCount[cat] || 0) + 1
+        // For tracked companies, use stats endpoint filtered by companies
+        const statsResponse = await api.get('/news/stats/by-companies', {
+          params: { company_ids: userPreferences.subscribed_companies.join(',') }
         })
         
-        const total = statsResponse.data.total
-        categoriesBreakdown = Object.entries(categoryCount)
+        const total = statsResponse.data.total_count
+        const categoryCounts = statsResponse.data.category_counts
+        
+        categoriesBreakdown = Object.entries(categoryCounts)
           .map(([category, count]) => ({
             category: categoryLabels[category] || category,
-            technicalCategory: category, // Keep original technical name
-            count,
-            percentage: total > 0 ? Math.round((count / total) * 100) : 0
+            technicalCategory: category,
+            count: Number(count),
+            percentage: total > 0 ? Math.round((Number(count) / total) * 100) : 0
           }))
           .sort((a, b) => b.count - a.count)
         
         totalNews = total
       } else {
-        // Use comprehensive stats from API for all news
-        categoriesBreakdown = categoryTrends.map(trend => ({
-          category: trend.category,
-          technicalCategory: trend.technicalCategory,
-          count: trend.count,
-          percentage: Math.round(trend.percentage)
-        }))
-        totalNews = allStats?.total_count || newsResponse.data.total
+        // For all news, use general stats endpoint
+        const statsResponse = await api.get('/news/stats')
+        
+        const total = statsResponse.data.total_count
+        const categoryCounts = statsResponse.data.category_counts
+        
+        categoriesBreakdown = Object.entries(categoryCounts)
+          .map(([category, count]) => ({
+            category: categoryLabels[category] || category,
+            technicalCategory: category,
+            count: Number(count),
+            percentage: total > 0 ? Math.round((Number(count) / total) * 100) : 0
+          }))
+          .sort((a, b) => b.count - a.count)
+        
+        totalNews = total
       }
       
       setStats({
@@ -347,7 +367,7 @@ export default function DashboardPage() {
                   <div className="flex items-center space-x-2">
                     <span className="text-sm text-gray-600">All News</span>
                     <button
-                      onClick={() => setShowTrackedOnly(!showTrackedOnly)}
+                      onClick={() => handleToggleTrackedOnly(!showTrackedOnly)}
                       className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                         showTrackedOnly ? 'bg-primary-600' : 'bg-gray-200'
                       }`}
@@ -372,7 +392,7 @@ export default function DashboardPage() {
             {tabs.map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => handleTabChange(tab.id)}
                 className={`py-2 px-1 border-b-2 font-medium text-sm ${
                   activeTab === tab.id
                     ? 'border-primary-500 text-primary-600'

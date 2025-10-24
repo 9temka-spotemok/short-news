@@ -148,6 +148,43 @@ async def get_news_statistics(
             )
 
 
+@router.get("/stats/by-companies", response_model=NewsStatsSchema)
+async def get_news_statistics_by_companies(
+    company_ids: str = Query(..., description="Comma-separated company IDs"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get comprehensive news statistics filtered by company IDs
+    
+    Returns statistics about news items for specific companies including counts by category,
+    source type, recent news, and high priority items.
+    """
+    logger.info(f"News statistics by companies request: {company_ids}")
+    
+    async with NewsService(db) as news_service:
+        try:
+            # Parse company IDs
+            parsed_company_ids = [cid.strip() for cid in company_ids.split(',') if cid.strip()]
+            
+            if not parsed_company_ids:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="At least one company ID is required"
+                )
+            
+            stats = await news_service.get_news_statistics_by_companies(parsed_company_ids)
+            return stats
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Failed to get news statistics by companies: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to retrieve news statistics by companies"
+            )
+
+
 @router.get("/{news_id}", response_model=Dict[str, Any])
 async def get_news_item(
     news_id: str,

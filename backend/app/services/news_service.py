@@ -399,6 +399,81 @@ class NewsService:
             logger.error(f"Failed to get news statistics: {e}")
             raise NewsServiceError(f"Failed to get statistics: {str(e)}")
     
+    async def get_news_statistics_by_companies(self, company_ids: List[str]) -> NewsStatsSchema:
+        """
+        Get comprehensive news statistics filtered by company IDs
+        
+        Args:
+            company_ids: List of company IDs to filter by
+            
+        Returns:
+            NewsStatsSchema with statistics filtered by companies
+        """
+        try:
+            # Build base query with company filter
+            base_query = select(NewsItem).where(NewsItem.company_id.in_(company_ids))
+            
+            # Total count
+            total_count = await self.db.execute(
+                select(func.count(NewsItem.id)).where(NewsItem.company_id.in_(company_ids))
+            )
+            total_count = total_count.scalar()
+            
+            # Category counts
+            category_counts = await self.db.execute(
+                select(
+                    NewsItem.category,
+                    func.count(NewsItem.id).label('count')
+                )
+                .where(NewsItem.company_id.in_(company_ids))
+                .group_by(NewsItem.category)
+            )
+            category_dict = {row.category: row.count for row in category_counts}
+            
+            # Source type counts
+            source_counts = await self.db.execute(
+                select(
+                    NewsItem.source_type,
+                    func.count(NewsItem.id).label('count')
+                )
+                .where(NewsItem.company_id.in_(company_ids))
+                .group_by(NewsItem.source_type)
+            )
+            source_dict = {row.source_type: row.count for row in source_counts}
+            
+            # Recent news count (last 24 hours)
+            recent_cutoff = datetime.utcnow() - timedelta(hours=24)
+            recent_count = await self.db.execute(
+                select(func.count(NewsItem.id))
+                .where(
+                    NewsItem.company_id.in_(company_ids),
+                    NewsItem.published_at >= recent_cutoff
+                )
+            )
+            recent_count = recent_count.scalar()
+            
+            # High priority count
+            high_priority_count = await self.db.execute(
+                select(func.count(NewsItem.id))
+                .where(
+                    NewsItem.company_id.in_(company_ids),
+                    NewsItem.priority_score >= 0.8
+                )
+            )
+            high_priority_count = high_priority_count.scalar()
+            
+            return NewsStatsSchema(
+                total_count=total_count,
+                category_counts=category_dict,
+                source_type_counts=source_dict,
+                recent_count=recent_count,
+                high_priority_count=high_priority_count
+            )
+            
+        except Exception as e:
+            logger.error(f"Failed to get news statistics by companies: {e}")
+            raise NewsServiceError(f"Failed to get statistics by companies: {str(e)}")
+    
     async def get_company_by_name(self, name: str) -> Optional[Company]:
         """
         Get company by name
