@@ -4,7 +4,7 @@ AI Competitor Insight Hub (shot-news) - Main FastAPI Application
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.trustedhost import TrustedHostMiddleware
+# from fastapi.middleware.trustedhost import TrustedHostMiddleware  # Disabled for Railway compatibility
 from fastapi.responses import JSONResponse
 from loguru import logger
 import uvicorn
@@ -86,13 +86,14 @@ app.add_middleware(
 )
 
 # Setup trusted hosts (expects hostnames, not full URLs)
-if settings.ENVIRONMENT == "production":
-    try:
-        allowed_hosts = [h.replace("http://", "").replace("https://", "").split("/")[0] for h in settings.ALLOWED_HOSTS]
-        app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
-    except Exception:
-        # Fallback to original list if parsing fails
-        app.add_middleware(TrustedHostMiddleware, allowed_hosts=["*"])
+# Disabled for Railway compatibility - Railway handles host validation
+# if settings.ENVIRONMENT == "production":
+#     try:
+#         allowed_hosts = [h.replace("http://", "").replace("https://", "").split("/")[0] for h in settings.ALLOWED_HOSTS]
+#         app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
+#     except Exception:
+#         # Fallback to original list if parsing fails
+#         app.add_middleware(TrustedHostMiddleware, allowed_hosts=["*"])
 
 # Setup exception handlers
 setup_exception_handlers(app)
