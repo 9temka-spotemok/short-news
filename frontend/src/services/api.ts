@@ -518,59 +518,155 @@ export class ApiService {
   private static generatePdfHtml(data: any): string {
     const companies = data.companies || []
     const metrics = data.metrics || {}
+    const report = data.report || {}
+    const mainCompany = report.company || companies[0]
     
     return `
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Competitor Analysis Report</title>
+        <title>Competitor Analysis Report - ${mainCompany?.name || 'Unknown Company'}</title>
         <style>
-          body { font-family: Arial, sans-serif; margin: 20px; }
-          h1 { color: #2563eb; }
-          h2 { color: #374151; margin-top: 30px; }
-          table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+          body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; }
+          h1 { color: #2563eb; border-bottom: 2px solid #2563eb; padding-bottom: 10px; }
+          h2 { color: #374151; margin-top: 30px; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px; }
+          h3 { color: #6b7280; margin-top: 20px; }
+          table { width: 100%; border-collapse: collapse; margin: 15px 0; }
           th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-          th { background-color: #f3f4f6; }
-          .metric-card { display: inline-block; margin: 10px; padding: 15px; border: 1px solid #ddd; border-radius: 8px; }
+          th { background-color: #f3f4f6; font-weight: bold; }
+          .metric-card { display: inline-block; margin: 10px; padding: 15px; border: 1px solid #ddd; border-radius: 8px; background-color: #f9fafb; }
+          .section { margin: 25px 0; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; }
+          .highlight { background-color: #fef3c7; padding: 10px; border-radius: 5px; margin: 10px 0; }
         </style>
       </head>
       <body>
         <h1>Competitor Analysis Report</h1>
-        <p><strong>Date Range:</strong> ${data.date_from} to ${data.date_to}</p>
+        <div class="highlight">
+          <p><strong>Company:</strong> ${mainCompany?.name || 'N/A'}</p>
+          <p><strong>Analysis Date:</strong> ${report.analysisDate ? new Date(report.analysisDate).toLocaleDateString() : 'N/A'}</p>
+          <p><strong>Date Range:</strong> ${data.date_from} to ${data.date_to}</p>
+          <p><strong>Analysis Mode:</strong> ${report.analysisMode || 'N/A'}</p>
+        </div>
         
-        <h2>Companies Analyzed</h2>
-        <table>
-          <tr><th>Name</th><th>Category</th><th>Website</th></tr>
-          ${companies.map((company: any) => 
-            `<tr><td>${company.name}</td><td>${company.category}</td><td>${company.website || 'N/A'}</td></tr>`
-          ).join('')}
-        </table>
+        <div class="section">
+          <h2>Company Overview</h2>
+          <table>
+            <tr><th>Name</th><th>Category</th><th>Website</th><th>Description</th></tr>
+            <tr>
+              <td>${mainCompany?.name || 'N/A'}</td>
+              <td>${mainCompany?.category || 'N/A'}</td>
+              <td>${mainCompany?.website || 'N/A'}</td>
+              <td>${mainCompany?.description || 'N/A'}</td>
+            </tr>
+          </table>
+        </div>
         
-        <h2>News Volume Comparison</h2>
-        <table>
-          <tr><th>Company</th><th>Total News</th><th>Activity Score</th><th>Avg Priority</th></tr>
+        <div class="section">
+          <h2>Business Intelligence</h2>
+          <p><strong>Total Activity:</strong> ${report.businessIntelligence?.totalActivity || 0}</p>
+          <p><strong>Activity Score:</strong> ${report.businessIntelligence?.activityScore?.toFixed(2) || '0.00'}/10</p>
+          <p><strong>Competitor Count:</strong> ${report.businessIntelligence?.competitorCount || 0}</p>
+          
+          <h3>Business Intelligence Metrics</h3>
+          <table>
+            <tr><th>Metric</th><th>Count</th></tr>
+            <tr><td>Funding News</td><td>${report.businessIntelligence?.metrics?.funding_news || 0}</td></tr>
+            <tr><td>Partnerships</td><td>${report.businessIntelligence?.metrics?.partnership || 0}</td></tr>
+            <tr><td>Acquisitions</td><td>${report.businessIntelligence?.metrics?.acquisition || 0}</td></tr>
+            <tr><td>Strategic Announcements</td><td>${report.businessIntelligence?.metrics?.strategic_announcement || 0}</td></tr>
+            <tr><td>Integrations</td><td>${report.businessIntelligence?.metrics?.integration || 0}</td></tr>
+          </table>
+          
+          <h3>Top Activity Categories</h3>
+          <table>
+            <tr><th>Category</th><th>Count</th></tr>
+            ${Object.entries(report.businessIntelligence?.metrics || {})
+              .filter(([key]) => !['funding_news', 'partnership', 'acquisition', 'strategic_announcement', 'integration'].includes(key))
+              .sort(([, a], [, b]) => Number(b) - Number(a))
+              .slice(0, 5)
+              .map(([cat, count]) => `<tr><td>${cat.replace(/_/g, ' ').replace(/\\b\\w/g, l => l.toUpperCase())}</td><td>${count}</td></tr>`)
+              .join('')}
+          </table>
+        </div>
+        
+        <div class="section">
+          <h2>Innovation & Technology</h2>
+          <p><strong>Total News:</strong> ${report.innovationTechnology?.totalNews || 0}</p>
+          <p><strong>Technical Activity:</strong> ${report.innovationTechnology?.technicalActivity || 0}</p>
+          
+          <h3>Technology Metrics</h3>
+          <table>
+            <tr><th>Category</th><th>Count</th></tr>
+            <tr><td>Technical Updates</td><td>${report.innovationTechnology?.metrics?.technical_update || 0}</td></tr>
+            <tr><td>API Updates</td><td>${report.innovationTechnology?.metrics?.api_update || 0}</td></tr>
+            <tr><td>Research Papers</td><td>${report.innovationTechnology?.metrics?.research_paper || 0}</td></tr>
+            <tr><td>Model Releases</td><td>${report.innovationTechnology?.metrics?.model_release || 0}</td></tr>
+            <tr><td>Performance Improvements</td><td>${report.innovationTechnology?.metrics?.performance_improvement || 0}</td></tr>
+            <tr><td>Security Updates</td><td>${report.innovationTechnology?.metrics?.security_update || 0}</td></tr>
+          </table>
+        </div>
+        
+        <div class="section">
+          <h2>Team & Culture</h2>
+          <p><strong>Total News:</strong> ${report.teamCulture?.totalNews || 0}</p>
+          <p><strong>Activity Score:</strong> ${report.teamCulture?.activityScore?.toFixed(2) || '0.00'}/10</p>
+          <p><strong>Team Activity:</strong> ${report.teamCulture?.teamActivity || 0}</p>
+          
+          <h3>Team Metrics</h3>
+          <table>
+            <tr><th>Category</th><th>Count</th></tr>
+            <tr><td>Community Events</td><td>${report.teamCulture?.metrics?.community_event || 0}</td></tr>
+            <tr><td>Strategic Announcements</td><td>${report.teamCulture?.metrics?.strategic_announcement || 0}</td></tr>
+            <tr><td>Research Papers</td><td>${report.teamCulture?.metrics?.research_paper || 0}</td></tr>
+          </table>
+        </div>
+        
+        <div class="section">
+          <h2>Market Position</h2>
+          <p><strong>News Volume:</strong> ${report.marketPosition?.metrics?.news_volume || 0}</p>
+          <p><strong>Activity Score:</strong> ${report.marketPosition?.metrics?.activity_score?.toFixed(2) || '0.00'}/10</p>
+          <p><strong>Total Market News:</strong> ${report.marketPosition?.totalNews || 0}</p>
+          <p><strong>Competitors:</strong> ${report.marketPosition?.competitors?.length || 0}</p>
+          
+          <h3>Top Categories</h3>
+          <table>
+            <tr><th>Category</th><th>Count</th></tr>
+            ${Object.entries(report.marketPosition?.metrics?.category_distribution || {})
+              .sort(([, a], [, b]) => Number(b) - Number(a))
+              .map(([cat, count]) => `<tr><td>${cat.replace(/_/g, ' ').replace(/\\b\\w/g, l => l.toUpperCase())}</td><td>${count}</td></tr>`)
+              .join('')}
+          </table>
+        </div>
+        
+        <div class="section">
+          <h2>News Volume Comparison</h2>
+          <table>
+            <tr><th>Company</th><th>Total News</th><th>Activity Score</th><th>Avg Priority</th></tr>
+            ${companies.map((company: any) => {
+              const volume = metrics.news_volume?.[company.id] || 0
+              const activity = metrics.activity_score?.[company.id] || 0
+              const priority = metrics.avg_priority?.[company.id] || 0
+              return `<tr><td>${company.name}</td><td>${volume}</td><td>${activity.toFixed(2)}</td><td>${priority.toFixed(2)}</td></tr>`
+            }).join('')}
+          </table>
+        </div>
+        
+        <div class="section">
+          <h2>Detailed Category Distribution</h2>
           ${companies.map((company: any) => {
-            const volume = metrics.news_volume?.[company.id] || 0
-            const activity = metrics.activity_score?.[company.id] || 0
-            const priority = metrics.avg_priority?.[company.id] || 0
-            return `<tr><td>${company.name}</td><td>${volume}</td><td>${activity.toFixed(2)}</td><td>${priority.toFixed(2)}</td></tr>`
+            const categories = metrics.category_distribution?.[company.id] || {}
+            const categoryRows = Object.entries(categories).map(([cat, count]) => 
+              `<tr><td>${cat.replace(/_/g, ' ').replace(/\\b\\w/g, l => l.toUpperCase())}</td><td>${count}</td></tr>`
+            ).join('')
+            return `
+              <h3>${company.name}</h3>
+              <table>
+                <tr><th>Category</th><th>Count</th></tr>
+                ${categoryRows}
+              </table>
+            `
           }).join('')}
-        </table>
-        
-        <h2>Category Distribution</h2>
-        ${companies.map((company: any) => {
-          const categories = metrics.category_distribution?.[company.id] || {}
-          const categoryRows = Object.entries(categories).map(([cat, count]) => 
-            `<tr><td>${cat}</td><td>${count}</td></tr>`
-          ).join('')
-          return `
-            <h3>${company.name}</h3>
-            <table>
-              <tr><th>Category</th><th>Count</th></tr>
-              ${categoryRows}
-            </table>
-          `
-        }).join('')}
+        </div>
       </body>
       </html>
     `
@@ -579,14 +675,68 @@ export class ApiService {
   private static generateCsvContent(data: any): string {
     const companies = data.companies || []
     const metrics = data.metrics || {}
+    const report = data.report || {}
+    const mainCompany = report.company || companies[0]
     
-    let csv = 'Company,Category,Total News,Activity Score,Avg Priority\n'
+    let csv = `Competitor Analysis Report - ${mainCompany?.name || 'Unknown Company'}\n`
+    csv += `Analysis Date,${report.analysisDate ? new Date(report.analysisDate).toLocaleDateString() : 'N/A'}\n`
+    csv += `Date Range,${data.date_from} to ${data.date_to}\n`
+    csv += `Analysis Mode,${report.analysisMode || 'N/A'}\n\n`
     
+    // Company Overview
+    csv += `COMPANY OVERVIEW\n`
+    csv += `Name,Category,Website,Description\n`
+    csv += `"${mainCompany?.name || 'N/A'}","${mainCompany?.category || 'N/A'}","${mainCompany?.website || 'N/A'}","${mainCompany?.description || 'N/A'}"\n\n`
+    
+    // Business Intelligence
+    csv += `BUSINESS INTELLIGENCE\n`
+    csv += `Metric,Value\n`
+    csv += `Total Activity,${report.businessIntelligence?.totalActivity || 0}\n`
+    csv += `Activity Score,${report.businessIntelligence?.activityScore?.toFixed(2) || '0.00'}\n`
+    csv += `Competitor Count,${report.businessIntelligence?.competitorCount || 0}\n`
+    csv += `Funding News,${report.businessIntelligence?.metrics?.funding_news || 0}\n`
+    csv += `Partnerships,${report.businessIntelligence?.metrics?.partnership || 0}\n`
+    csv += `Acquisitions,${report.businessIntelligence?.metrics?.acquisition || 0}\n`
+    csv += `Strategic Announcements,${report.businessIntelligence?.metrics?.strategic_announcement || 0}\n`
+    csv += `Integrations,${report.businessIntelligence?.metrics?.integration || 0}\n\n`
+    
+    // Innovation & Technology
+    csv += `INNOVATION & TECHNOLOGY\n`
+    csv += `Metric,Value\n`
+    csv += `Total News,${report.innovationTechnology?.totalNews || 0}\n`
+    csv += `Technical Activity,${report.innovationTechnology?.technicalActivity || 0}\n`
+    csv += `Technical Updates,${report.innovationTechnology?.metrics?.technical_update || 0}\n`
+    csv += `API Updates,${report.innovationTechnology?.metrics?.api_update || 0}\n`
+    csv += `Research Papers,${report.innovationTechnology?.metrics?.research_paper || 0}\n`
+    csv += `Model Releases,${report.innovationTechnology?.metrics?.model_release || 0}\n`
+    csv += `Performance Improvements,${report.innovationTechnology?.metrics?.performance_improvement || 0}\n`
+    csv += `Security Updates,${report.innovationTechnology?.metrics?.security_update || 0}\n\n`
+    
+    // Team & Culture
+    csv += `TEAM & CULTURE\n`
+    csv += `Metric,Value\n`
+    csv += `Total News,${report.teamCulture?.totalNews || 0}\n`
+    csv += `Activity Score,${report.teamCulture?.activityScore?.toFixed(2) || '0.00'}\n`
+    csv += `Team Activity,${report.teamCulture?.teamActivity || 0}\n`
+    csv += `Community Events,${report.teamCulture?.metrics?.community_event || 0}\n`
+    csv += `Strategic Announcements,${report.teamCulture?.metrics?.strategic_announcement || 0}\n`
+    csv += `Research Papers,${report.teamCulture?.metrics?.research_paper || 0}\n\n`
+    
+    // Market Position
+    csv += `MARKET POSITION\n`
+    csv += `Metric,Value\n`
+    csv += `News Volume,${report.marketPosition?.metrics?.news_volume || 0}\n`
+    csv += `Activity Score,${report.marketPosition?.metrics?.activity_score?.toFixed(2) || '0.00'}\n`
+    csv += `Total Market News,${report.marketPosition?.totalNews || 0}\n`
+    csv += `Competitors,${report.marketPosition?.competitors?.length || 0}\n\n`
+    
+    // News Volume Comparison
+    csv += `NEWS VOLUME COMPARISON\n`
+    csv += `Company,Category,Total News,Activity Score,Avg Priority\n`
     companies.forEach((company: any) => {
       const volume = metrics.news_volume?.[company.id] || 0
       const activity = metrics.activity_score?.[company.id] || 0
       const priority = metrics.avg_priority?.[company.id] || 0
-      
       csv += `"${company.name}","${company.category}",${volume},${activity.toFixed(2)},${priority.toFixed(2)}\n`
     })
     

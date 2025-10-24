@@ -37,10 +37,70 @@ export default function CompetitorAnalysisPage() {
   }, [selectedCompany, analysisMode])
 
   const handleExport = async (format: 'json' | 'pdf' | 'csv') => {
-    if (!analysisData) return
+    if (!analysisData || !selectedCompany) return
     
     try {
-      await ApiService.exportAnalysis(analysisData, format)
+      // Собираем все данные для экспорта
+      const exportData = {
+        // Основные данные анализа
+        ...analysisData,
+        
+        // Дополнительные данные для полного отчета
+        report: {
+          company: selectedCompany,
+          analysisDate: new Date().toISOString(),
+          analysisMode: analysisMode,
+          
+          // Business Intelligence данные
+          businessIntelligence: {
+            metrics: analysisData.metrics.category_distribution[selectedCompany.id] || {},
+            activityScore: analysisData.metrics.activity_score[selectedCompany.id] || 0,
+            competitorCount: suggestedCompetitors.length,
+            totalActivity: Object.values(analysisData.metrics.category_distribution[selectedCompany.id] || {}).reduce((sum: number, v: unknown) => sum + Number(v), 0)
+          },
+          
+          // Innovation & Technology данные
+          innovationTechnology: {
+            metrics: analysisData.metrics.category_distribution[selectedCompany.id] || {},
+            totalNews: analysisData.metrics.news_volume[selectedCompany.id] || 0,
+            technicalActivity: Object.entries(analysisData.metrics.category_distribution[selectedCompany.id] || {})
+              .filter(([key]) => ['technical_update', 'api_update', 'research_paper', 'model_release', 'performance_improvement', 'security_update'].includes(key))
+              .reduce((sum, [, count]) => sum + Number(count), 0)
+          },
+          
+          // Team & Culture данные
+          teamCulture: {
+            metrics: analysisData.metrics.category_distribution[selectedCompany.id] || {},
+            totalNews: analysisData.metrics.news_volume[selectedCompany.id] || 0,
+            activityScore: analysisData.metrics.activity_score[selectedCompany.id] || 0,
+            teamActivity: Object.entries(analysisData.metrics.category_distribution[selectedCompany.id] || {})
+              .filter(([key]) => ['community_event', 'strategic_announcement', 'research_paper'].includes(key))
+              .reduce((sum, [, count]) => sum + Number(count), 0)
+          },
+          
+          // Market Position данные
+          marketPosition: {
+            company: selectedCompany,
+            metrics: {
+              news_volume: analysisData.metrics.news_volume[selectedCompany.id] || 0,
+              activity_score: analysisData.metrics.activity_score[selectedCompany.id] || 0,
+              category_distribution: analysisData.metrics.category_distribution[selectedCompany.id] || {}
+            },
+            competitors: suggestedCompetitors,
+            totalNews: Object.values(analysisData.metrics.news_volume).reduce((sum: number, v: unknown) => sum + Number(v), 0)
+          },
+          
+          // News Volume Comparison данные
+          newsVolumeComparison: {
+            companies: analysisData.companies,
+            metrics: analysisData.metrics.news_volume,
+            dateFrom: analysisData.date_from,
+            dateTo: analysisData.date_to
+          }
+        }
+      }
+      
+      await ApiService.exportAnalysis(exportData, format)
     } catch (err) {
       console.error('Export failed:', err)
       setError('Export failed. Please try again.')
@@ -195,6 +255,17 @@ export default function CompetitorAnalysisPage() {
       {/* Результаты анализа компании */}
       {analysisData && selectedCompany && (
         <div className="space-y-6">
+          {/* Analysis Header with Export */}
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">{selectedCompany.name}</h2>
+                <p className="text-gray-600">Competitor Analysis Report</p>
+              </div>
+              <ExportMenu onExport={handleExport} />
+            </div>
+          </div>
+
           {/* Brand Preview */}
           <BrandPreview
             company={selectedCompany}
@@ -250,7 +321,6 @@ export default function CompetitorAnalysisPage() {
               <h3 className="text-lg font-semibold text-gray-900">
                 News Volume Comparison
               </h3>
-              <ExportMenu onExport={handleExport} />
             </div>
             <div className="space-y-3">
               {analysisData.companies.map((company: Company, index: number) => {
@@ -532,7 +602,6 @@ export default function CompetitorAnalysisPage() {
               <h3 className="text-lg font-semibold text-gray-900">
                 News Volume Comparison
               </h3>
-              <ExportMenu onExport={handleExport} />
             </div>
             <div className="space-y-3">
               {analysisData.companies.map((company: Company, index: number) => {

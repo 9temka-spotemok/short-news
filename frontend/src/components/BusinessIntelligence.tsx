@@ -9,13 +9,7 @@ interface BusinessIntelligenceProps {
     website?: string
     description?: string
   }
-  metrics: {
-    funding_news?: number
-    partnership?: number
-    acquisition?: number
-    strategic_announcement?: number
-    integration?: number
-  }
+  metrics: Record<string, number> // All category distribution data
   activityScore: number
   competitorCount: number
 }
@@ -26,50 +20,72 @@ export const BusinessIntelligence: React.FC<BusinessIntelligenceProps> = ({
   activityScore,
   competitorCount
 }) => {
-  const businessMetrics = [
-    {
+  // Define business intelligence categories with their mappings
+  const businessCategoryMappings = {
+    'funding_news': {
       label: 'Funding News',
-      value: metrics.funding_news || 0,
       icon: DollarSign,
       color: 'text-green-600',
       bgColor: 'bg-green-50',
       description: 'Mentions of funding, investments, rounds'
     },
-    {
+    'partnership': {
       label: 'Partnerships',
-      value: metrics.partnership || 0,
       icon: Handshake,
       color: 'text-blue-600',
       bgColor: 'bg-blue-50',
       description: 'Strategic partnerships and collaborations'
     },
-    {
+    'acquisition': {
       label: 'Acquisitions',
-      value: metrics.acquisition || 0,
       icon: Building,
       color: 'text-purple-600',
       bgColor: 'bg-purple-50',
       description: 'M&A activity and acquisitions'
     },
-    {
+    'strategic_announcement': {
       label: 'Strategic Announcements',
-      value: metrics.strategic_announcement || 0,
       icon: Target,
       color: 'text-orange-600',
       bgColor: 'bg-orange-50',
       description: 'Important strategic decisions'
     },
-    {
+    'integration': {
       label: 'Integrations',
-      value: metrics.integration || 0,
       icon: TrendingUp,
       color: 'text-indigo-600',
       bgColor: 'bg-indigo-50',
       description: 'Technical integrations and APIs'
     }
-  ]
+  }
 
-  const totalBusinessActivity = businessMetrics.reduce((sum, metric) => sum + metric.value, 0)
+  // Create business metrics from available data
+  const businessMetrics = Object.entries(businessCategoryMappings).map(([key, config]) => ({
+    label: config.label,
+    value: metrics[key] || 0,
+    icon: config.icon,
+    color: config.color,
+    bgColor: config.bgColor,
+    description: config.description
+  }))
+
+  // Add top categories that are not business intelligence but show company activity
+  const otherCategories = Object.entries(metrics)
+    .filter(([key]) => !businessCategoryMappings[key])
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 2) // Show top 2 other categories
+
+  const additionalMetrics = otherCategories.map(([key, value]) => ({
+    label: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+    value,
+    icon: TrendingUp,
+    color: 'text-gray-600',
+    bgColor: 'bg-gray-50',
+    description: `Other activity: ${key.replace(/_/g, ' ')}`
+  }))
+
+  // Calculate total activity from all categories
+  const totalBusinessActivity = Object.values(metrics).reduce((sum, value) => sum + value, 0)
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -89,24 +105,51 @@ export const BusinessIntelligence: React.FC<BusinessIntelligenceProps> = ({
         </div>
       </div>
 
-      {/* Main metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-        {businessMetrics.map((metric, index) => {
-          const IconComponent = metric.icon
-          return (
-            <div key={index} className={`${metric.bgColor} rounded-lg p-4 border border-gray-100`}>
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center space-x-2">
-                  <IconComponent className={`w-5 h-5 ${metric.color}`} />
-                  <span className="text-sm font-medium text-gray-700">{metric.label}</span>
+      {/* Business Intelligence metrics */}
+      <div className="mb-4">
+        <h4 className="text-sm font-medium text-gray-700 mb-3">Business Intelligence Metrics</h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {businessMetrics.map((metric, index) => {
+            const IconComponent = metric.icon
+            return (
+              <div key={index} className={`${metric.bgColor} rounded-lg p-4 border border-gray-100`}>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center space-x-2">
+                    <IconComponent className={`w-5 h-5 ${metric.color}`} />
+                    <span className="text-sm font-medium text-gray-700">{metric.label}</span>
+                  </div>
+                  <span className={`text-lg font-bold ${metric.color}`}>{metric.value}</span>
                 </div>
-                <span className={`text-lg font-bold ${metric.color}`}>{metric.value}</span>
+                <p className="text-xs text-gray-600">{metric.description}</p>
               </div>
-              <p className="text-xs text-gray-600">{metric.description}</p>
-            </div>
-          )
-        })}
+            )
+          })}
+        </div>
       </div>
+
+      {/* Additional activity metrics */}
+      {additionalMetrics.length > 0 && (
+        <div className="mb-6">
+          <h4 className="text-sm font-medium text-gray-700 mb-3">Top Activity Categories</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {additionalMetrics.map((metric, index) => {
+              const IconComponent = metric.icon
+              return (
+                <div key={index} className={`${metric.bgColor} rounded-lg p-4 border border-gray-100`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center space-x-2">
+                      <IconComponent className={`w-5 h-5 ${metric.color}`} />
+                      <span className="text-sm font-medium text-gray-700">{metric.label}</span>
+                    </div>
+                    <span className={`text-lg font-bold ${metric.color}`}>{metric.value}</span>
+                  </div>
+                  <p className="text-xs text-gray-600">{metric.description}</p>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Additional information */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
