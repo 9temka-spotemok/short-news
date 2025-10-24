@@ -55,6 +55,16 @@ async def init_db():
         logger.info("Database connection established successfully")
     except Exception as e:
         logger.error(f"Failed to connect to database: {e}")
+        logger.error(f"Database URL format: {settings.DATABASE_URL[:50]}...")
+        
+        # Provide more specific error information
+        if "password authentication failed" in str(e):
+            logger.error("Password authentication failed - check database credentials")
+        elif "connection refused" in str(e):
+            logger.error("Connection refused - check database host and port")
+        elif "database" in str(e) and "does not exist" in str(e):
+            logger.error("Database does not exist - check database name")
+        
         raise
 
 

@@ -123,8 +123,23 @@ if __name__ == "__main__":
     print(f"Starting server on port {port}")
     print(f"Environment: {os.environ.get('ENVIRONMENT', 'unknown')}")
     print(f"Debug mode: {os.environ.get('DEBUG', 'false')}")
-    print(f"Database URL: {os.environ.get('DATABASE_URL', 'not set')[:50]}...")
-    print(f"Redis URL: {os.environ.get('REDIS_URL', 'not set')[:50]}...")
+    # Log database URL (masked for security)
+    db_url = os.environ.get('DATABASE_URL', 'not set')
+    if db_url != 'not set':
+        # Mask password in URL for logging
+        import re
+        masked_url = re.sub(r'://([^:]+):([^@]+)@', r'://\1:***@', db_url)
+        print(f"Database URL: {masked_url}")
+    else:
+        print(f"Database URL: {db_url}")
+    
+    redis_url = os.environ.get('REDIS_URL', 'not set')
+    if redis_url != 'not set':
+        import re
+        masked_redis = re.sub(r'://([^:]+):([^@]+)@', r'://\1:***@', redis_url)
+        print(f"Redis URL: {masked_redis}")
+    else:
+        print(f"Redis URL: {redis_url}")
     
     uvicorn.run(
         "main:app",
