@@ -36,14 +36,27 @@ interface DigestData {
   date_from: string
   date_to: string
   news_count: number
+  format: string
   categories?: Record<string, NewsItem[]>
+  companies?: Record<string, {
+    company: {
+      id: string
+      name: string
+      logo_url?: string
+    }
+    news: NewsItem[]
+    stats: {
+      total: number
+      by_category: Record<string, number>
+    }
+  }>
+  companies_count?: number
   statistics?: {
     total_news: number
     by_category: Record<string, number>
     by_source: Record<string, number>
     avg_priority: number
   }
-  format: string
 }
 
 export default function DashboardPage() {
@@ -289,21 +302,27 @@ export default function DashboardPage() {
       setDigestLoading(true)
       setDigestError(null)
       
-      console.log('Fetching digest:', type)
+      // Check if user is trying to get tracked digest but has no tracked companies
+      if (showTrackedOnly && (!userPreferences?.subscribed_companies || userPreferences.subscribed_companies.length === 0)) {
+        setDigestError('No tracked companies found. Please add companies to your preferences first.')
+        return
+      }
+      
+      console.log('Fetching digest:', type, 'showTrackedOnly:', showTrackedOnly)
       
       let endpoint = ''
       switch (type) {
         case 'daily':
-          endpoint = '/digest/daily'
+          endpoint = `/digest/daily?tracked_only=${showTrackedOnly}`
           break
         case 'weekly':
-          endpoint = '/digest/weekly'
+          endpoint = `/digest/weekly?tracked_only=${showTrackedOnly}`
           break
         case 'custom':
           // Default to last 7 days for custom
           const dateFrom = new Date()
           dateFrom.setDate(dateFrom.getDate() - 7)
-          endpoint = `/digest/custom?date_from=${dateFrom.toISOString().split('T')[0]}&date_to=${new Date().toISOString().split('T')[0]}`
+          endpoint = `/digest/custom?date_from=${dateFrom.toISOString().split('T')[0]}&date_to=${new Date().toISOString().split('T')[0]}&tracked_only=${showTrackedOnly}`
           break
       }
       
@@ -757,31 +776,51 @@ export default function DashboardPage() {
                 Generate Digests
               </h3>
               <p className="text-gray-600 mb-6">
-                Create personalized digests based on your preferences
+                Create personalized digests grouped by companies
               </p>
+              
+              {/* Warning message for tracked mode without companies */}
+              {showTrackedOnly && (!userPreferences?.subscribed_companies || userPreferences.subscribed_companies.length === 0) && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+                  <div className="flex items-center">
+                    <div className="text-yellow-600 mr-2">⚠️</div>
+                    <div>
+                      <p className="text-sm text-yellow-800 font-medium">No tracked companies found</p>
+                      <p className="text-sm text-yellow-700 mt-1">
+                        Add companies to your preferences to enable personalized digests in tracked mode.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <button 
                   onClick={() => fetchDigest('daily')}
-                  disabled={digestLoading}
+                  disabled={digestLoading || (showTrackedOnly && (!userPreferences?.subscribed_companies || userPreferences.subscribed_companies.length === 0))}
                   className="btn btn-outline btn-md flex flex-col items-center p-4"
                 >
                   <span className="font-medium">
-                    {digestLoading ? 'Loading...' : 'Daily Digest'}
+                    Daily Digest
                   </span>
                 </button>
                 <button 
                   onClick={() => fetchDigest('weekly')}
-                  disabled={digestLoading}
+                  disabled={digestLoading || (showTrackedOnly && (!userPreferences?.subscribed_companies || userPreferences.subscribed_companies.length === 0))}
                   className="btn btn-outline btn-md flex flex-col items-center p-4"
                 >
-                  <span className="font-medium">Weekly Digest</span>
+                  <span className="font-medium">
+                    Weekly Digest
+                  </span>
                 </button>
                 <button 
                   onClick={() => fetchDigest('custom')}
-                  disabled={digestLoading}
+                  disabled={digestLoading || (showTrackedOnly && (!userPreferences?.subscribed_companies || userPreferences.subscribed_companies.length === 0))}
                   className="btn btn-outline btn-md flex flex-col items-center p-4"
                 >
-                  <span className="font-medium">Custom Period</span>
+                  <span className="font-medium">
+                    Custom Period
+                  </span>
                 </button>
               </div>
             </div>
@@ -817,7 +856,7 @@ export default function DashboardPage() {
                 <div className="text-center py-8">
                   <p className="text-gray-600">Click a button above to generate a digest</p>
                   <p className="text-sm text-gray-500 mt-2">
-                    Digests are personalized based on your preferences
+                    Digests are grouped by companies for better organization
                   </p>
                 </div>
               )}
@@ -844,11 +883,79 @@ export default function DashboardPage() {
                       <div className="text-right">
                         <p className="text-sm font-medium text-gray-900">{digest.news_count} news items</p>
                         <p className="text-xs text-gray-500 capitalize">{digest.format} format</p>
+                        {digest.companies_count && (
+                          <p className="text-xs text-gray-500">{digest.companies_count} companies</p>
+                        )}
                       </div>
                     </div>
                   </div>
 
-                  {digest.categories && Object.entries(digest.categories).map(([category, items]) => (
+                  {/* Отображение по компаниям */}
+                  {digest.format === 'by_company' && digest.companies && (
+                    <div className="space-y-6">
+                      {Object.entries(digest.companies).map(([companyId, companyData]) => (
+                        <div key={companyId} className="bg-white border border-gray-200 rounded-lg p-6">
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center">
+                              {companyData.company.logo_url && (
+                                <img
+                                  src={companyData.company.logo_url}
+                                  alt={companyData.company.name}
+                                  className="w-10 h-10 rounded-lg mr-3"
+                                />
+                              )}
+                              <div>
+                                <h4 className="font-semibold text-gray-900">{companyData.company.name}</h4>
+                                <p className="text-sm text-gray-600">{companyData.stats.total} news items</p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-sm text-gray-500">Categories</div>
+                              <div className="text-lg font-semibold text-primary-600">
+                                {Object.keys(companyData.stats.by_category).length}
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {/* Группировка по категориям */}
+                          {Object.entries(companyData.stats.by_category).map(([category, count]) => (
+                            <div key={category} className="mb-3">
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-sm font-medium text-gray-700">
+                                  {categoryLabels[category] || category}
+                                </span>
+                                <span className="text-sm text-gray-500">{count} items</span>
+                              </div>
+                              {/* Новости этой категории */}
+                              <div className="space-y-2">
+                                {companyData.news
+                                  .filter(news => (news.category || 'other') === category)
+                                  .slice(0, 3)
+                                  .map((news: any) => (
+                                    <div key={news.id} className="border-l-2 border-primary-200 pl-3">
+                                      <a
+                                        href={news.source_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-sm text-gray-900 hover:text-primary-600"
+                                      >
+                                        {news.title}
+                                      </a>
+                                      <div className="text-xs text-gray-500 mt-1">
+                                        {formatDate(news.published_at)}
+                                      </div>
+                                    </div>
+                                  ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Fallback для старого формата по категориям (если вдруг придет) */}
+                  {digest.format === 'by_category' && digest.categories && Object.entries(digest.categories).map(([category, items]) => (
                     <div key={category}>
                       <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
                         <span className="px-2 py-1 text-sm rounded bg-primary-100 text-primary-700 mr-2">
@@ -887,7 +994,9 @@ export default function DashboardPage() {
                       </div>
                     </div>
                   ))}
-                  {(!digest.categories || Object.keys(digest.categories).length === 0) && (
+                  
+                  {(!digest.companies || Object.keys(digest.companies).length === 0) &&
+                   (!digest.categories || Object.keys(digest.categories).length === 0) && (
                     <p className="text-center text-gray-500 py-4">
                       No news items found for this period
                     </p>

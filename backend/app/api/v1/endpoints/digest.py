@@ -19,19 +19,21 @@ router = APIRouter()
 
 @router.get("/daily")
 async def get_daily_digest(
+    tracked_only: bool = Query(False, description="Filter by tracked companies only"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Get daily digest for current user
     """
-    logger.info(f"Daily digest request from user {current_user.id}")
+    logger.info(f"Daily digest request from user {current_user.id}, tracked_only: {tracked_only}")
     
     try:
         digest_service = DigestService(db)
         digest_data = await digest_service.generate_user_digest(
             user_id=str(current_user.id),
-            period="daily"
+            period="daily",
+            tracked_only=tracked_only
         )
         
         return digest_data
@@ -43,19 +45,21 @@ async def get_daily_digest(
 
 @router.get("/weekly")
 async def get_weekly_digest(
+    tracked_only: bool = Query(False, description="Filter by tracked companies only"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Get weekly digest for current user
     """
-    logger.info(f"Weekly digest request from user {current_user.id}")
+    logger.info(f"Weekly digest request from user {current_user.id}, tracked_only: {tracked_only}")
     
     try:
         digest_service = DigestService(db)
         digest_data = await digest_service.generate_user_digest(
             user_id=str(current_user.id),
-            period="weekly"
+            period="weekly",
+            tracked_only=tracked_only
         )
         
         return digest_data
@@ -69,13 +73,14 @@ async def get_weekly_digest(
 async def get_custom_digest(
     start_date: Optional[str] = Query(None, description="Start date (YYYY-MM-DD)"),
     end_date: Optional[str] = Query(None, description="End date (YYYY-MM-DD)"),
+    tracked_only: bool = Query(False, description="Filter by tracked companies only"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Get custom digest for date range
     """
-    logger.info(f"Custom digest request from user {current_user.id}: {start_date} to {end_date}")
+    logger.info(f"Custom digest request from user {current_user.id}: {start_date} to {end_date}, tracked_only: {tracked_only}")
     
     try:
         # Parse dates
@@ -87,7 +92,8 @@ async def get_custom_digest(
             user_id=str(current_user.id),
             period="custom",
             custom_date_from=date_from,
-            custom_date_to=date_to
+            custom_date_to=date_to,
+            tracked_only=tracked_only
         )
         
         return digest_data

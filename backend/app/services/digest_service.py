@@ -25,7 +25,8 @@ class DigestService:
         period: str = "daily",
         format_type: str = "short",
         custom_date_from: Optional[datetime] = None,
-        custom_date_to: Optional[datetime] = None
+        custom_date_to: Optional[datetime] = None,
+        tracked_only: bool = False
     ) -> Dict[str, Any]:
         """
         Generate personalized digest for a user
@@ -36,6 +37,7 @@ class DigestService:
             format_type: short or detailed
             custom_date_from: Start date for custom period
             custom_date_to: End date for custom period
+            tracked_only: If True, only include news from tracked companies
             
         Returns:
             Dictionary with digest data
@@ -84,7 +86,7 @@ class DigestService:
         )
         
         # Get news items
-        news_items = await self._fetch_news(user_prefs, date_from, date_to)
+        news_items = await self._fetch_news(user_prefs, date_from, date_to, tracked_only)
         
         # Filter by preferences
         filtered_news = self._filter_news_by_preferences(user_prefs, news_items)
@@ -98,7 +100,8 @@ class DigestService:
             format_type,
             date_from,
             date_to,
-            user_prefs
+            user_prefs,
+            tracked_only
         )
         
         logger.info(f"Digest generated: {len(ranked_news)} news items")
@@ -211,9 +214,12 @@ class DigestService:
         self,
         user_prefs: UserPreferences,
         date_from: datetime,
-        date_to: datetime
+        date_to: datetime,
+        tracked_only: bool = False
     ) -> List[NewsItem]:
         """Fetch news items based on user preferences and date range"""
+        
+        logger.info(f"Fetching news: tracked_only={tracked_only}, subscribed_companies={user_prefs.subscribed_companies}")
         
         # Build query
         query = select(NewsItem).where(
@@ -223,9 +229,14 @@ class DigestService:
             )
         )
         
-        # Filter by subscribed companies if any
-        if user_prefs.subscribed_companies:
+        # Filter by subscribed companies if tracked_only is True AND user has subscribed companies
+        if tracked_only and user_prefs.subscribed_companies and len(user_prefs.subscribed_companies) > 0:
+            logger.info(f"Filtering by tracked companies: {user_prefs.subscribed_companies}")
             query = query.where(NewsItem.company_id.in_(user_prefs.subscribed_companies))
+        elif not tracked_only:
+            # For "All News" mode, don't filter by companies
+            logger.info("All News mode - no company filtering")
+            pass
         
         # Filter by interested categories if any
         if user_prefs.interested_categories:
@@ -308,28 +319,63 @@ class DigestService:
         format_type: str,
         date_from: datetime,
         date_to: datetime,
-        user_prefs: UserPreferences
+        user_prefs: UserPreferences,
+        tracked_only: bool = False
     ) -> Dict[str, Any]:
         """Format digest content"""
         
-        # Group news by category
-        categories_dict = {}
-        for news in news_items:
-            category = news.category or "uncategorized"
-            if category not in categories_dict:
-                categories_dict[category] = []
-            categories_dict[category].append(await self._format_news_item(news, format_type, user_prefs))
+        # Always group by companies for better organization
+        return await self._format_digest_by_companies(news_items, format_type, date_from, date_to, user_prefs)
+    
+    async def _format_digest_by_companies(
+        self,
+        news_items: List[NewsItem],
+        format_type: str,
+        date_from: datetime,
+        date_to: datetime,
+        user_prefs: UserPreferences
+    ) -> Dict[str, Any]:
+        """Format digest content grouped by companies"""
         
-        # Get statistics
-        stats = self._get_digest_statistics(news_items)
+        # Group news by companies
+        by_company = {}
+        for item in news_items:
+            if item.company_id:
+                company_id = str(item.company_id)
+                if company_id not in by_company:
+                    # Get company info
+                    company_result = await self.db.execute(
+                        select(Company).where(Company.id == item.company_id)
+                    )
+                    company = company_result.scalar_one_or_none()
+                    
+                    by_company[company_id] = {
+                        "company": {
+                            "id": str(company.id) if company else str(item.company_id),
+                            "name": company.name if company else "Unknown Company",
+                            "logo_url": company.logo_url if company else None
+                        },
+                        "news": [],
+                        "stats": {"total": 0, "by_category": {}}
+                    }
+                
+                # Add news item
+                formatted_item = await self._format_news_item(item, format_type, user_prefs)
+                by_company[company_id]["news"].append(formatted_item)
+                by_company[company_id]["stats"]["total"] += 1
+                
+                # Update category stats
+                cat = item.category or "other"
+                by_company[company_id]["stats"]["by_category"][cat] = \
+                    by_company[company_id]["stats"]["by_category"].get(cat, 0) + 1
         
         return {
             "date_from": date_from.isoformat(),
             "date_to": date_to.isoformat(),
             "news_count": len(news_items),
-            "categories": categories_dict,
-            "statistics": stats,
-            "format": format_type
+            "companies": by_company,
+            "companies_count": len(by_company),
+            "format": "by_company"
         }
     
     async def _format_news_item(
