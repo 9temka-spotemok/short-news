@@ -6,6 +6,8 @@ WORKDIR /app
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     gcc \
+    g++ \
+    libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy only requirements and install them first (cache layer)
@@ -15,7 +17,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy app code
 COPY . .
 
-# Copy Railway environment file
+# Copy Railway environment file if it exists
 COPY railway.env .env
 
 # Create non-root user for security
@@ -25,6 +27,10 @@ USER appuser
 
 # Expose port (Railway will set PORT dynamically)
 EXPOSE $PORT
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD python -c "import requests; requests.get('http://localhost:$PORT/health')" || exit 1
 
 # Start using our main.py with proper PORT handling
 CMD ["python", "main.py"]

@@ -35,6 +35,19 @@ class Settings(BaseSettings):
         description="Allowed CORS origins"
     )
     
+    @field_validator('ALLOWED_HOSTS', mode='before')
+    @classmethod
+    def validate_allowed_hosts(cls, v):
+        """Validate ALLOWED_HOSTS field to handle JSON string inputs"""
+        if isinstance(v, str):
+            try:
+                import json
+                return json.loads(v)
+            except json.JSONDecodeError:
+                # If not JSON, treat as comma-separated string
+                return [host.strip() for host in v.split(',')]
+        return v
+    
     # Database
     DATABASE_URL: str = Field(..., description="PostgreSQL database URL")
     
