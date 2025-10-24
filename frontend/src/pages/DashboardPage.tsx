@@ -3,7 +3,7 @@ import TrackedCompaniesManager from '@/components/TrackedCompaniesManager'
 import { useNewsAnalytics } from '@/hooks/useNews'
 import api, { ApiService } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { formatDistance } from 'date-fns'
 import { enUS } from 'date-fns/locale'
 import { Bell, Calendar, Filter, Search, TrendingUp } from 'lucide-react'
@@ -50,6 +50,7 @@ interface DigestData {
 export default function DashboardPage() {
   const { isAuthenticated, user, accessToken } = useAuthStore()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState('overview')
   const [recentNews, setRecentNews] = useState<NewsItem[]>([])
   const [stats, setStats] = useState<DashboardStats | null>(null)
@@ -129,6 +130,13 @@ export default function DashboardPage() {
     fetchDashboardData()
   }, [userPreferences?.subscribed_companies, showTrackedOnly])
 
+  // Invalidate cache when tracked companies change
+  useEffect(() => {
+    if (userPreferences?.subscribed_companies) {
+      queryClient.invalidateQueries({ queryKey: ['news'] })
+    }
+  }, [userPreferences?.subscribed_companies, queryClient])
+
   // Listen for global refresh event from NotificationCenter
   useEffect(() => {
     const handler = () => {
@@ -184,15 +192,22 @@ export default function DashboardPage() {
       let categoriesBreakdown
       let totalNews
       
-      if (showTrackedOnly) {
-        // Build stats from loaded news (for tracked companies)
+      if (showTrackedOnly && userPreferences?.subscribed_companies?.length) {
+        // For tracked companies, fetch more news to get accurate statistics
+        const statsParams: any = { limit: 100 } // Get more news for better stats
+        statsParams.companies = userPreferences.subscribed_companies.join(',')
+        
+        const statsResponse = await api.get('/news/', { params: statsParams })
+        const statsItems = statsResponse.data.items
+        
+        // Build stats from all fetched news
         const categoryCount: Record<string, number> = {}
-        items.forEach((item: NewsItem) => {
+        statsItems.forEach((item: NewsItem) => {
           const cat = item.category || 'other'
           categoryCount[cat] = (categoryCount[cat] || 0) + 1
         })
         
-        const total = newsResponse.data.total
+        const total = statsResponse.data.total
         categoriesBreakdown = Object.entries(categoryCount)
           .map(([category, count]) => ({
             category: categoryLabels[category] || category,
