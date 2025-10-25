@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """
-Emergency Database Setup for Railway
-Создает таблицы напрямую через SQL если миграции не работают
+Quick Database Setup for Railway
+Быстрое создание таблиц для Railway
 """
 
-import asyncio
 import os
 import sys
 from pathlib import Path
@@ -13,41 +12,39 @@ from pathlib import Path
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
-from sqlalchemy import create_engine, text
-from app.core.config import settings
-
-async def create_tables_directly():
-    """Create tables directly using SQL"""
-    print("🚨 Emergency Database Setup")
+def main():
+    print("🚀 Quick Database Setup for Railway")
     print("=" * 50)
     
-    # Get database URL
-    db_url = settings.DATABASE_URL
+    # Check if DATABASE_URL is set
+    db_url = os.environ.get("DATABASE_URL")
     if not db_url:
-        print("❌ DATABASE_URL not configured!")
-        return False
+        print("❌ DATABASE_URL not set!")
+        return 1
     
-    print(f"✅ Database URL configured")
+    print(f"✅ DATABASE_URL configured")
     
-    # Convert to sync URL for direct SQL execution
+    # Convert to sync URL
     sync_url = db_url.replace("postgresql+asyncpg://", "postgresql://")
     
     try:
+        from sqlalchemy import create_engine, text
+        
         engine = create_engine(sync_url)
         
         with engine.connect() as conn:
             # Check if tables exist
             result = conn.execute(text("""
                 SELECT EXISTS (
-                    SELECT 1 FROM information_schema.tables WHERE table_name = 'user_preferences'
+                    SELECT 1 FROM information_schema.tables WHERE table_name = 'companies'
                 )
             """))
             
             if result.scalar():
                 print("✅ Tables already exist")
-                return True
+                return 0
             
-            print("📦 Creating tables directly...")
+            print("📦 Creating tables...")
             
             # Create extensions
             conn.execute(text("CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\""))
@@ -258,21 +255,11 @@ async def create_tables_directly():
             conn.commit()
             
         print("✅ Tables created successfully!")
-        return True
+        return 0
         
     except Exception as e:
         print(f"❌ Error creating tables: {e}")
-        return False
-
-async def main():
-    """Main function"""
-    success = await create_tables_directly()
-    if success:
-        print("\n🎉 Database setup complete!")
-        print("You can now restart your services.")
-    else:
-        print("\n💥 Database setup failed!")
-        sys.exit(1)
+        return 1
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    sys.exit(main())
