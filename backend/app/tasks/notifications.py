@@ -6,6 +6,10 @@ import asyncio
 from datetime import datetime, timedelta
 from celery import current_task
 from loguru import logger
+import nest_asyncio
+
+# Apply nest_asyncio to allow asyncio.run() in Celery
+nest_asyncio.apply()
 
 from app.celery_app import celery_app
 from app.core.database import AsyncSessionLocal
