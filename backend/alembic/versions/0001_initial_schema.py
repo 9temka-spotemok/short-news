@@ -31,9 +31,19 @@ def upgrade() -> None:
         )
     """))
     
-    tables_exist = result.scalar()
+    companies_exist = result.scalar()
     
-    if tables_exist:
+    # Check if news_items table exists
+    result_news = connection.execute(sa.text("""
+        SELECT EXISTS (
+            SELECT 1 FROM information_schema.tables WHERE table_name = 'news_items'
+        )
+    """))
+    
+    news_items_exist = result_news.scalar()
+    
+    # Only skip if ALL tables exist
+    if companies_exist and news_items_exist:
         print("Tables already exist, skipping initial schema creation")
         return
     
@@ -114,25 +124,25 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint('id')
     )
     
-    # Create news_items table
-    op.create_table(
-        'news_items',
-        sa.Column('id', sa.UUID(), nullable=False, server_default=sa.text('uuid_generate_v4()')),
-        sa.Column('title', sa.String(length=500), nullable=False),
-        sa.Column('content', sa.Text(), nullable=True),
-        sa.Column('summary', sa.Text(), nullable=True),
-        sa.Column('source_url', sa.String(length=1000), nullable=False),
-        sa.Column('source_type', sa.Enum('BLOG', 'TWITTER', 'GITHUB', 'REDDIT', 'NEWS_SITE', 'PRESS_RELEASE', name='sourcetype'), nullable=False),
-        sa.Column('company_id', sa.UUID(), nullable=True),
-        sa.Column('category', sa.Enum('PRODUCT_UPDATE', 'PRICING_CHANGE', 'STRATEGIC_ANNOUNCEMENT', 'TECHNICAL_UPDATE', 'FUNDING_NEWS', 'RESEARCH_PAPER', 'COMMUNITY_EVENT', 'PARTNERSHIP', 'ACQUISITION', 'INTEGRATION', 'SECURITY_UPDATE', 'API_UPDATE', 'MODEL_RELEASE', 'PERFORMANCE_IMPROVEMENT', 'FEATURE_DEPRECATION', name='newscategory'), nullable=True),
-        sa.Column('priority_score', sa.Float(), server_default='0.5', nullable=True),
-        sa.Column('published_at', sa.DateTime(timezone=True), nullable=False),
-        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
-        sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
-        sa.Column('search_vector', sa.dialects.postgresql.TSVECTOR(), nullable=True),
-        sa.ForeignKeyConstraint(['company_id'], ['companies.id'], ),
-        sa.PrimaryKeyConstraint('id')
-    )
+    # Create news_items table using raw SQL to avoid enum type conflicts
+    op.execute("""
+        CREATE TABLE IF NOT EXISTS news_items (
+            id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+            title VARCHAR(500) NOT NULL,
+            content TEXT,
+            summary TEXT,
+            source_url VARCHAR(1000) UNIQUE NOT NULL,
+            source_type VARCHAR(50) NOT NULL,
+            company_id UUID REFERENCES companies(id),
+            category VARCHAR(50),
+            priority_score FLOAT DEFAULT 0.5,
+            published_at TIMESTAMP WITH TIME ZONE NOT NULL,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            search_vector TSVECTOR,
+            CONSTRAINT unique_source UNIQUE(source_url)
+        )
+    """)
     
     # Create user_preferences table
     op.create_table(
@@ -192,38 +202,63 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint('id')
     )
     
+    # Create notifications table using raw SQL to avoid enum type conflicts
+    op.execute("""
+        CREATE TABLE IF NOT EXISTS notifications (
+            id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+            user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+            type VARCHAR(50) NOT NULL,
+            title VARCHAR(255) NOT NULL,
+            message TEXT,
+            data JSONB,
+            is_read BOOLEAN DEFAULT FALSE,
+            priority VARCHAR(20) DEFAULT 'normal',
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        )
+    """)
+    
     # Create indexes
     op.create_index(op.f('ix_companies_name'), 'companies', ['name'], unique=True)
     op.create_index(op.f('ix_users_email'), 'users', ['email'], unique=True)
-    op.create_index(op.f('idx_news_published'), 'news_items', [sa.text('published_at DESC')], unique=False)
-    op.create_index(op.f('idx_news_category'), 'news_items', ['category'], unique=False)
-    op.create_index(op.f('idx_news_company'), 'news_items', ['company_id'], unique=False)
-    op.create_index(op.f('idx_news_search'), 'news_items', ['search_vector'], unique=False, postgresql_using='gin')
+    # Create news_items indexes using raw SQL
+    op.execute("CREATE INDEX IF NOT EXISTS idx_news_published ON news_items(published_at DESC)")
+    op.execute("CREATE INDEX IF NOT EXISTS idx_news_category ON news_items(category)")
+    op.execute("CREATE INDEX IF NOT EXISTS idx_news_company ON news_items(company_id)")
+    op.execute("CREATE INDEX IF NOT EXISTS idx_news_search ON news_items USING GIN(search_vector)")
     op.create_index(op.f('idx_keywords'), 'news_keywords', ['keyword'], unique=False)
     op.create_index(op.f('idx_user_activity_user'), 'user_activity', ['user_id'], unique=False)
     op.create_index(op.f('idx_user_activity_news'), 'user_activity', ['news_id'], unique=False)
     op.create_index(op.f('idx_scraper_state_source'), 'scraper_state', ['source_id'], unique=True)
+    op.execute("CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id)")
+    op.execute("CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(is_read)")
+    op.execute("CREATE INDEX IF NOT EXISTS idx_notifications_created ON notifications(created_at)")
 
 
 def downgrade() -> None:
     # Drop indexes
+    op.execute("DROP INDEX IF EXISTS idx_notifications_created")
+    op.execute("DROP INDEX IF EXISTS idx_notifications_read")
+    op.execute("DROP INDEX IF EXISTS idx_notifications_user")
     op.drop_index(op.f('idx_scraper_state_source'), table_name='scraper_state')
     op.drop_index(op.f('idx_user_activity_news'), table_name='user_activity')
     op.drop_index(op.f('idx_user_activity_user'), table_name='user_activity')
     op.drop_index(op.f('idx_keywords'), table_name='news_keywords')
-    op.drop_index(op.f('idx_news_search'), table_name='news_items')
-    op.drop_index(op.f('idx_news_company'), table_name='news_items')
-    op.drop_index(op.f('idx_news_category'), table_name='news_items')
-    op.drop_index(op.f('idx_news_published'), table_name='news_items')
+    # Drop news_items indexes using raw SQL
+    op.execute("DROP INDEX IF EXISTS idx_news_search")
+    op.execute("DROP INDEX IF EXISTS idx_news_company")
+    op.execute("DROP INDEX IF EXISTS idx_news_category")
+    op.execute("DROP INDEX IF EXISTS idx_news_published")
     op.drop_index(op.f('ix_users_email'), table_name='users')
     op.drop_index(op.f('ix_companies_name'), table_name='companies')
     
     # Drop tables
+    op.execute("DROP TABLE IF EXISTS notifications")
     op.drop_table('scraper_state')
     op.drop_table('news_keywords')
     op.drop_table('user_activity')
     op.drop_table('user_preferences')
-    op.drop_table('news_items')
+    op.execute("DROP TABLE IF EXISTS news_items")
     op.drop_table('users')
     op.drop_table('companies')
     
