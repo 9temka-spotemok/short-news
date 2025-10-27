@@ -26,23 +26,25 @@ class UniversalBlogScraper:
     
     def _detect_blog_url(self, website: str) -> List[str]:
         """Detect possible blog/news URLs from company website"""
-        base_url = website.rstrip('/')
+        # Extract base domain from any URL
+        parsed = urlparse(website)
+        base_domain = f"{parsed.scheme}://{parsed.netloc}".rstrip('/')
         
         # Common blog/news URL patterns
         patterns = [
-            f"{base_url}/blog",
-            f"{base_url}/news",
-            f"{base_url}/blog/",
-            f"{base_url}/news/",
-            f"{base_url}/insights",
-            f"{base_url}/updates",
-            f"{base_url}/press",
-            f"{base_url}/newsroom",
-            f"{base_url}/press-releases",
-            f"{base_url}/company/blog",
-            f"{base_url}/company/news",
-            f"{base_url}/resources/blog",
-            f"{base_url}/hub/blog",
+            f"{base_domain}/blog",
+            f"{base_domain}/news",
+            f"{base_domain}/blog/",
+            f"{base_domain}/news/",
+            f"{base_domain}/insights",
+            f"{base_domain}/updates",
+            f"{base_domain}/press",
+            f"{base_domain}/newsroom",
+            f"{base_domain}/press-releases",
+            f"{base_domain}/company/blog",
+            f"{base_domain}/company/news",
+            f"{base_domain}/resources/blog",
+            f"{base_domain}/hub/blog",
         ]
         
         return patterns
