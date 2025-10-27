@@ -90,4 +90,48 @@ async def get_current_active_user(
     return current_user
 
 
+async def get_current_user_optional(
+    token: Optional[str] = Depends(oauth2_scheme),
+    db: AsyncSession = Depends(get_db)
+) -> Optional[User]:
+    """
+    Get current user from JWT token, returns None if not authenticated
+    
+    Args:
+        token: JWT access token (optional)
+        db: Database session
+        
+    Returns:
+        Current user or None if not authenticated
+    """
+    # If no token provided, return None
+    if token is None:
+        return None
+    
+    try:
+        # Decode token
+        payload = decode_token(token)
+        if payload is None:
+            return None
+        
+        # Get user ID from token
+        user_id: str = payload.get("sub")
+        if user_id is None:
+            return None
+        
+        # Get user from database
+        try:
+            result = await db.execute(
+                select(User).where(User.id == uuid.UUID(user_id))
+            )
+            user = result.scalar_one_or_none()
+        except Exception:
+            return None
+        
+        if user is None or not user.is_active:
+            return None
+            
+        return user
+    except Exception:
+        return None
 

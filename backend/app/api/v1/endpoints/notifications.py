@@ -10,7 +10,7 @@ from loguru import logger
 import uuid
 
 from app.core.database import get_db
-from app.api.dependencies import get_current_user
+from app.api.dependencies import get_current_user, get_current_user_optional
 from app.models import User, Notification, NotificationSettings
 from app.services.notification_service import NotificationService
 
@@ -80,12 +80,20 @@ async def get_notifications(
 
 @router.get("/unread")
 async def get_unread_notifications(
-    current_user: User = Depends(get_current_user),
+    current_user: Optional[User] = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Get unread notifications count and latest items
     """
+    # If user is not authenticated, return empty notifications
+    if current_user is None:
+        logger.info("Get unread notifications - not authenticated, returning empty")
+        return {
+            "unread_count": 0,
+            "notifications": []
+        }
+    
     logger.info(f"Get unread notifications from user {current_user.id}")
     
     try:

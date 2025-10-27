@@ -11,7 +11,7 @@ from loguru import logger
 import uuid
 
 from app.core.database import get_db
-from app.api.dependencies import get_current_user
+from app.api.dependencies import get_current_user, get_current_user_optional
 from app.models import User, UserPreferences
 
 router = APIRouter()
@@ -94,12 +94,31 @@ async def update_current_user(
 
 @router.get("/preferences")
 async def get_user_preferences(
-    current_user: User = Depends(get_current_user),
+    current_user: Optional[User] = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Get user preferences
     """
+    # If user is not authenticated, return default preferences
+    if current_user is None:
+        logger.info("Get user preferences - not authenticated, returning defaults")
+        return {
+            "subscribed_companies": [],
+            "interested_categories": [],
+            "keywords": [],
+            "notification_frequency": "daily",
+            "digest_enabled": False,
+            "digest_frequency": "daily",
+            "digest_custom_schedule": {},
+            "digest_format": "short",
+            "digest_include_summaries": True,
+            "telegram_chat_id": None,
+            "telegram_enabled": False,
+            "timezone": "UTC",
+            "week_start_day": 0
+        }
+    
     logger.info(f"Get user preferences for user {current_user.id}")
     
     try:

@@ -7,8 +7,9 @@ from celery import current_task
 from loguru import logger
 import nest_asyncio
 
-# Apply nest_asyncio to allow asyncio.run() in Celery
-nest_asyncio.apply()
+# Only apply nest_asyncio in Celery tasks, not globally
+# This prevents issues with uvloop in uvicorn
+nest_asyncio_allowed = False
 
 from app.celery_app import celery_app
 from app.core.database import AsyncSessionLocal
@@ -28,6 +29,8 @@ def generate_daily_digests(self):
     logger.info("Starting daily digest generation")
     
     try:
+        # Apply nest_asyncio only when called from Celery
+        nest_asyncio.apply()
         # Run async function
         result = asyncio.run(_generate_daily_digests_async())
         logger.info(f"Daily digest generation completed: {result['generated_count']} digests")
@@ -46,6 +49,8 @@ def generate_weekly_digests(self):
     logger.info("Starting weekly digest generation")
     
     try:
+        # Apply nest_asyncio only when called from Celery
+        nest_asyncio.apply()
         # Run async function
         result = asyncio.run(_generate_weekly_digests_async())
         logger.info(f"Weekly digest generation completed: {result['generated_count']} digests")
@@ -64,6 +69,8 @@ def generate_user_digest(self, user_id: str, digest_type: str = "daily", tracked
     logger.info(f"Starting digest generation for user: {user_id}, type: {digest_type}, tracked_only: {tracked_only}")
     
     try:
+        # Apply nest_asyncio only when called from Celery
+        nest_asyncio.apply()
         result = asyncio.run(_generate_user_digest_async(user_id, digest_type, tracked_only))
         logger.info(f"Digest generation completed for user: {user_id}")
         return result
@@ -339,6 +346,8 @@ def send_channel_digest(self):
     logger.info("Starting channel digest generation")
     
     try:
+        # Apply nest_asyncio only when called from Celery
+        nest_asyncio.apply()
         result = asyncio.run(_send_channel_digest_async())
         logger.info("Channel digest sent successfully")
         return result
