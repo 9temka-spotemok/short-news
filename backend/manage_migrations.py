@@ -72,12 +72,12 @@ depends_on = None
 
 def upgrade() -> None:
     # Create telegram_digest_mode enum
-    op.execute("CREATE TYPE telegramdigestmode AS ENUM ('all', 'tracked')")
+    op.execute("CREATE TYPE telegram_digest_mode AS ENUM ('all', 'tracked')")
     
     # Add telegram_digest_mode column to user_preferences table
     op.add_column('user_preferences', 
                   sa.Column('telegram_digest_mode', 
-                           postgresql.ENUM('all', 'tracked', name='telegramdigestmode'), 
+                           postgresql.ENUM('all', 'tracked', name='telegram_digest_mode'), 
                            nullable=True, 
                            default='all'))
 
@@ -87,7 +87,7 @@ def downgrade() -> None:
     op.drop_column('user_preferences', 'telegram_digest_mode')
     
     # Drop telegram_digest_mode enum
-    op.execute("DROP TYPE telegramdigestmode")
+    op.execute("DROP TYPE telegram_digest_mode")
 '''
     
     # Write migration file

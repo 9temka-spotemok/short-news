@@ -41,19 +41,19 @@ class UserPreferences(BaseModel):
     subscribed_companies = Column(ARRAY(UUID), default=list)
     interested_categories = Column(ARRAY(Enum(NewsCategory)), default=list)
     keywords = Column(ARRAY(String), default=list)
-    notification_frequency = Column(SQLEnum('realtime', 'daily', 'weekly', 'never', name='notificationfrequency'), default='daily')
+    notification_frequency = Column(SQLEnum('realtime', 'daily', 'weekly', 'never', name='notification_frequency'), default='daily')
     
     # Digest settings
     digest_enabled = Column(Boolean, default=False)
-    digest_frequency = Column(SQLEnum('daily', 'weekly', 'custom', name='digestfrequency'), default='daily')
+    digest_frequency = Column(SQLEnum('daily', 'weekly', 'custom', name='digest_frequency'), default='daily')
     digest_custom_schedule = Column(JSON, default=dict)  # {"time": "09:00", "days": [1,2,3,4,5], "timezone": "UTC"}
-    digest_format = Column(SQLEnum('short', 'detailed', name='digestformat'), default='short')
+    digest_format = Column(SQLEnum('short', 'detailed', name='digest_format'), default='short')
     digest_include_summaries = Column(Boolean, default=True)
     
     # Telegram integration
     telegram_chat_id = Column(String(255))
     telegram_enabled = Column(Boolean, default=False)
-    telegram_digest_mode = Column(SQLEnum('all', 'tracked', name='telegramdigestmode'), nullable=True, default='all')
+    telegram_digest_mode = Column(SQLEnum('all', 'tracked', name='telegram_digest_mode'), nullable=True, default='all')
     
     # Timezone and locale settings
     timezone = Column(String(50), default="UTC")  # e.g., "UTC", "America/New_York", "Europe/Moscow"

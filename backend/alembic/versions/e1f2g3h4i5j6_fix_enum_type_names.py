@@ -56,6 +56,19 @@ def upgrade() -> None:
             END IF;
         END $$;
     """)
+    
+    # Fix telegram_digest_mode enum name if needed
+    op.execute("""
+        DO $$ 
+        BEGIN
+            -- Check if telegramdigestmode exists and telegram_digest_mode doesn't
+            IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'telegramdigestmode') 
+               AND NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'telegram_digest_mode') THEN
+                -- Rename the enum type
+                ALTER TYPE telegramdigestmode RENAME TO telegram_digest_mode;
+            END IF;
+        END $$;
+    """)
 
 
 def downgrade() -> None:
@@ -83,6 +96,15 @@ def downgrade() -> None:
         BEGIN
             IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'digest_format') THEN
                 ALTER TYPE digest_format RENAME TO digestformat;
+            END IF;
+        END $$;
+    """)
+    
+    op.execute("""
+        DO $$ 
+        BEGIN
+            IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'telegram_digest_mode') THEN
+                ALTER TYPE telegram_digest_mode RENAME TO telegramdigestmode;
             END IF;
         END $$;
     """)
