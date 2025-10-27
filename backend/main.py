@@ -111,9 +111,6 @@ async def startup_event():
     await wait_for_database()
     await apply_migrations()
     
-    # Create missing tables if needed
-    await create_missing_tables()
-    
     # Initialize database
     await init_db()
     
