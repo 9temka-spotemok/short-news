@@ -252,18 +252,18 @@ async def get_news_item(
         return {
             "id": str(news_item.id),
             "title": news_item.title,
-            "title_truncated": news_item.title_truncated,
+            "title_truncated": news_item.title[:100] + "..." if news_item.title and len(news_item.title) > 100 else news_item.title,
             "summary": news_item.summary,
             "content": news_item.content,
             "source_url": news_item.source_url,
-            "source_type": news_item.source_type,
-            "category": news_item.category,
+            "source_type": news_item.source_type.value if hasattr(news_item.source_type, 'value') else str(news_item.source_type) if news_item.source_type else None,
+            "category": news_item.category.value if hasattr(news_item.category, 'value') else str(news_item.category) if news_item.category else None,
             "priority_score": news_item.priority_score,
             "priority_level": news_item.priority_level,
             "published_at": news_item.published_at.isoformat() if news_item.published_at else None,
             "created_at": news_item.created_at.isoformat() if news_item.created_at else None,
             "updated_at": news_item.updated_at.isoformat() if news_item.updated_at else None,
-            "is_recent": news_item.is_recent,
+            "is_recent": bool(news_item.is_recent) if hasattr(news_item, 'is_recent') else False,
             "company": company_info,
             "keywords": keywords,
             "activities": activities
@@ -445,21 +445,27 @@ async def get_news_by_category(
             
             keywords = [{"keyword": kw.keyword, "relevance": kw.relevance_score} for kw in item.keywords] if item.keywords else []
             
+            # Safely extract and serialize values for category endpoint
+            title = item.title if item.title else ""
+            title_truncated = title[:100] + "..." if len(title) > 100 else title
+            source_type_val = item.source_type.value if hasattr(item.source_type, 'value') else str(item.source_type) if item.source_type else None
+            category_val = item.category.value if hasattr(item.category, 'value') else str(item.category) if item.category else None
+
             items.append({
                 "id": str(item.id),
                 "title": item.title,
-                "title_truncated": item.title_truncated,
-                "summary": item.summary,
-                "content": item.content,
+                "title_truncated": title_truncated,
+                "summary": item.summary if item.summary else "",
+                "content": item.content if item.content else "",
                 "source_url": item.source_url,
-                "source_type": item.source_type,
-                "category": item.category,
-                "priority_score": item.priority_score,
-                "priority_level": item.priority_level,
+                "source_type": source_type_val,
+                "category": category_val,
+                "priority_score": float(item.priority_score) if item.priority_score else 0.0,
+                "priority_level": str(item.priority_level) if hasattr(item, 'priority_level') else "Medium",
                 "published_at": item.published_at.isoformat() if item.published_at else None,
                 "created_at": item.created_at.isoformat() if item.created_at else None,
                 "updated_at": item.updated_at.isoformat() if item.updated_at else None,
-                "is_recent": item.is_recent,
+                "is_recent": bool(item.is_recent) if hasattr(item, 'is_recent') else False,
                 "company": company_info,
                 "keywords": keywords
             })
@@ -482,7 +488,7 @@ async def get_news_by_category(
             },
             "filters": {
                 "company_id": company_id,
-                "source_type": source_type.value if source_type else None
+                "source_type": (source_type.value if hasattr(source_type, 'value') else str(source_type)) if source_type else None
             }
         }
         
