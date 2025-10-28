@@ -179,9 +179,9 @@ class NewsItem(BaseModel):
         return self.title[:100] + "..." if len(self.title) > 100 else self.title
     
     @property
-    def is_recent(self, hours: int = 24) -> bool:
-        """Check if news is recent (within specified hours)"""
-        return (datetime.utcnow() - self.published_at).total_seconds() < hours * 3600
+    def is_recent(self) -> bool:
+        """Check if news is recent (within 24 hours)"""
+        return (datetime.utcnow() - self.published_at).total_seconds() < 24 * 3600
     
     @property
     def priority_level(self) -> str:

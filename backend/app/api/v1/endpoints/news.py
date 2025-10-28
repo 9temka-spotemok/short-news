@@ -98,11 +98,11 @@ async def get_news(
                 "source_type": source_type_val,
                 "category": category_val,
                 "priority_score": float(item.priority_score) if item.priority_score else 0.0,
-                "priority_level": str(item.priority_level) if hasattr(item, 'priority_level') else "Medium",
+                "priority_level": item.priority_level,
                 "published_at": item.published_at.isoformat() if item.published_at else None,
                 "created_at": item.created_at.isoformat() if item.created_at else None,
                 "updated_at": item.updated_at.isoformat() if item.updated_at else None,
-                "is_recent": bool(item.is_recent) if hasattr(item, 'is_recent') else False,
+                "is_recent": item.is_recent,
                 "company": company_info,
                 "keywords": keywords
             })
@@ -268,7 +268,7 @@ async def get_news_item(
             "published_at": news_item.published_at.isoformat() if news_item.published_at else None,
             "created_at": news_item.created_at.isoformat() if news_item.created_at else None,
             "updated_at": news_item.updated_at.isoformat() if news_item.updated_at else None,
-            "is_recent": bool(news_item.is_recent) if hasattr(news_item, 'is_recent') else False,
+            "is_recent": news_item.is_recent,
             "company": company_info,
             "keywords": keywords,
             "activities": activities
@@ -351,9 +351,9 @@ async def search_news(
                 "source_type": source_type_val,
                 "category": category_val,
                 "priority_score": float(item.priority_score) if item.priority_score else 0.0,
-                "priority_level": str(item.priority_level) if hasattr(item, 'priority_level') else "Medium",
+                "priority_level": item.priority_level,
                 "published_at": item.published_at.isoformat() if item.published_at else None,
-                "is_recent": bool(item.is_recent) if hasattr(item, 'is_recent') else False,
+                "is_recent": item.is_recent,
                 "company": company_info
             })
         
@@ -466,11 +466,11 @@ async def get_news_by_category(
                 "source_type": source_type_val,
                 "category": category_val,
                 "priority_score": float(item.priority_score) if item.priority_score else 0.0,
-                "priority_level": str(item.priority_level) if hasattr(item, 'priority_level') else "Medium",
+                "priority_level": item.priority_level,
                 "published_at": item.published_at.isoformat() if item.published_at else None,
                 "created_at": item.created_at.isoformat() if item.created_at else None,
                 "updated_at": item.updated_at.isoformat() if item.updated_at else None,
-                "is_recent": bool(item.is_recent) if hasattr(item, 'is_recent') else False,
+                "is_recent": item.is_recent,
                 "company": company_info,
                 "keywords": keywords
             })
