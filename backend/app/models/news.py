@@ -181,7 +181,15 @@ class NewsItem(BaseModel):
     @property
     def is_recent(self) -> bool:
         """Check if news is recent (within 24 hours)"""
-        return (datetime.utcnow() - self.published_at).total_seconds() < 24 * 3600
+        try:
+            from datetime import timezone
+            now = datetime.now(timezone.utc)
+            if self.published_at:
+                published = self.published_at if self.published_at.tzinfo else self.published_at.replace(tzinfo=timezone.utc)
+                return (now - published).total_seconds() < 24 * 3600
+            return False
+        except (TypeError, ValueError):
+            return False
     
     @property
     def priority_level(self) -> str:
