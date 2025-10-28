@@ -190,9 +190,10 @@ class CompetitorAnalysisService:
         diversity_score = min(len(categories) * 3, 30)
         
         # Recency score (0-30 points)
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        from datetime import timezone as tz
+        now = datetime.now(tz.utc)
         days_range = (date_to - date_from).days or 1
-        recent_news = sum(1 for item in news_items if (now - item.published_at).days <= days_range / 2)
+        recent_news = sum(1 for item in news_items if item.published_at and (now - (item.published_at if item.published_at.tzinfo else item.published_at.replace(tzinfo=tz.utc))).days <= days_range / 2)
         recency_score = min((recent_news / volume) * 30, 30) if volume > 0 else 0
         
         total_score = volume_score + diversity_score + recency_score

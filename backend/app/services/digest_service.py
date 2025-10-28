@@ -301,7 +301,10 @@ class DigestService:
                 score += keyword_count * 0.1
             
             # Recent news gets slight boost
-            age_hours = (datetime.utcnow() - news.published_at).total_seconds() / 3600
+            from datetime import timezone
+            now = datetime.now(timezone.utc)
+            published = news.published_at if news.published_at.tzinfo else news.published_at.replace(tzinfo=timezone.utc)
+            age_hours = (now - published).total_seconds() / 3600
             if age_hours < 24:
                 score += 0.1
             
@@ -454,7 +457,8 @@ class DigestService:
     
     def _empty_digest(self, period: str) -> Dict[str, Any]:
         """Return empty digest structure"""
-        now = datetime.utcnow()
+        from datetime import timezone
+        now = datetime.now(timezone.utc)
         return {
             "date_from": now.isoformat(),
             "date_to": now.isoformat(),
