@@ -75,21 +75,29 @@ async def get_news(
             # Build keywords
             keywords = [{"keyword": kw.keyword, "relevance": kw.relevance_score} for kw in item.keywords] if item.keywords else []
             
+            # Safely extract and serialize values
+            title = item.title if item.title else ""
+            title_truncated = title[:100] + "..." if len(title) > 100 else title
+            
+            # Handle enum serialization
+            source_type_val = item.source_type.value if hasattr(item.source_type, 'value') else str(item.source_type) if item.source_type else None
+            category_val = item.category.value if hasattr(item.category, 'value') else str(item.category) if item.category else None
+            
             items.append({
                 "id": str(item.id),
                 "title": item.title,
-                "title_truncated": item.title_truncated,
-                "summary": item.summary,
-                "content": item.content,
+                "title_truncated": title_truncated,
+                "summary": item.summary if item.summary else "",
+                "content": item.content if item.content else "",
                 "source_url": item.source_url,
-                "source_type": item.source_type,
-                "category": item.category,
-                "priority_score": item.priority_score,
-                "priority_level": item.priority_level,
+                "source_type": source_type_val,
+                "category": category_val,
+                "priority_score": float(item.priority_score) if item.priority_score else 0.0,
+                "priority_level": str(item.priority_level) if hasattr(item, 'priority_level') else "Medium",
                 "published_at": item.published_at.isoformat() if item.published_at else None,
                 "created_at": item.created_at.isoformat() if item.created_at else None,
                 "updated_at": item.updated_at.isoformat() if item.updated_at else None,
-                "is_recent": item.is_recent,
+                "is_recent": bool(item.is_recent) if hasattr(item, 'is_recent') else False,
                 "company": company_info,
                 "keywords": keywords
             })
@@ -101,9 +109,9 @@ async def get_news(
             "offset": offset,
             "has_more": offset + len(items) < total_count,
             "filters": {
-                "category": category.value if category else None,
+                "category": category.value if category and hasattr(category, 'value') else None,
                 "company_id": company_id,
-                "source_type": source_type.value if source_type else None,
+                "source_type": source_type.value if source_type and hasattr(source_type, 'value') else None,
                 "search_query": search_query,
                 "min_priority": min_priority
             }
@@ -321,18 +329,26 @@ async def search_news(
                     "website": item.company.website
                 }
             
+            # Safely extract values
+            title = item.title if item.title else ""
+            title_truncated = title[:100] + "..." if len(title) > 100 else title
+            
+            # Handle enum serialization
+            source_type_val = item.source_type.value if hasattr(item.source_type, 'value') else str(item.source_type) if item.source_type else None
+            category_val = item.category.value if hasattr(item.category, 'value') else str(item.category) if item.category else None
+            
             items.append({
                 "id": str(item.id),
                 "title": item.title,
-                "title_truncated": item.title_truncated,
-                "summary": item.summary,
+                "title_truncated": title_truncated,
+                "summary": item.summary if item.summary else "",
                 "source_url": item.source_url,
-                "source_type": item.source_type,
-                "category": item.category,
-                "priority_score": item.priority_score,
-                "priority_level": item.priority_level,
+                "source_type": source_type_val,
+                "category": category_val,
+                "priority_score": float(item.priority_score) if item.priority_score else 0.0,
+                "priority_level": str(item.priority_level) if hasattr(item, 'priority_level') else "Medium",
                 "published_at": item.published_at.isoformat() if item.published_at else None,
-                "is_recent": item.is_recent,
+                "is_recent": bool(item.is_recent) if hasattr(item, 'is_recent') else False,
                 "company": company_info
             })
         
