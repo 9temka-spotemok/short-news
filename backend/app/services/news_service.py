@@ -25,17 +25,6 @@ class NewsService:
         self.db = db
         self._cache: Dict[str, Any] = {}
     
-    async def __aenter__(self):
-        """Async context manager entry"""
-        return self
-    
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """Async context manager exit"""
-        if exc_type:
-            await self.db.rollback()
-        else:
-            await self.db.commit()
-    
     async def create_news_item(self, news_data: Dict[str, Any]) -> NewsItem:
         """
         Create a new news item with enhanced validation and error handling

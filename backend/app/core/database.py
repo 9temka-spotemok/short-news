@@ -3,8 +3,7 @@ Database configuration and session management
 """
 
 from sqlalchemy import create_engine, text
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from loguru import logger
 
 from app.core.config import settings
@@ -22,25 +21,25 @@ engine = create_async_engine(
 )
 
 # Create async session factory
-AsyncSessionLocal = sessionmaker(
+AsyncSessionLocal = async_sessionmaker(
     engine,
     class_=AsyncSession,
     expire_on_commit=False,
 )
 
 
-async def get_db() -> AsyncSession:
+async def get_db():
     """
     Dependency to get database session
     """
-    async with AsyncSessionLocal() as session:
-        try:
-            yield session
-        except Exception:
-            await session.rollback()
-            raise
-        finally:
-            await session.close()
+    session = AsyncSessionLocal()
+    try:
+        yield session
+    except Exception as e:
+        await session.rollback()
+        raise
+    finally:
+        await session.close()
 
 
 async def init_db():

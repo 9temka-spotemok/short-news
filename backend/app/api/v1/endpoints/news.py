@@ -37,90 +37,90 @@ async def get_news(
     """
     logger.info(f"News request: category={category}, company_id={company_id}, source_type={source_type}, limit={limit}, offset={offset}")
     
-    async with NewsService(db) as news_service:
-        try:
-            # Parse company IDs if provided
-            parsed_company_ids = None
-            if company_ids:
-                parsed_company_ids = [cid.strip() for cid in company_ids.split(',') if cid.strip()]
-            elif company_id:
-                parsed_company_ids = [company_id]
-            
-            # Get news items with enhanced filtering
-            news_items, total_count = await news_service.get_news_items(
-                category=category,
-                company_id=company_id,
-                company_ids=parsed_company_ids,
-                source_type=source_type,
-                search_query=search_query,
-                min_priority=min_priority,
-                limit=limit,
-                offset=offset
-            )
-            
-            # Convert to response format with enhanced data
-            items = []
-            for item in news_items:
-                # Build company info
-                company_info = None
-                if item.company:
-                    company_info = {
-                        "id": str(item.company.id),
-                        "name": item.company.name,
-                        "website": item.company.website,
-                        "description": item.company.description,
-                        "category": item.company.category
-                    }
-                
-                # Build keywords
-                keywords = [{"keyword": kw.keyword, "relevance": kw.relevance_score} for kw in item.keywords] if item.keywords else []
-                
-                items.append({
-                    "id": str(item.id),
-                    "title": item.title,
-                    "title_truncated": item.title_truncated,
-                    "summary": item.summary,
-                    "content": item.content,
-                    "source_url": item.source_url,
-                    "source_type": item.source_type,
-                    "category": item.category,
-                    "priority_score": item.priority_score,
-                    "priority_level": item.priority_level,
-                    "published_at": item.published_at.isoformat() if item.published_at else None,
-                    "created_at": item.created_at.isoformat() if item.created_at else None,
-                    "updated_at": item.updated_at.isoformat() if item.updated_at else None,
-                    "is_recent": item.is_recent,
-                    "company": company_info,
-                    "keywords": keywords
-                })
-            
-            return {
-                "items": items,
-                "total": total_count,
-                "limit": limit,
-                "offset": offset,
-                "has_more": offset + len(items) < total_count,
-                "filters": {
-                    "category": category.value if category else None,
-                    "company_id": company_id,
-                    "source_type": source_type.value if source_type else None,
-                    "search_query": search_query,
-                    "min_priority": min_priority
+    news_service = NewsService(db)
+    try:
+        # Parse company IDs if provided
+        parsed_company_ids = None
+        if company_ids:
+            parsed_company_ids = [cid.strip() for cid in company_ids.split(',') if cid.strip()]
+        elif company_id:
+            parsed_company_ids = [company_id]
+        
+        # Get news items with enhanced filtering
+        news_items, total_count = await news_service.get_news_items(
+            category=category,
+            company_id=company_id,
+            company_ids=parsed_company_ids,
+            source_type=source_type,
+            search_query=search_query,
+            min_priority=min_priority,
+            limit=limit,
+            offset=offset
+        )
+        
+        # Convert to response format with enhanced data
+        items = []
+        for item in news_items:
+            # Build company info
+            company_info = None
+            if item.company:
+                company_info = {
+                    "id": str(item.company.id),
+                    "name": item.company.name,
+                    "website": item.company.website,
+                    "description": item.company.description,
+                    "category": item.company.category
                 }
-            }
             
-        except ValidationError as e:
-            logger.warning(f"Validation error in news request: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid request parameters: {e.message}"
-            )
-        except Exception as e:
-            logger.error(f"Failed to get news: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to retrieve news items"
-            )
+            # Build keywords
+            keywords = [{"keyword": kw.keyword, "relevance": kw.relevance_score} for kw in item.keywords] if item.keywords else []
+            
+            items.append({
+                "id": str(item.id),
+                "title": item.title,
+                "title_truncated": item.title_truncated,
+                "summary": item.summary,
+                "content": item.content,
+                "source_url": item.source_url,
+                "source_type": item.source_type,
+                "category": item.category,
+                "priority_score": item.priority_score,
+                "priority_level": item.priority_level,
+                "published_at": item.published_at.isoformat() if item.published_at else None,
+                "created_at": item.created_at.isoformat() if item.created_at else None,
+                "updated_at": item.updated_at.isoformat() if item.updated_at else None,
+                "is_recent": item.is_recent,
+                "company": company_info,
+                "keywords": keywords
+            })
+        
+        return {
+            "items": items,
+            "total": total_count,
+            "limit": limit,
+            "offset": offset,
+            "has_more": offset + len(items) < total_count,
+            "filters": {
+                "category": category.value if category else None,
+                "company_id": company_id,
+                "source_type": source_type.value if source_type else None,
+                "search_query": search_query,
+                "min_priority": min_priority
+            }
+        }
+        
+    except ValidationError as e:
+        logger.warning(f"Validation error in news request: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid request parameters: {e.message}"
+        )
+    except Exception as e:
+        logger.error(f"Failed to get news: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve news items"
+        )
 
 
 @router.get("/stats", response_model=NewsStatsSchema)
@@ -135,17 +135,17 @@ async def get_news_statistics(
     """
     logger.info("News statistics request")
     
-    async with NewsService(db) as news_service:
-        try:
-            stats = await news_service.get_news_statistics()
-            return stats
-            
-        except Exception as e:
-            logger.error(f"Failed to get news statistics: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to retrieve news statistics"
-            )
+    news_service = NewsService(db)
+    try:
+        stats = await news_service.get_news_statistics()
+        return stats
+        
+    except Exception as e:
+        logger.error(f"Failed to get news statistics: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve news statistics"
+        )
 
 
 @router.get("/stats/by-companies", response_model=NewsStatsSchema)
@@ -161,28 +161,28 @@ async def get_news_statistics_by_companies(
     """
     logger.info(f"News statistics by companies request: {company_ids}")
     
-    async with NewsService(db) as news_service:
-        try:
-            # Parse company IDs
-            parsed_company_ids = [cid.strip() for cid in company_ids.split(',') if cid.strip()]
-            
-            if not parsed_company_ids:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="At least one company ID is required"
-                )
-            
-            stats = await news_service.get_news_statistics_by_companies(parsed_company_ids)
-            return stats
-            
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.error(f"Failed to get news statistics by companies: {e}")
+    news_service = NewsService(db)
+    try:
+        # Parse company IDs
+        parsed_company_ids = [cid.strip() for cid in company_ids.split(',') if cid.strip()]
+        
+        if not parsed_company_ids:
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to retrieve news statistics by companies"
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="At least one company ID is required"
             )
+        
+        stats = await news_service.get_news_statistics_by_companies(parsed_company_ids)
+        return stats
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get news statistics by companies: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve news statistics by companies"
+        )
 
 
 @router.get("/{news_id}", response_model=Dict[str, Any])
@@ -198,83 +198,83 @@ async def get_news_item(
     """
     logger.info(f"News item request: {news_id}")
     
-    async with NewsService(db) as news_service:
-        try:
-            news_item = await news_service.get_news_item_by_id(news_id)
-            
-            if not news_item:
-                raise NotFoundError(f"News item with ID {news_id} not found", resource_type="news_item")
-            
-            # Build comprehensive response
-            company_info = None
-            if news_item.company:
-                company_info = {
-                    "id": str(news_item.company.id),
-                    "name": news_item.company.name,
-                    "website": news_item.company.website,
-                    "description": news_item.company.description,
-                    "category": news_item.company.category,
-                    "logo_url": news_item.company.logo_url
-                }
-            
-            # Build keywords with relevance scores
-            keywords = []
-            if news_item.keywords:
-                keywords = [
-                    {
-                        "keyword": kw.keyword,
-                        "relevance": kw.relevance_score
-                    }
-                    for kw in news_item.keywords
-                ]
-            
-            # Build user activities
-            activities = []
-            if news_item.activities:
-                activities = [
-                    {
-                        "id": str(activity.id),
-                        "user_id": str(activity.user_id),
-                        "activity_type": activity.activity_type,
-                        "created_at": activity.created_at.isoformat() if activity.created_at else None
-                    }
-                    for activity in news_item.activities
-                ]
-            
-            return {
-                "id": str(news_item.id),
-                "title": news_item.title,
-                "title_truncated": news_item.title_truncated,
-                "summary": news_item.summary,
-                "content": news_item.content,
-                "source_url": news_item.source_url,
-                "source_type": news_item.source_type,
-                "category": news_item.category,
-                "priority_score": news_item.priority_score,
-                "priority_level": news_item.priority_level,
-                "published_at": news_item.published_at.isoformat() if news_item.published_at else None,
-                "created_at": news_item.created_at.isoformat() if news_item.created_at else None,
-                "updated_at": news_item.updated_at.isoformat() if news_item.updated_at else None,
-                "is_recent": news_item.is_recent,
-                "company": company_info,
-                "keywords": keywords,
-                "activities": activities
+    news_service = NewsService(db)
+    try:
+        news_item = await news_service.get_news_item_by_id(news_id)
+        
+        if not news_item:
+            raise NotFoundError(f"News item with ID {news_id} not found", resource_type="news_item")
+        
+        # Build comprehensive response
+        company_info = None
+        if news_item.company:
+            company_info = {
+                "id": str(news_item.company.id),
+                "name": news_item.company.name,
+                "website": news_item.company.website,
+                "description": news_item.company.description,
+                "category": news_item.company.category,
+                "logo_url": news_item.company.logo_url
             }
-            
-        except NotFoundError:
-            raise
-        except ValidationError as e:
-            logger.warning(f"Validation error in news item request: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid news ID format: {e.message}"
-            )
-        except Exception as e:
-            logger.error(f"Failed to get news item {news_id}: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to retrieve news item"
-            )
+        
+        # Build keywords with relevance scores
+        keywords = []
+        if news_item.keywords:
+            keywords = [
+                {
+                    "keyword": kw.keyword,
+                    "relevance": kw.relevance_score
+                }
+                for kw in news_item.keywords
+            ]
+        
+        # Build user activities
+        activities = []
+        if news_item.activities:
+            activities = [
+                {
+                    "id": str(activity.id),
+                    "user_id": str(activity.user_id),
+                    "activity_type": activity.activity_type,
+                    "created_at": activity.created_at.isoformat() if activity.created_at else None
+                }
+                for activity in news_item.activities
+            ]
+        
+        return {
+            "id": str(news_item.id),
+            "title": news_item.title,
+            "title_truncated": news_item.title_truncated,
+            "summary": news_item.summary,
+            "content": news_item.content,
+            "source_url": news_item.source_url,
+            "source_type": news_item.source_type,
+            "category": news_item.category,
+            "priority_score": news_item.priority_score,
+            "priority_level": news_item.priority_level,
+            "published_at": news_item.published_at.isoformat() if news_item.published_at else None,
+            "created_at": news_item.created_at.isoformat() if news_item.created_at else None,
+            "updated_at": news_item.updated_at.isoformat() if news_item.updated_at else None,
+            "is_recent": news_item.is_recent,
+            "company": company_info,
+            "keywords": keywords,
+            "activities": activities
+        }
+        
+    except NotFoundError:
+        raise
+    except ValidationError as e:
+        logger.warning(f"Validation error in news item request: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid news ID format: {e.message}"
+        )
+    except Exception as e:
+        logger.error(f"Failed to get news item {news_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve news item"
+        )
 
 
 @router.get("/search", response_model=Dict[str, Any])
@@ -295,73 +295,73 @@ async def search_news(
     """
     logger.info(f"News search: query='{q}', category={category}, limit={limit}, offset={offset}")
     
-    async with NewsService(db) as news_service:
-        try:
-            # Create search parameters
-            search_params = NewsSearchSchema(
-                query=q,
-                category=category,
-                source_type=source_type,
-                company_id=company_id,
-                limit=limit,
-                offset=offset
-            )
-            
-            # Perform search
-            news_items, total_count = await news_service.search_news(search_params)
-            
-            # Convert to response format
-            items = []
-            for item in news_items:
-                company_info = None
-                if item.company:
-                    company_info = {
-                        "id": str(item.company.id),
-                        "name": item.company.name,
-                        "website": item.company.website
-                    }
-                
-                items.append({
-                    "id": str(item.id),
-                    "title": item.title,
-                    "title_truncated": item.title_truncated,
-                    "summary": item.summary,
-                    "source_url": item.source_url,
-                    "source_type": item.source_type,
-                    "category": item.category,
-                    "priority_score": item.priority_score,
-                    "priority_level": item.priority_level,
-                    "published_at": item.published_at.isoformat() if item.published_at else None,
-                    "is_recent": item.is_recent,
-                    "company": company_info
-                })
-            
-            return {
-                "query": q,
-                "items": items,
-                "total": total_count,
-                "limit": limit,
-                "offset": offset,
-                "has_more": offset + len(items) < total_count,
-                "filters": {
-                    "category": category.value if category else None,
-                    "source_type": source_type.value if source_type else None,
-                    "company_id": company_id
+    news_service = NewsService(db)
+    try:
+        # Create search parameters
+        search_params = NewsSearchSchema(
+            query=q,
+            category=category,
+            source_type=source_type,
+            company_id=company_id,
+            limit=limit,
+            offset=offset
+        )
+        
+        # Perform search
+        news_items, total_count = await news_service.search_news(search_params)
+        
+        # Convert to response format
+        items = []
+        for item in news_items:
+            company_info = None
+            if item.company:
+                company_info = {
+                    "id": str(item.company.id),
+                    "name": item.company.name,
+                    "website": item.company.website
                 }
-            }
             
-        except ValidationError as e:
-            logger.warning(f"Validation error in news search: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid search parameters: {e.message}"
-            )
-        except Exception as e:
-            logger.error(f"Failed to search news: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to search news items"
-            )
+            items.append({
+                "id": str(item.id),
+                "title": item.title,
+                "title_truncated": item.title_truncated,
+                "summary": item.summary,
+                "source_url": item.source_url,
+                "source_type": item.source_type,
+                "category": item.category,
+                "priority_score": item.priority_score,
+                "priority_level": item.priority_level,
+                "published_at": item.published_at.isoformat() if item.published_at else None,
+                "is_recent": item.is_recent,
+                "company": company_info
+            })
+        
+        return {
+            "query": q,
+            "items": items,
+            "total": total_count,
+            "limit": limit,
+            "offset": offset,
+            "has_more": offset + len(items) < total_count,
+            "filters": {
+                "category": category.value if category else None,
+                "source_type": source_type.value if source_type else None,
+                "company_id": company_id
+            }
+        }
+        
+    except ValidationError as e:
+        logger.warning(f"Validation error in news search: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid search parameters: {e.message}"
+        )
+    except Exception as e:
+        logger.error(f"Failed to search news: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to search news items"
+        )
 
 
 
@@ -384,106 +384,106 @@ async def get_news_by_category(
     """
     logger.info(f"News by category request: category={category_name}, company_id={company_id}, source_type={source_type}, limit={limit}, offset={offset}")
     
-    async with NewsService(db) as news_service:
-        try:
-            # Validate category name
-            valid_categories = [cat.value for cat in NewsCategory]
-            if category_name not in valid_categories:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Invalid category. Valid categories are: {', '.join(valid_categories)}"
-                )
-            
-            # Convert string to enum
-            category_enum = NewsCategory(category_name)
-            
-            # Parse company IDs if provided
-            parsed_company_ids = None
-            if company_ids:
-                parsed_company_ids = [cid.strip() for cid in company_ids.split(',') if cid.strip()]
-            elif company_id:
-                parsed_company_ids = [company_id]
-            
-            # Get news items
-            news_items, total_count = await news_service.get_news_items(
-                category=category_enum,
-                company_id=company_id,
-                company_ids=parsed_company_ids,
-                source_type=source_type,
-                limit=limit,
-                offset=offset
-            )
-            
-            # Convert to response format
-            items = []
-            for item in news_items:
-                company_info = None
-                if item.company:
-                    company_info = {
-                        "id": str(item.company.id),
-                        "name": item.company.name,
-                        "website": item.company.website,
-                        "description": item.company.description,
-                        "category": item.company.category
-                    }
-                
-                keywords = [{"keyword": kw.keyword, "relevance": kw.relevance_score} for kw in item.keywords] if item.keywords else []
-                
-                items.append({
-                    "id": str(item.id),
-                    "title": item.title,
-                    "title_truncated": item.title_truncated,
-                    "summary": item.summary,
-                    "content": item.content,
-                    "source_url": item.source_url,
-                    "source_type": item.source_type,
-                    "category": item.category,
-                    "priority_score": item.priority_score,
-                    "priority_level": item.priority_level,
-                    "published_at": item.published_at.isoformat() if item.published_at else None,
-                    "created_at": item.created_at.isoformat() if item.created_at else None,
-                    "updated_at": item.updated_at.isoformat() if item.updated_at else None,
-                    "is_recent": item.is_recent,
-                    "company": company_info,
-                    "keywords": keywords
-                })
-            
-            # Get statistics for this category
-            category_stats = await news_service.get_category_statistics(category_enum, parsed_company_ids)
-            
-            return {
-                "category": category_name,
-                "category_description": NewsCategory.get_descriptions().get(category_enum),
-                "items": items,
-                "total": total_count,
-                "limit": limit,
-                "offset": offset,
-                "has_more": offset + len(items) < total_count,
-                "statistics": {
-                    "top_companies": category_stats.get("top_companies", []),
-                    "source_distribution": category_stats.get("source_distribution", {}),
-                    "total_in_category": category_stats.get("total_in_category", 0)
-                },
-                "filters": {
-                    "company_id": company_id,
-                    "source_type": source_type.value if source_type else None
-                }
-            }
-            
-        except HTTPException:
-            raise
-        except ValidationError as e:
-            logger.warning(f"Validation error in category news request: {e}")
+    news_service = NewsService(db)
+    try:
+        # Validate category name
+        valid_categories = [cat.value for cat in NewsCategory]
+        if category_name not in valid_categories:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid request parameters: {e.message}"
+                detail=f"Invalid category. Valid categories are: {', '.join(valid_categories)}"
             )
-        except Exception as e:
-            logger.error(f"Failed to get news by category {category_name}: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to retrieve news by category"
-            )
+        
+        # Convert string to enum
+        category_enum = NewsCategory(category_name)
+        
+        # Parse company IDs if provided
+        parsed_company_ids = None
+        if company_ids:
+            parsed_company_ids = [cid.strip() for cid in company_ids.split(',') if cid.strip()]
+        elif company_id:
+            parsed_company_ids = [company_id]
+        
+        # Get news items
+        news_items, total_count = await news_service.get_news_items(
+            category=category_enum,
+            company_id=company_id,
+            company_ids=parsed_company_ids,
+            source_type=source_type,
+            limit=limit,
+            offset=offset
+        )
+        
+        # Convert to response format
+        items = []
+        for item in news_items:
+            company_info = None
+            if item.company:
+                company_info = {
+                    "id": str(item.company.id),
+                    "name": item.company.name,
+                    "website": item.company.website,
+                    "description": item.company.description,
+                    "category": item.company.category
+                }
+            
+            keywords = [{"keyword": kw.keyword, "relevance": kw.relevance_score} for kw in item.keywords] if item.keywords else []
+            
+            items.append({
+                "id": str(item.id),
+                "title": item.title,
+                "title_truncated": item.title_truncated,
+                "summary": item.summary,
+                "content": item.content,
+                "source_url": item.source_url,
+                "source_type": item.source_type,
+                "category": item.category,
+                "priority_score": item.priority_score,
+                "priority_level": item.priority_level,
+                "published_at": item.published_at.isoformat() if item.published_at else None,
+                "created_at": item.created_at.isoformat() if item.created_at else None,
+                "updated_at": item.updated_at.isoformat() if item.updated_at else None,
+                "is_recent": item.is_recent,
+                "company": company_info,
+                "keywords": keywords
+            })
+        
+        # Get statistics for this category
+        category_stats = await news_service.get_category_statistics(category_enum, parsed_company_ids)
+        
+        return {
+            "category": category_name,
+            "category_description": NewsCategory.get_descriptions().get(category_enum),
+            "items": items,
+            "total": total_count,
+            "limit": limit,
+            "offset": offset,
+            "has_more": offset + len(items) < total_count,
+            "statistics": {
+                "top_companies": category_stats.get("top_companies", []),
+                "source_distribution": category_stats.get("source_distribution", {}),
+                "total_in_category": category_stats.get("total_in_category", 0)
+            },
+            "filters": {
+                "company_id": company_id,
+                "source_type": source_type.value if source_type else None
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except ValidationError as e:
+        logger.warning(f"Validation error in category news request: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid request parameters: {e.message}"
+        )
+    except Exception as e:
+        logger.error(f"Failed to get news by category {category_name}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve news by category"
+        )
 
 
 @router.get("/categories/list")
