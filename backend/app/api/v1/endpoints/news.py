@@ -65,15 +65,20 @@ async def get_news(
             company_info = None
             if item.company:
                 company_info = {
-                    "id": str(item.company.id),
-                    "name": item.company.name,
-                    "website": item.company.website,
-                    "description": item.company.description,
-                    "category": item.company.category
+                    "id": str(item.company.id) if item.company.id else None,
+                    "name": item.company.name if item.company.name else "",
+                    "website": item.company.website if item.company.website else "",
+                    "description": item.company.description if item.company.description else "",
+                    "category": item.company.category if item.company.category else ""
                 }
             
             # Build keywords
-            keywords = [{"keyword": kw.keyword, "relevance": kw.relevance_score} for kw in item.keywords] if item.keywords else []
+            keywords = []
+            if item.keywords:
+                keywords = [{
+                    "keyword": kw.keyword if kw.keyword else "",
+                    "relevance": float(kw.relevance_score) if kw.relevance_score else 0.0
+                } for kw in item.keywords]
             
             # Safely extract and serialize values
             title = item.title if item.title else ""
