@@ -53,61 +53,126 @@ class UniversalBlogScraper:
         """Extract article links from page"""
         articles = []
         
-        # Common article selectors
+        # Common article selectors - expanded list for better coverage
         selectors = [
             'article a',
+            'article h2 a',
+            'article h3 a',
             'div.post a',
             'div.blog-post a',
             'div.news-item a',
+            'div.card a',
+            'div.entry a',
+            'li.post a',
+            'li.article a',
             'h2 a',
             'h3 a',
+            'h4 a',
             'a[href*="/blog/"]',
             'a[href*="/news/"]',
             'a[href*="/post/"]',
             'a[href*="/article/"]',
+            'a[href*="/posts/"]',
             '.article-link',
             '.post-link',
             '.news-link',
+            '.entry-title a',
+            '.post-title a',
+            '[class*="post"] a',
+            '[class*="article"] a',
+            '[class*="blog"] a',
+            '[class*="news"] a',
         ]
         
         found_links = set()
         
         for selector in selectors:
-            elements = soup.select(selector)
-            
-            for element in elements:
-                href = element.get('href', '')
-                title = element.get_text(strip=True)
+            try:
+                elements = soup.select(selector)
                 
-                # Skip if no href or title
-                if not href or not title or len(title) < 10:
-                    continue
-                
-                # Build full URL
-                full_url = urljoin(base_url, href)
-                
-                # Skip duplicates
-                if full_url in found_links:
-                    continue
-                
-                # Skip non-article URLs (images, PDFs, etc.)
-                if any(ext in full_url.lower() for ext in ['.jpg', '.png', '.pdf', '.zip', '.mp4']):
-                    continue
-                
-                # Skip social media and external links
-                base_domain = urlparse(base_url).netloc
-                link_domain = urlparse(full_url).netloc
-                if link_domain and base_domain not in link_domain:
-                    continue
-                
-                # Check if looks like an article URL
-                article_patterns = ['/blog/', '/news/', '/post/', '/article/', '/update/', '/insight/', '/press/']
-                if any(pattern in full_url.lower() for pattern in article_patterns):
-                    found_links.add(full_url)
-                    articles.append({
-                        'url': full_url,
-                        'title': title[:500]
-                    })
+                for element in elements:
+                    href = element.get('href', '')
+                    # Try to get title from multiple places
+                    title = element.get_text(strip=True)
+                    if not title or len(title) < 10:
+                        # Try getting title from parent or nearby elements
+                        parent = element.parent
+                        if parent:
+                            title = parent.get_text(strip=True)[:500]
+                            if len(title) < 10:
+                                continue
+                        else:
+                            continue
+                    
+                    # Skip if no href
+                    if not href:
+                        continue
+                    
+                    # Build full URL
+                    full_url = urljoin(base_url, href)
+                    
+                    # Skip duplicates
+                    if full_url in found_links:
+                        continue
+                    
+                    # Skip non-article URLs (images, PDFs, etc.)
+                    if any(ext in full_url.lower() for ext in ['.jpg', '.jpeg', '.png', '.gif', '.pdf', '.zip', '.mp4', '.mp3', '.svg']):
+                        continue
+                    
+                    # Skip social media and external links
+                    base_domain = urlparse(base_url).netloc
+                    link_domain = urlparse(full_url).netloc
+                    if link_domain and base_domain not in link_domain:
+                        continue
+                    
+                    # Check if looks like an article URL
+                    article_patterns = ['/blog/', '/news/', '/post/', '/posts/', '/article/', '/articles/', '/update/', '/updates/', '/insight/', '/insights/', '/press/', '/press-release/']
+                    if any(pattern in full_url.lower() for pattern in article_patterns):
+                        found_links.add(full_url)
+                        articles.append({
+                            'url': full_url,
+                            'title': title[:500]
+                        })
+            except Exception as e:
+                logger.debug(f"Error processing selector {selector}: {e}")
+                continue
+        
+        # If no articles found with selectors, try a fallback approach:
+        # Look for any links that contain blog/news patterns in their URL
+        if not articles:
+            try:
+                all_links = soup.find_all('a', href=True)
+                for link in all_links:
+                    href = link.get('href', '')
+                    if not href:
+                        continue
+                    
+                    full_url = urljoin(base_url, href)
+                    
+                    # Check if URL pattern matches article patterns
+                    article_patterns = ['/blog/', '/news/', '/post/', '/posts/', '/article/']
+                    if any(pattern in full_url.lower() for pattern in article_patterns):
+                        # Skip duplicates and non-content files
+                        if full_url in found_links:
+                            continue
+                        if any(ext in full_url.lower() for ext in ['.jpg', '.jpeg', '.png', '.gif', '.pdf']):
+                            continue
+                        
+                        # Check domain
+                        base_domain = urlparse(base_url).netloc
+                        link_domain = urlparse(full_url).netloc
+                        if link_domain and base_domain not in link_domain:
+                            continue
+                        
+                        title = link.get_text(strip=True)
+                        if title and len(title) >= 10:
+                            found_links.add(full_url)
+                            articles.append({
+                                'url': full_url,
+                                'title': title[:500]
+                            })
+            except Exception as e:
+                logger.debug(f"Error in fallback article extraction: {e}")
         
         return articles
     
@@ -131,22 +196,37 @@ class UniversalBlogScraper:
                     logger.info(f"Trying URL: {blog_url}")
                     response = await self.session.get(blog_url)
                     
+                    # Check final URL after redirects
+                    final_url = str(response.url)
+                    if final_url != blog_url:
+                        logger.debug(f"Redirected from {blog_url} to {final_url}")
+                        # Skip if redirected to a different path that doesn't match blog patterns
+                        # This helps avoid cases where all URLs redirect to home page
+                        if '/blog' not in final_url.lower() and '/news' not in final_url.lower():
+                            if 'blog' in blog_url.lower() or 'news' in blog_url.lower():
+                                logger.debug(f"Skipping {final_url} - redirect away from blog/news section")
+                                continue
+                    
                     # Skip if not found
                     if response.status_code == 404:
                         continue
                     
                     if response.status_code != 200:
+                        logger.debug(f"Non-200 status {response.status_code} for {blog_url}")
                         continue
                     
                     soup = BeautifulSoup(response.text, 'html.parser')
                     
                     # Extract articles
-                    articles = self._extract_articles(soup, blog_url)
+                    articles = self._extract_articles(soup, final_url)
                     
                     if not articles:
+                        # Log when page loads but no articles found - helps with debugging
+                        logger.debug(f"Page loaded successfully from {final_url} but no articles found. "
+                                   f"Page title: {soup.title.string if soup.title else 'N/A'}")
                         continue
                     
-                    logger.info(f"Found {len(articles)} articles at {blog_url}")
+                    logger.info(f"Found {len(articles)} articles at {final_url}")
                     
                     # Process articles
                     for idx, article in enumerate(articles[:max_articles]):

@@ -451,14 +451,22 @@ async def handle_digest_mode_change(chat_id: str, data: str, db: AsyncSession):
             await telegram_service.send_digest(chat_id_clean, "❌ Unknown setting.")
             return
         
-        # Update user preferences
-        # Use direct SQL update to avoid enum casting issues if enum doesn't exist
+        # Update user preferences in DB with explicit enum cast (supports old enum name telegramdigestmode)
         from sqlalchemy import text
         await db.execute(
-            text("UPDATE user_preferences SET telegram_digest_mode = :mode WHERE id = :user_id"),
+            text("UPDATE user_preferences SET telegram_digest_mode = CAST(:mode AS text)::telegramdigestmode WHERE id = :user_id"),
             {"mode": new_mode, "user_id": user_prefs.id}
         )
         await db.commit()
+
+        # Invalidate cached preferences for this chat to ensure new mode is used immediately
+        try:
+            if chat_id_clean in _user_prefs_cache:
+                del _user_prefs_cache[chat_id_clean]
+            if chat_id_clean in _cache_expiry:
+                del _cache_expiry[chat_id_clean]
+        except Exception:
+            pass
         
         # Send confirmation and updated menu
         confirmation_text = f"✅ Setting changed to: **{'All News' if new_mode == 'all' else 'Tracked Only'}**"

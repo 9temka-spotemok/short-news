@@ -53,6 +53,7 @@ export interface DigestSettings {
   digest_include_summaries: boolean
   telegram_chat_id: string | null
   telegram_enabled: boolean
+  telegram_digest_mode?: 'all' | 'tracked'  // Telegram digest mode: 'all' for all news, 'tracked' for tracked companies only
   timezone?: string  // User's timezone (e.g., "UTC", "America/New_York", "Europe/Moscow")
   week_start_day?: number  // 0=Sunday, 1=Monday
 }

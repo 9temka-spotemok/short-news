@@ -9,6 +9,7 @@ from sqlalchemy import select
 from pydantic import BaseModel, field_validator
 from loguru import logger
 import uuid
+import json
 
 from app.core.database import get_db
 from app.api.dependencies import get_current_user, get_current_user_optional
@@ -26,6 +27,7 @@ class DigestSettingsUpdate(BaseModel):
     digest_include_summaries: Optional[bool] = None
     telegram_chat_id: Optional[str] = None
     telegram_enabled: Optional[bool] = None
+    telegram_digest_mode: Optional[str] = None
     timezone: Optional[str] = None
     week_start_day: Optional[int] = None
     
@@ -41,6 +43,13 @@ class DigestSettingsUpdate(BaseModel):
     def validate_digest_format(cls, v):
         if v is not None and v not in ['short', 'detailed']:
             raise ValueError('digest_format must be one of: short, detailed')
+        return v
+    
+    @field_validator('telegram_digest_mode')
+    @classmethod
+    def validate_telegram_digest_mode(cls, v):
+        if v is not None and v not in ['all', 'tracked']:
+            raise ValueError('telegram_digest_mode must be one of: all, tracked')
         return v
 
 
@@ -431,6 +440,7 @@ async def get_digest_settings(
             "digest_include_summaries": preferences.digest_include_summaries,
             "telegram_chat_id": preferences.telegram_chat_id,
             "telegram_enabled": preferences.telegram_enabled,
+            "telegram_digest_mode": preferences.telegram_digest_mode if preferences.telegram_digest_mode else "all",
             "timezone": preferences.timezone if hasattr(preferences, 'timezone') else "UTC",
             "week_start_day": preferences.week_start_day if hasattr(preferences, 'week_start_day') else 0
         }
@@ -483,28 +493,72 @@ async def update_digest_settings(
             )
             db.add(preferences)
         
-        # Update settings
+        # Use direct SQL updates for all fields to avoid enum casting issues
+        from sqlalchemy import text
+        
+        # Build dynamic UPDATE statement
+        updates = []
+        params = {"user_id": preferences.id}
+        
         if settings.digest_enabled is not None:
-            preferences.digest_enabled = settings.digest_enabled
+            updates.append("digest_enabled = :digest_enabled")
+            params["digest_enabled"] = settings.digest_enabled
+        
         if settings.digest_frequency is not None:
-            preferences.digest_frequency = settings.digest_frequency
+            # Use :: operator to handle enum name mismatch (digestfrequency vs digest_frequency)
+            updates.append("digest_frequency = CAST(:digest_frequency AS text)::digestfrequency")
+            params["digest_frequency"] = settings.digest_frequency
+        
         if settings.digest_custom_schedule is not None:
-            preferences.digest_custom_schedule = settings.digest_custom_schedule
+            # Use CAST(:param AS jsonb) to avoid mixed param styles with asyncpg
+            updates.append("digest_custom_schedule = CAST(:digest_custom_schedule AS jsonb)")
+            params["digest_custom_schedule"] = json.dumps(settings.digest_custom_schedule)
+        
         if settings.digest_format is not None:
-            preferences.digest_format = settings.digest_format
+            # Use :: operator to handle enum name mismatch (digestformat vs digest_format)
+            updates.append("digest_format = CAST(:digest_format AS text)::digestformat")
+            params["digest_format"] = settings.digest_format
+        
         if settings.digest_include_summaries is not None:
-            preferences.digest_include_summaries = settings.digest_include_summaries
+            updates.append("digest_include_summaries = :digest_include_summaries")
+            params["digest_include_summaries"] = settings.digest_include_summaries
+        
         if settings.telegram_chat_id is not None:
-            preferences.telegram_chat_id = settings.telegram_chat_id
+            updates.append("telegram_chat_id = :telegram_chat_id")
+            params["telegram_chat_id"] = settings.telegram_chat_id
+        
         if settings.telegram_enabled is not None:
-            preferences.telegram_enabled = settings.telegram_enabled
+            updates.append("telegram_enabled = :telegram_enabled")
+            params["telegram_enabled"] = settings.telegram_enabled
+        
+        if settings.telegram_digest_mode is not None:
+            # Use :: operator to handle enum name mismatch (telegramdigestmode vs telegram_digest_mode)
+            updates.append("telegram_digest_mode = CAST(:telegram_digest_mode AS text)::telegramdigestmode")
+            params["telegram_digest_mode"] = settings.telegram_digest_mode
+        
         if settings.timezone is not None:
-            preferences.timezone = settings.timezone
+            updates.append("timezone = :timezone")
+            params["timezone"] = settings.timezone
+        
         if settings.week_start_day is not None:
-            preferences.week_start_day = settings.week_start_day
+            updates.append("week_start_day = :week_start_day")
+            params["week_start_day"] = settings.week_start_day
+        
+        # Add updated_at timestamp
+        updates.append("updated_at = now()")
+        
+        # Execute single UPDATE query if there are any updates
+        if updates:
+            update_query = f"UPDATE user_preferences SET {', '.join(updates)} WHERE id = :user_id"
+            await db.execute(text(update_query), params)
+            updated_fields = [k for k in params.keys() if k != 'user_id']
+            logger.info(f"Updated digest settings for user {current_user.id}: {', '.join(updated_fields)}")
         
         await db.commit()
         await db.refresh(preferences)
+        
+        # Get telegram_digest_mode value (may need refresh after SQL update)
+        telegram_digest_mode = preferences.telegram_digest_mode
         
         return {
             "status": "success",
@@ -516,6 +570,7 @@ async def update_digest_settings(
                 "digest_include_summaries": preferences.digest_include_summaries,
                 "telegram_chat_id": preferences.telegram_chat_id,
                 "telegram_enabled": preferences.telegram_enabled,
+                "telegram_digest_mode": telegram_digest_mode if telegram_digest_mode else 'all',
                 "timezone": preferences.timezone if hasattr(preferences, 'timezone') else "UTC",
                 "week_start_day": preferences.week_start_day if hasattr(preferences, 'week_start_day') else 0
             }
@@ -524,8 +579,10 @@ async def update_digest_settings(
     except HTTPException:
         raise
     except ValueError as e:
+        logger.error(f"Validation error updating digest settings: {e}")
+        await db.rollback()
         raise HTTPException(status_code=400, detail=f"Invalid value: {e}")
     except Exception as e:
-        logger.error(f"Error updating digest settings: {e}")
+        logger.error(f"Error updating digest settings: {e}", exc_info=True)
         await db.rollback()
-        raise HTTPException(status_code=500, detail="Failed to update digest settings")
+        raise HTTPException(status_code=500, detail=f"Failed to update digest settings: {str(e)}")

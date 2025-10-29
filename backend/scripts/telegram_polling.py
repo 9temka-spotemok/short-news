@@ -280,17 +280,13 @@ class TelegramPolling:
                 await telegram_service.send_digest(chat_id, "❌ User not found. Use /start to configure.")
                 return
             
-            # Update digest mode
-            # Use direct SQL update to avoid enum casting issues if enum doesn't exist
+            # Update digest mode using raw SQL with explicit enum cast (supports old enum name)
             from sqlalchemy import text
             await db.execute(
-                text("UPDATE user_preferences SET telegram_digest_mode = :mode WHERE id = :user_id"),
+                text("UPDATE user_preferences SET telegram_digest_mode = CAST(:mode AS text)::telegramdigestmode, updated_at=now() WHERE id = :user_id"),
                 {"mode": new_mode, "user_id": user_prefs.id}
             )
             await db.commit()
-            
-            # Refresh the object to get updated value
-            await db.refresh(user_prefs)
             
             # Send confirmation and show updated menu
             mode_text = "All News" if new_mode == "all" else "Tracked Only"
@@ -323,6 +319,19 @@ class TelegramPolling:
             return
         
         logger.info("🤖 Starting Telegram bot polling...")
+        
+        # Delete webhook before starting polling to avoid 409 Conflict errors
+        # Polling and webhook cannot work simultaneously
+        try:
+            logger.info("🗑️  Deleting webhook before starting polling...")
+            success = await telegram_service.delete_webhook()
+            if success:
+                logger.info("✅ Webhook deleted successfully")
+            else:
+                logger.warning("⚠️  Failed to delete webhook, but continuing with polling")
+        except Exception as e:
+            logger.warning(f"⚠️  Error deleting webhook: {e}, but continuing with polling")
+        
         self.running = True
         
         try:
