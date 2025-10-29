@@ -72,27 +72,55 @@ async def handle_digest(chat_id: str) -> str:
     from app.core.database import AsyncSessionLocal
     from app.models import UserPreferences
     from app.tasks.digest import generate_user_digest
-    from sqlalchemy import select
+    from sqlalchemy import select, func
+    from loguru import logger
     
     try:
+        # Normalize chat_id - remove whitespace
+        chat_id_clean = chat_id.strip()
+        
         async with AsyncSessionLocal() as db:
-            # Find user by telegram_chat_id
+            # Find user by telegram_chat_id (using trim to handle any whitespace issues)
             result = await db.execute(
                 select(UserPreferences).where(
-                    UserPreferences.telegram_chat_id == chat_id,
+                    func.trim(UserPreferences.telegram_chat_id) == chat_id_clean,
                     UserPreferences.telegram_enabled == True
                 )
             )
             user_prefs = result.scalar_one_or_none()
             
+            # If not found, try without trim (fallback)
             if not user_prefs:
+                result = await db.execute(
+                    select(UserPreferences).where(
+                        UserPreferences.telegram_chat_id == chat_id_clean,
+                        UserPreferences.telegram_enabled == True
+                    )
+                )
+                user_prefs = result.scalar_one_or_none()
+            
+            if not user_prefs:
+                # Log diagnostic info
+                result_debug = await db.execute(
+                    select(UserPreferences).where(
+                        func.trim(UserPreferences.telegram_chat_id) == chat_id_clean
+                    )
+                )
+                user_prefs_debug = result_debug.scalar_one_or_none()
+                
+                logger.warning(
+                    f"User not found for chat_id={chat_id_clean} in handle_digest. "
+                    f"Found user without enabled check: {user_prefs_debug.user_id if user_prefs_debug else 'None'}. "
+                    f"telegram_enabled={user_prefs_debug.telegram_enabled if user_prefs_debug else 'N/A'}"
+                )
+                
                 error_text = (
                     "❌ User not found or Telegram not configured.\n\n"
                     "Make sure you:\n"
                     "1. Added Chat ID to your profile settings\n"
                     "2. Enabled Telegram notifications\n"
                     "3. Configured digests\n\n"
-                    f"Your Chat ID: `{chat_id}`"
+                    f"Your Chat ID: `{chat_id_clean}`"
                 )
                 
                 # Send error message with setup keyboard

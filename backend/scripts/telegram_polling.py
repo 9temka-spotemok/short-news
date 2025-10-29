@@ -141,7 +141,7 @@ class TelegramPolling:
         """Handle digest callback"""
         try:
             from app.models import UserPreferences
-            from app.tasks.digest import generate_user_digest
+            from app.services.digest_service import DigestService
             from sqlalchemy import select
             
             # Find user by telegram_chat_id
@@ -171,16 +171,25 @@ class TelegramPolling:
             # Determine tracked_only based on telegram_digest_mode
             tracked_only = (user_prefs.telegram_digest_mode == 'tracked') if user_prefs.telegram_digest_mode else False
             
-            # Generate digest using Celery task
-            task = generate_user_digest.delay(str(user_prefs.user_id), digest_type, tracked_only)
-            logger.info(f"Digest generation task started: {task.id} for user {user_prefs.user_id} (tracked_only: {tracked_only})")
+            # Generate digest directly (without Celery)
+            logger.info(f"Generating digest for user {user_prefs.user_id} (type: {digest_type}, tracked_only: {tracked_only})")
             
-            # Send completion message
-            await telegram_service.send_digest(chat_id, "✅ Digest is being generated in the background and will be sent shortly!")
+            digest_service = DigestService(db)
+            digest_data = await digest_service.generate_user_digest(
+                user_id=str(user_prefs.user_id),
+                period=digest_type,
+                format_type=user_prefs.digest_format or "short",
+                tracked_only=tracked_only
+            )
+            
+            # Format and send digest
+            digest_text = digest_service.format_digest_for_telegram(digest_data, user_prefs)
+            await telegram_service.send_digest(chat_id, digest_text)
+            logger.info(f"Digest sent to chat {chat_id}")
             
         except Exception as e:
             logger.error(f"Error handling digest callback: {e}")
-            await telegram_service.send_digest(chat_id, "❌ Error generating digest")
+            await telegram_service.send_digest(chat_id, f"❌ Error generating digest: {str(e)}")
     
     async def handle_settings_callback(self, chat_id: str, db):
         """Handle settings callback"""
@@ -272,8 +281,16 @@ class TelegramPolling:
                 return
             
             # Update digest mode
-            user_prefs.telegram_digest_mode = new_mode
+            # Use direct SQL update to avoid enum casting issues if enum doesn't exist
+            from sqlalchemy import text
+            await db.execute(
+                text("UPDATE user_preferences SET telegram_digest_mode = :mode WHERE id = :user_id"),
+                {"mode": new_mode, "user_id": user_prefs.id}
+            )
             await db.commit()
+            
+            # Refresh the object to get updated value
+            await db.refresh(user_prefs)
             
             # Send confirmation and show updated menu
             mode_text = "All News" if new_mode == "all" else "Tracked Only"

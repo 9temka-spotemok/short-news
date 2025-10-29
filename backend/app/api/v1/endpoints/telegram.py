@@ -15,7 +15,7 @@ from app.services.telegram_service import telegram_service
 from app.bot.handlers import handle_message
 from app.models import UserPreferences
 from app.tasks.digest import generate_user_digest
-from sqlalchemy import select
+from sqlalchemy import select, func
 
 router = APIRouter()
 
@@ -50,6 +50,20 @@ class TelegramWebhookUpdate(BaseModel):
     inline_query: Optional[Dict[str, Any]] = None
     chosen_inline_result: Optional[Dict[str, Any]] = None
     callback_query: Optional[Dict[str, Any]] = None
+
+
+@router.get("/webhook")
+async def telegram_webhook_health_check():
+    """
+    Health check endpoint for Telegram webhook
+    Telegram sends POST requests, but GET can be used for checking if endpoint is accessible
+    """
+    return {
+        "status": "ok",
+        "message": "Telegram webhook endpoint is active. Use POST method for webhook updates.",
+        "endpoint": "/api/v1/telegram/webhook",
+        "method": "POST"
+    }
 
 
 @router.post("/webhook")
@@ -122,7 +136,12 @@ async def handle_telegram_callback(callback_query: Dict[str, Any], db: AsyncSess
         elif data.startswith("settings_"):
             await handle_settings_callback(chat_id, data, db)
         elif data.startswith("digest_settings_"):
-            await handle_digest_settings_callback(chat_id, data, db)
+            # Handle digest settings mode change (all/tracked) or show menu (settings_digest)
+            if data in ["digest_settings_all", "digest_settings_tracked"]:
+                await handle_digest_mode_change(chat_id, data, db)
+            else:
+                # Show settings menu
+                await handle_digest_settings_menu(chat_id, db)
         elif data == "help":
             await handle_help_callback(chat_id, db)
         elif data == "main_menu":
@@ -144,24 +163,52 @@ async def handle_channel_post(channel_post: Dict[str, Any], db: AsyncSession):
 async def handle_digest_command_real(chat_id: str, db: AsyncSession):
     """Handle real /digest command - find user and trigger digest generation"""
     try:
-        # Find user by telegram_chat_id
+        # Normalize chat_id - remove whitespace
+        chat_id_clean = chat_id.strip()
+        
+        # Find user by telegram_chat_id (using trim to handle any whitespace issues)
         result = await db.execute(
             select(UserPreferences).where(
-                UserPreferences.telegram_chat_id == chat_id,
+                func.trim(UserPreferences.telegram_chat_id) == chat_id_clean,
                 UserPreferences.telegram_enabled == True
             )
         )
         user_prefs = result.scalar_one_or_none()
         
+        # If not found, try without trim (fallback)
         if not user_prefs:
+            result = await db.execute(
+                select(UserPreferences).where(
+                    UserPreferences.telegram_chat_id == chat_id_clean,
+                    UserPreferences.telegram_enabled == True
+                )
+            )
+            user_prefs = result.scalar_one_or_none()
+        
+        if not user_prefs:
+            # Log diagnostic info
+            result_debug = await db.execute(
+                select(UserPreferences).where(
+                    func.trim(UserPreferences.telegram_chat_id) == chat_id_clean
+                )
+            )
+            user_prefs_debug = result_debug.scalar_one_or_none()
+            
+            logger.warning(
+                f"User not found for chat_id={chat_id_clean}. "
+                f"Found user without enabled check: {user_prefs_debug.user_id if user_prefs_debug else 'None'}. "
+                f"telegram_enabled={user_prefs_debug.telegram_enabled if user_prefs_debug else 'N/A'}"
+            )
+            
             # User not found or Telegram not enabled
             await telegram_service.send_digest(
                 chat_id, 
-                "❌ Пользователь не найден или Telegram не настроен.\n\n"
-                "Убедитесь, что вы:\n"
-                "1. Добавили Chat ID в настройки профиля\n"
-                "2. Включили отправку в Telegram\n"
-                "3. Настроили дайджесты"
+                "❌ User not found or Telegram not configured.\n\n"
+                "Make sure you:\n"
+                "1. Added Chat ID to your profile settings\n"
+                "2. Enabled Telegram notifications\n"
+                "3. Configured digests\n\n"
+                f"Your Chat ID: `{chat_id_clean}`"
             )
             return
         
@@ -190,26 +237,58 @@ async def handle_digest_callback(chat_id: str, data: str, db: AsyncSession):
     from sqlalchemy import select
     
     try:
+        # Normalize chat_id - remove whitespace
+        chat_id_clean = chat_id.strip()
+        
         # Try to get cached user preferences first
-        user_prefs = _get_cached_user_prefs(chat_id)
+        user_prefs = _get_cached_user_prefs(chat_id_clean)
         
         if not user_prefs:
-            # Find user by telegram_chat_id and cache the result
+            # Find user by telegram_chat_id (using trim to handle any whitespace issues)
             result = await db.execute(
                 select(UserPreferences).where(
-                    UserPreferences.telegram_chat_id == chat_id,
+                    func.trim(UserPreferences.telegram_chat_id) == chat_id_clean,
                     UserPreferences.telegram_enabled == True
                 )
             )
             user_prefs = result.scalar_one_or_none()
             
+            # If not found, try without trim (fallback)
+            if not user_prefs:
+                result = await db.execute(
+                    select(UserPreferences).where(
+                        UserPreferences.telegram_chat_id == chat_id_clean,
+                        UserPreferences.telegram_enabled == True
+                    )
+                )
+                user_prefs = result.scalar_one_or_none()
+            
             if user_prefs:
-                _cache_user_prefs(chat_id, user_prefs)
+                _cache_user_prefs(chat_id_clean, user_prefs)
         
         if not user_prefs:
+            # Log diagnostic info
+            result_debug = await db.execute(
+                select(UserPreferences).where(
+                    func.trim(UserPreferences.telegram_chat_id) == chat_id_clean
+                )
+            )
+            user_prefs_debug = result_debug.scalar_one_or_none()
+            
+            logger.warning(
+                f"User not found for chat_id={chat_id_clean} in digest callback. "
+                f"Found user without enabled check: {user_prefs_debug.user_id if user_prefs_debug else 'None'}. "
+                f"telegram_enabled={user_prefs_debug.telegram_enabled if user_prefs_debug else 'N/A'}"
+            )
+            
             await telegram_service.send_digest(
                 chat_id,
-                "❌ Пользователь не найден. Настройте Telegram в веб-приложении."
+                "❌ User not found or Telegram not configured.\n\n"
+                "Make sure you:\n"
+                "1. Added Chat ID to your profile settings\n"
+                "2. Enabled Telegram notifications\n"
+                "3. Configured digests\n\n"
+                f"Your Chat ID: `{chat_id_clean}`"
             )
             return
         
@@ -236,7 +315,7 @@ async def handle_digest_callback(chat_id: str, data: str, db: AsyncSession):
                 "Ваш персонализированный дайджест будет отправлен в ближайшее время!"
             )
         elif data == "settings_digest":
-            await handle_digest_settings_callback(chat_id, db)
+            await handle_digest_settings_menu(chat_id, db)
             
     except Exception as e:
         logger.error(f"Error handling digest callback: {e}")
@@ -246,83 +325,120 @@ async def handle_digest_callback(chat_id: str, data: str, db: AsyncSession):
         )
 
 
-async def handle_digest_settings_callback(chat_id: str, db: AsyncSession):
-    """Handle digest settings callback"""
+async def handle_digest_settings_menu(chat_id: str, db: AsyncSession):
+    """Handle digest settings menu display"""
     try:
+        # Normalize chat_id - remove whitespace
+        chat_id_clean = chat_id.strip()
+        
+        # Find user by telegram_chat_id (using trim to handle any whitespace issues)
         result = await db.execute(
-            select(UserPreferences).where(UserPreferences.telegram_chat_id == chat_id)
+            select(UserPreferences).where(
+                func.trim(UserPreferences.telegram_chat_id) == chat_id_clean
+            )
         )
         user_prefs = result.scalar_one_or_none()
         
+        # If not found, try without trim (fallback)
+        if not user_prefs:
+            result = await db.execute(
+                select(UserPreferences).where(
+                    UserPreferences.telegram_chat_id == chat_id_clean
+                )
+            )
+            user_prefs = result.scalar_one_or_none()
+        
         if user_prefs:
             current_mode = user_prefs.telegram_digest_mode or 'all'
-            await telegram_service.send_digest_settings_menu(chat_id, current_mode)
+            await telegram_service.send_digest_settings_menu(chat_id_clean, current_mode)
         else:
             await telegram_service.send_digest(
-                chat_id,
-                "❌ Пользователь не найден. Используйте /start для настройки."
+                chat_id_clean,
+                "❌ User not found. Use /start to configure."
             )
         
     except Exception as e:
-        logger.error(f"Error handling digest settings callback: {e}")
+        logger.error(f"Error handling digest settings menu: {e}")
         await telegram_service.send_digest(
             chat_id,
-            "❌ Ошибка при получении настроек. Попробуйте позже."
+            "❌ Error getting settings. Please try again later."
         )
 
 
 async def handle_settings_callback(chat_id: str, data: str, db: AsyncSession):
     """Handle settings-related callback queries"""
+    # Normalize chat_id - remove whitespace
+    chat_id_clean = chat_id.strip()
+    
     if data == "settings_view":
         # Show current settings
+        # Find user by telegram_chat_id (using trim to handle any whitespace issues)
         result = await db.execute(
-            select(UserPreferences).where(UserPreferences.telegram_chat_id == chat_id)
+            select(UserPreferences).where(
+                func.trim(UserPreferences.telegram_chat_id) == chat_id_clean
+            )
         )
         user_prefs = result.scalar_one_or_none()
+        
+        # If not found, try without trim (fallback)
+        if not user_prefs:
+            result = await db.execute(
+                select(UserPreferences).where(
+                    UserPreferences.telegram_chat_id == chat_id_clean
+                )
+            )
+            user_prefs = result.scalar_one_or_none()
         
         if user_prefs:
             settings_text = f"""
-⚙️ **Ваши настройки:**
+⚙️ **Your Settings:**
 
-📊 Дайджесты: {'✅ Включены' if user_prefs.digest_enabled else '❌ Отключены'}
-📅 Частота: {user_prefs.digest_frequency.value if user_prefs.digest_frequency else 'Не настроено'}
-📝 Формат: {user_prefs.digest_format.value if user_prefs.digest_format else 'Не настроено'}
-🌐 Часовой пояс: {user_prefs.timezone if hasattr(user_prefs, 'timezone') else 'UTC'}
+📊 Digests: {'✅ Enabled' if user_prefs.digest_enabled else '❌ Disabled'}
+📅 Frequency: {user_prefs.digest_frequency.value if user_prefs.digest_frequency else 'Not configured'}
+📝 Format: {user_prefs.digest_format.value if user_prefs.digest_format else 'Not configured'}
+🌐 Timezone: {user_prefs.timezone if hasattr(user_prefs, 'timezone') else 'UTC'}
 
-Для изменения настроек используйте веб-приложение.
+Use the web application to change settings.
             """
-            await telegram_service.send_digest(chat_id, settings_text)
+            await telegram_service.send_digest(chat_id_clean, settings_text)
+        else:
+            await telegram_service.send_digest(
+                chat_id_clean,
+                "❌ User not found. Use /start to configure."
+            )
     
     elif data == "settings_digest":
         # Show digest settings menu
+        await handle_digest_settings_menu(chat_id_clean, db)
+
+
+async def handle_digest_mode_change(chat_id: str, data: str, db: AsyncSession):
+    """Handle digest mode change (all/tracked)"""
+    try:
+        # Normalize chat_id - remove whitespace
+        chat_id_clean = chat_id.strip()
+        
+        # Find user by telegram_chat_id (using trim to handle any whitespace issues)
         result = await db.execute(
-            select(UserPreferences).where(UserPreferences.telegram_chat_id == chat_id)
+            select(UserPreferences).where(
+                func.trim(UserPreferences.telegram_chat_id) == chat_id_clean
+            )
         )
         user_prefs = result.scalar_one_or_none()
         
-        if user_prefs:
-            current_mode = user_prefs.telegram_digest_mode or 'all'
-            await telegram_service.send_digest_settings_menu(chat_id, current_mode)
-        else:
-            await telegram_service.send_digest(
-                chat_id, 
-                "❌ Пользователь не найден. Используйте /start для настройки."
+        # If not found, try without trim (fallback)
+        if not user_prefs:
+            result = await db.execute(
+                select(UserPreferences).where(
+                    UserPreferences.telegram_chat_id == chat_id_clean
+                )
             )
-
-
-async def handle_digest_settings_callback(chat_id: str, data: str, db: AsyncSession):
-    """Handle digest settings callback queries"""
-    try:
-        # Get user preferences
-        result = await db.execute(
-            select(UserPreferences).where(UserPreferences.telegram_chat_id == chat_id)
-        )
-        user_prefs = result.scalar_one_or_none()
+            user_prefs = result.scalar_one_or_none()
         
         if not user_prefs:
             await telegram_service.send_digest(
-                chat_id, 
-                "❌ Пользователь не найден. Используйте /start для настройки."
+                chat_id_clean, 
+                "❌ User not found. Use /start to configure."
             )
             return
         
@@ -332,25 +448,32 @@ async def handle_digest_settings_callback(chat_id: str, data: str, db: AsyncSess
         elif data == "digest_settings_tracked":
             new_mode = "tracked"
         else:
-            await telegram_service.send_digest(chat_id, "❌ Неизвестная настройка.")
+            await telegram_service.send_digest(chat_id_clean, "❌ Unknown setting.")
             return
         
         # Update user preferences
-        user_prefs.telegram_digest_mode = new_mode
+        # Use direct SQL update to avoid enum casting issues if enum doesn't exist
+        from sqlalchemy import text
+        await db.execute(
+            text("UPDATE user_preferences SET telegram_digest_mode = :mode WHERE id = :user_id"),
+            {"mode": new_mode, "user_id": user_prefs.id}
+        )
         await db.commit()
         
         # Send confirmation and updated menu
-        confirmation_text = f"✅ Настройка изменена на: **{'All News' if new_mode == 'all' else 'Tracked Only'}**"
-        await telegram_service.send_digest(chat_id, confirmation_text)
+        confirmation_text = f"✅ Setting changed to: **{'All News' if new_mode == 'all' else 'Tracked Only'}**"
+        await telegram_service.send_digest(chat_id_clean, confirmation_text)
         
         # Show updated settings menu
-        await telegram_service.send_digest_settings_menu(chat_id, new_mode)
+        await telegram_service.send_digest_settings_menu(chat_id_clean, new_mode)
+        
+        logger.info(f"Digest mode changed to {new_mode} for user {user_prefs.user_id} (chat_id: {chat_id_clean})")
         
     except Exception as e:
-        logger.error(f"Error handling digest settings callback: {e}")
+        logger.error(f"Error handling digest mode change: {e}")
         await telegram_service.send_digest(
             chat_id,
-            "❌ Ошибка при изменении настроек. Попробуйте позже."
+            "❌ Error changing settings. Please try again later."
         )
 
 
