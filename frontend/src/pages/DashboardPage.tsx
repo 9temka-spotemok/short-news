@@ -82,10 +82,17 @@ export default function DashboardPage() {
     return saved ? JSON.parse(saved) : false
   })
 
-  // Save showTrackedOnly state to localStorage when it changes
-  const handleToggleTrackedOnly = (value: boolean) => {
+  // Save showTrackedOnly locally and persist telegram_digest_mode to backend
+  const handleToggleTrackedOnly = async (value: boolean) => {
     setShowTrackedOnly(value)
     localStorage.setItem('dashboard-showTrackedOnly', JSON.stringify(value))
+    // try {
+    //   await api.put('/users/preferences/digest', {
+    //     telegram_digest_mode: value ? 'tracked' : 'all',
+    //   })
+    // } catch (err) {
+    //   console.error('Failed to persist telegram_digest_mode', err)
+    // }
   }
 
   // Save active tab state to localStorage when it changes
@@ -212,17 +219,10 @@ export default function DashboardPage() {
       const newsResponse = await api.get('/news/', { params })
       setRecentNews(newsResponse.data.items)
       
-      // Calculate today's news count
-      const items = newsResponse.data.items
-      const todayNews = items.filter((item: NewsItem) => {
-        const published = new Date(item.published_at || item.created_at)
-        const today = new Date()
-        return published.toDateString() === today.toDateString()
-      }).length
-      
       // Get accurate statistics using stats endpoint
       let categoriesBreakdown
       let totalNews
+      let todayNews
       
       if (showTrackedOnly && userPreferences?.subscribed_companies?.length) {
         // For tracked companies, use stats endpoint filtered by companies
@@ -232,6 +232,7 @@ export default function DashboardPage() {
         
         const total = statsResponse.data.total_count
         const categoryCounts = statsResponse.data.category_counts
+        const recentCount = statsResponse.data.recent_count
         
         categoriesBreakdown = Object.entries(categoryCounts)
           .map(([category, count]) => ({
@@ -243,12 +244,14 @@ export default function DashboardPage() {
           .sort((a, b) => b.count - a.count)
         
         totalNews = total
+        todayNews = recentCount
       } else {
         // For all news, use general stats endpoint
         const statsResponse = await api.get('/news/stats')
         
         const total = statsResponse.data.total_count
         const categoryCounts = statsResponse.data.category_counts
+        const recentCount = statsResponse.data.recent_count
         
         categoriesBreakdown = Object.entries(categoryCounts)
           .map(([category, count]) => ({
@@ -260,6 +263,7 @@ export default function DashboardPage() {
           .sort((a, b) => b.count - a.count)
         
         totalNews = total
+        todayNews = recentCount
       }
       
       setStats({

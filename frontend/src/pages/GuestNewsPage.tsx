@@ -1,11 +1,11 @@
 import CompanyMultiSelect from '@/components/CompanyMultiSelect'
 import { ApiService } from '@/services/api'
 import type {
-    NewsCategory,
-    NewsCategoryInfo,
-    NewsFilter,
-    SourceType,
-    SourceTypeInfo
+  NewsCategory,
+  NewsCategoryInfo,
+  NewsFilter,
+  SourceType,
+  SourceTypeInfo
 } from '@/types'
 import { useQuery } from '@tanstack/react-query'
 import { formatDistance } from 'date-fns'
@@ -251,7 +251,7 @@ export default function GuestNewsPage() {
                   
                   {item.company && (
                     <div className="flex items-center mb-3">
-                      <div className="w-6 h-6 bg-gray-200 rounded-full mr-2"></div>
+                      {/* <div className="w-6 h-6 bg-gray-200 rounded-full mr-2"></div> */}
                       <span className="text-sm text-gray-600">{item.company.name}</span>
                     </div>
                   )}
