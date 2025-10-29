@@ -205,7 +205,9 @@ class NewsService:
             filters = []
             
             if category:
-                filters.append(NewsItem.category == category)
+                # Convert enum to string value for database comparison
+                category_value = category.value if hasattr(category, 'value') else str(category)
+                filters.append(NewsItem.category == category_value)
             
             if company_ids:
                 filters.append(NewsItem.company_id.in_(company_ids))
@@ -213,7 +215,9 @@ class NewsService:
                 filters.append(NewsItem.company_id == company_id)
             
             if source_type:
-                filters.append(NewsItem.source_type == source_type)
+                # Convert enum to string value for database comparison
+                source_type_value = source_type.value if hasattr(source_type, 'value') else str(source_type)
+                filters.append(NewsItem.source_type == source_type_value)
             
             if start_date:
                 filters.append(NewsItem.published_at >= start_date)
@@ -349,7 +353,11 @@ class NewsService:
                 )
                 .group_by(NewsItem.category)
             )
-            category_dict = {row.category: row.count for row in category_counts}
+            category_dict = {
+                str(row.category): row.count 
+                for row in category_counts 
+                if row.category
+            }
             
             # Source type counts
             source_counts = await self.db.execute(
@@ -359,7 +367,11 @@ class NewsService:
                 )
                 .group_by(NewsItem.source_type)
             )
-            source_dict = {row.source_type: row.count for row in source_counts}
+            source_dict = {
+                str(row.source_type): row.count 
+                for row in source_counts 
+                if row.source_type
+            }
             
             # Recent news count (last 24 hours)
             recent_cutoff = datetime.utcnow() - timedelta(hours=24)
@@ -376,12 +388,13 @@ class NewsService:
             )
             high_priority_count = high_priority_count.scalar()
             
+            # Ensure all values are properly set
             return NewsStatsSchema(
-                total_count=total_count,
-                category_counts=category_dict,
-                source_type_counts=source_dict,
-                recent_count=recent_count,
-                high_priority_count=high_priority_count
+                total_count=total_count or 0,
+                category_counts=category_dict or {},
+                source_type_counts=source_dict or {},
+                recent_count=recent_count or 0,
+                high_priority_count=high_priority_count or 0
             )
             
         except Exception as e:
@@ -417,7 +430,11 @@ class NewsService:
                 .where(NewsItem.company_id.in_(company_ids))
                 .group_by(NewsItem.category)
             )
-            category_dict = {row.category: row.count for row in category_counts}
+            category_dict = {
+                str(row.category): row.count 
+                for row in category_counts 
+                if row.category
+            }
             
             # Source type counts
             source_counts = await self.db.execute(
@@ -428,7 +445,11 @@ class NewsService:
                 .where(NewsItem.company_id.in_(company_ids))
                 .group_by(NewsItem.source_type)
             )
-            source_dict = {row.source_type: row.count for row in source_counts}
+            source_dict = {
+                str(row.source_type): row.count 
+                for row in source_counts 
+                if row.source_type
+            }
             
             # Recent news count (last 24 hours)
             recent_cutoff = datetime.utcnow() - timedelta(hours=24)
@@ -451,12 +472,13 @@ class NewsService:
             )
             high_priority_count = high_priority_count.scalar()
             
+            # Ensure all values are properly set
             return NewsStatsSchema(
-                total_count=total_count,
-                category_counts=category_dict,
-                source_type_counts=source_dict,
-                recent_count=recent_count,
-                high_priority_count=high_priority_count
+                total_count=total_count or 0,
+                category_counts=category_dict or {},
+                source_type_counts=source_dict or {},
+                recent_count=recent_count or 0,
+                high_priority_count=high_priority_count or 0
             )
             
         except Exception as e:
@@ -585,7 +607,9 @@ class NewsService:
             ).select_from(NewsItem).join(Company, NewsItem.company_id == Company.id)
             
             # Apply filters
-            filters = [NewsItem.category == category]
+            # Convert enum to string value for database comparison
+            category_value = category.value if hasattr(category, 'value') else str(category)
+            filters = [NewsItem.category == category_value]
             if company_ids:
                 filters.append(NewsItem.company_id.in_(company_ids))
             
@@ -611,7 +635,7 @@ class NewsService:
                 .group_by(NewsItem.source_type)
             )
             source_distribution = {
-                row.source_type.value: row.count
+                str(row.source_type): row.count
                 for row in source_distribution_query
             }
             
