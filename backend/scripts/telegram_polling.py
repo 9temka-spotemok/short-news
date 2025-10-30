@@ -280,13 +280,10 @@ class TelegramPolling:
                 await telegram_service.send_digest(chat_id, "❌ User not found. Use /start to configure.")
                 return
             
-            # Update digest mode using raw SQL with explicit enum cast (supports old enum name)
-            from sqlalchemy import text
-            await db.execute(
-                text("UPDATE user_preferences SET telegram_digest_mode = CAST(:mode AS text)::telegramdigestmode, updated_at=now() WHERE id = :user_id"),
-                {"mode": new_mode, "user_id": user_prefs.id}
-            )
+            # Update digest mode via ORM assignment against correct enum type
+            user_prefs.telegram_digest_mode = new_mode
             await db.commit()
+            await db.refresh(user_prefs)
             
             # Send confirmation and show updated menu
             mode_text = "All News" if new_mode == "all" else "Tracked Only"
