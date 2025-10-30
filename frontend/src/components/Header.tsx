@@ -254,14 +254,15 @@ export default function Header() {
                   <User className="h-4 w-4 mr-3 text-gray-400" />
                   Profile
                 </Link>
-                <Link
+                {/* <Link
                   to="/settings"
                   onClick={() => setIsMenuOpen(false)}
                   className="flex items-center px-3 py-2 text-gray-700 hover:text-primary-600 hover:bg-gray-50 rounded-md transition-colors"
                 >
                   <Settings className="h-4 w-4 mr-3 text-gray-400" />
                   Settings
-                </Link>
+                </Link> */}
+                {/* TODO: Add settings link */}
                 <button
                   onClick={handleLogout}
                   className="flex items-center w-full text-left px-3 py-2 text-red-600 hover:bg-red-50 rounded-md transition-colors mt-1"
