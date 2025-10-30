@@ -12,7 +12,7 @@ import { useQuery } from '@tanstack/react-query'
 import { formatDistance } from 'date-fns'
 import { enUS } from 'date-fns/locale'
 import { Clock, Filter, Search, Star, TrendingUp } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 export default function AuthNewsPage() {
   const [searchQuery, setSearchQuery] = useState('')
@@ -25,6 +25,8 @@ export default function AuthNewsPage() {
   const [categories, setCategories] = useState<NewsCategoryInfo[]>([])
   const [sourceTypes, setSourceTypes] = useState<SourceTypeInfo[]>([])
   const [stats, setStats] = useState<NewsStats | null>(null)
+  const [selectedDateText, setSelectedDateText] = useState('')
+  const hiddenDateRef = useRef<HTMLInputElement | null>(null)
 
   const limit = 20
 
@@ -100,6 +102,39 @@ export default function AuthNewsPage() {
     } catch {
       return 'Recently'
     }
+  }
+
+  // Sync text input when controlled value changes externally
+  useEffect(() => {
+    if (!selectedDate) {
+      setSelectedDateText('')
+      return
+    }
+    const d = new Date(selectedDate)
+    if (isNaN(d.getTime())) {
+      setSelectedDateText('')
+      return
+    }
+    const dd = String(d.getDate()).padStart(2, '0')
+    const mm = String(d.getMonth() + 1).padStart(2, '0')
+    const yyyy = d.getFullYear()
+    setSelectedDateText(`${dd}.${mm}.${yyyy}`)
+  }, [selectedDate])
+
+  const parseDdMmYyyyToIso = (text: string): string => {
+    const match = text.match(/^\s*(\d{2})[.](\d{2})[.](\d{4})\s*$/)
+    if (!match) return ''
+    const dd = Number(match[1])
+    const mm = Number(match[2])
+    const yyyy = Number(match[3])
+    // Basic validation and month/day ranges
+    if (mm < 1 || mm > 12 || dd < 1 || dd > 31) return ''
+    const iso = `${yyyy}-${String(mm).padStart(2, '0')}-${String(dd).padStart(2, '0')}`
+    const d = new Date(iso)
+    if (isNaN(d.getTime())) return ''
+    // Ensure no overflow (e.g., 31.02)
+    if (d.getFullYear() !== yyyy || d.getMonth() + 1 !== mm || d.getDate() !== dd) return ''
+    return iso
   }
 
   const getCategoryBadge = (category: NewsCategory | null) => {
@@ -291,24 +326,47 @@ export default function AuthNewsPage() {
                 </select>
               </div>
 
-              {/* Date Filter */}
+              {/* Date Filter (dd.mm.yyyy) with hidden native picker */}
               <div className="relative z-0">
                 <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none z-10" />
+                {/* Visible text input */}
                 <input
-                  type="date"
-                  lang="en-US"
-                  value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
-                  onClick={(e) => (e.currentTarget as HTMLInputElement).showPicker?.()}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      (e.currentTarget as HTMLInputElement).showPicker?.()
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="dd.mm.yyyy"
+                  aria-label="Select date (dd.mm.yyyy)"
+                  value={selectedDateText}
+                  onChange={(e) => {
+                    const text = e.target.value
+                    setSelectedDateText(text)
+                    const iso = parseDdMmYyyyToIso(text)
+                    setSelectedDate(iso)
+                  }}
+                  onBlur={() => {
+                    if (!selectedDateText) return
+                    const iso = parseDdMmYyyyToIso(selectedDateText)
+                    if (!iso) {
+                      setSelectedDate('')
+                      setSelectedDateText('')
+                    } else {
+                      setSelectedDate(iso)
                     }
                   }}
-                  title="Select date"
-                  placeholder="11.11.2025"
-                  aria-label="Select date"
-                  className="input pl-10 w-full sm:w-56 text-sm sm:text-base cursor-pointer"
+                  onClick={() => hiddenDateRef.current?.showPicker?.()}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') hiddenDateRef.current?.showPicker?.()
+                  }}
+                  className="input pl-10 w-full sm:w-56 text-sm sm:text-base"
+                />
+                {/* Hidden native date input to open OS picker and keep ISO value */}
+                <input
+                  ref={hiddenDateRef}
+                  type="date"
+                  lang="en-GB"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  style={{ position: 'absolute', width: 0, height: 0, opacity: 0, pointerEvents: 'none' }}
+                  tabIndex={-1}
                 />
               </div>
             </div>
