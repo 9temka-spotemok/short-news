@@ -84,8 +84,8 @@ class Settings(BaseSettings):
     FRONTEND_DIGEST_SETTINGS_URL: str = Field(default="http://localhost:5173/settings/digest", description="Frontend digest settings URL")
     
     # Celery
-    CELERY_BROKER_URL: str = Field(default="redis://localhost:6379/0", description="Celery broker URL")
-    CELERY_RESULT_BACKEND: str = Field(default="redis://localhost:6379/0", description="Celery result backend URL")
+    CELERY_BROKER_URL: str = Field(default="redis://redis:6379/0", description="Celery broker URL")
+    CELERY_RESULT_BACKEND: str = Field(default="redis://redis:6379/0", description="Celery result backend URL")
     
     # Scraping
     SCRAPER_USER_AGENT: str = Field(

@@ -489,6 +489,29 @@ class TelegramService:
             logger.error(f"Error sending Telegram message with keyboard: {e}")
             return False
 
+    async def send_post_digest_controls(self, chat_id: str) -> bool:
+        """
+        Send quick action controls after a digest is delivered.
+        Provides buttons to request another digest or open settings.
+        """
+        controls_keyboard = {
+            "inline_keyboard": [
+                [
+                    {"text": "📅 Daily", "callback_data": "digest_daily"},
+                    {"text": "📊 Weekly", "callback_data": "digest_weekly"}
+                ],
+                [
+                    {"text": "⚙️ Settings", "callback_data": "settings_digest"},
+                    {"text": "🏠 Main menu", "callback_data": "main_menu"}
+                ]
+            ]
+        }
+        message = (
+            "What would you like to do next?\n\n"
+            "Choose one of the options below."
+        )
+        return await self.send_message_with_keyboard(chat_id, message, controls_keyboard)
+
 
 # Global instance
 telegram_service = TelegramService()
