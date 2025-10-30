@@ -145,7 +145,7 @@ export default function NotificationCenter() {
   return (
     <div className="relative">
       {/* Notification Bell Icon */}
-      <button
+      {/* <button
         onClick={() => {
           const next = !isOpen
           setIsOpen(next)
@@ -164,7 +164,8 @@ export default function NotificationCenter() {
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
-      </button>
+      </button> */}
+      {/* TODO: Add notification center */}
 
       {/* Dropdown */}
       {isOpen && (

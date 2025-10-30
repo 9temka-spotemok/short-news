@@ -1,5 +1,5 @@
 import type { NewsStats } from '@/types'
-import { Activity, Clock, FileText, Star, TrendingUp } from 'lucide-react'
+import { Activity, Clock, FileText, TrendingUp } from 'lucide-react'
 
 interface NewsStatsProps {
   stats: NewsStats
@@ -26,15 +26,16 @@ export default function NewsStats({ stats, className = '' }: NewsStatsProps) {
       textColor: 'text-green-600',
       borderColor: 'border-green-200'
     },
-    {
-      icon: <Star className="h-5 w-5" />,
-      label: 'High Priority',
-      value: stats.high_priority_count,
-      color: 'red',
-      bgColor: 'bg-red-50',
-      textColor: 'text-red-600',
-      borderColor: 'border-red-200'
-    }
+    // {
+    //   icon: <Star className="h-5 w-5" />,
+    //   label: 'High Priority',
+    //   value: stats.high_priority_count,
+    //   color: 'red',
+    //   bgColor: 'bg-red-50',
+    //   textColor: 'text-red-600',
+    //   borderColor: 'border-red-200'
+    // }
+    // TODO: Add high priority stat
   ]
 
   return (

@@ -227,10 +227,11 @@ export default function AuthNewsPage() {
                 <div className="text-lg sm:text-xl lg:text-2xl font-bold text-green-600">{stats.recent_count}</div>
                 <div className="text-xs sm:text-sm text-green-600">Recent (24h)</div>
               </div>
-              <div className="bg-red-50 rounded-lg p-2 sm:p-4 text-center">
+              {/* <div className="bg-red-50 rounded-lg p-2 sm:p-4 text-center">
                 <div className="text-lg sm:text-xl lg:text-2xl font-bold text-red-600">{stats.high_priority_count}</div>
                 <div className="text-xs sm:text-sm text-red-600">High Priority</div>
-              </div>
+              </div> */}
+               {/* TODO: Add high priority stat */}
             </div>
           )}
         </div>
