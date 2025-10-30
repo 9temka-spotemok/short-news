@@ -386,7 +386,7 @@ export default function DashboardPage() {
                 )}
                 
                 {/* Mode Tabs */}
-                {userPreferences?.subscribed_companies?.length && (
+                {userPreferences?.subscribed_companies && userPreferences.subscribed_companies.length > 0 && (
                   <div className="inline-flex items-center bg-gray-100 rounded-lg p-1">
                     <button
                       onClick={() => handleToggleTrackedOnly(false)}
