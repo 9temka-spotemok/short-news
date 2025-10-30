@@ -176,6 +176,9 @@ npm run test:e2e
 - `app/scrapers/` - Веб-скраперы для сбора новостей
 - `app/tasks/` - Celery задачи (scraping, digest, NLP)
 - `app/bot/` - Обработчики Telegram бота
+  - `app/bot/handlers.py` — команды `/start`, `/help`, `/digest` и др. Теперь `/digest` открывает окно настроек дайджеста
+  - `app/services/telegram_service.py` — отправка сообщений в Telegram, клавиатуры. Добавлено `send_post_digest_controls()` и улучшено `send_digest_settings_menu()`
+  - `app/tasks/digest.py` — генерация/отправка дайджестов. После отправки каждого дайджеста пользователю показываются быстрые кнопки
 
 **Frontend (`frontend/`):**
 - `src/components/` - React компоненты (21 компонент)

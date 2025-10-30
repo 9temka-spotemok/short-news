@@ -68,93 +68,57 @@ async def handle_settings(chat_id: str) -> str:
 
 
 async def handle_digest(chat_id: str) -> str:
-    """Handle /digest command"""
+    """Handle /digest command: open Digest Settings menu immediately"""
     from app.core.database import AsyncSessionLocal
     from app.models import UserPreferences
-    from app.tasks.digest import generate_user_digest
     from sqlalchemy import select, func
     from loguru import logger
-    
+
     try:
-        # Normalize chat_id - remove whitespace
         chat_id_clean = chat_id.strip()
-        
+
         async with AsyncSessionLocal() as db:
-            # Find user by telegram_chat_id (using trim to handle any whitespace issues)
             result = await db.execute(
                 select(UserPreferences).where(
-                    func.trim(UserPreferences.telegram_chat_id) == chat_id_clean,
-                    UserPreferences.telegram_enabled == True
+                    func.trim(UserPreferences.telegram_chat_id) == chat_id_clean
                 )
             )
             user_prefs = result.scalar_one_or_none()
-            
-            # If not found, try without trim (fallback)
+
             if not user_prefs:
                 result = await db.execute(
                     select(UserPreferences).where(
-                        UserPreferences.telegram_chat_id == chat_id_clean,
-                        UserPreferences.telegram_enabled == True
+                        UserPreferences.telegram_chat_id == chat_id_clean
                     )
                 )
                 user_prefs = result.scalar_one_or_none()
-            
+
             if not user_prefs:
-                # Log diagnostic info
-                result_debug = await db.execute(
-                    select(UserPreferences).where(
-                        func.trim(UserPreferences.telegram_chat_id) == chat_id_clean
-                    )
-                )
-                user_prefs_debug = result_debug.scalar_one_or_none()
-                
-                logger.warning(
-                    f"User not found for chat_id={chat_id_clean} in handle_digest. "
-                    f"Found user without enabled check: {user_prefs_debug.user_id if user_prefs_debug else 'None'}. "
-                    f"telegram_enabled={user_prefs_debug.telegram_enabled if user_prefs_debug else 'N/A'}"
-                )
-                
                 error_text = (
-                    "❌ User not found or Telegram not configured.\n\n"
-                    "Make sure you:\n"
-                    "1. Added Chat ID to your profile settings\n"
-                    "2. Enabled Telegram notifications\n"
-                    "3. Configured digests\n\n"
-                    f"Your Chat ID: `{chat_id_clean}`"
+                    "❌ Пользователь не найден или Telegram не настроен.\n\n"
+                    "Сделайте:\n"
+                    "1) Добавьте Chat ID в профиль\n"
+                    "2) Включите отправку в Telegram\n"
+                    "3) Настройте дайджесты\n\n"
+                    f"Ваш Chat ID: `{chat_id_clean}`"
                 )
-                
-                # Send error message with setup keyboard
                 keyboard = {
                     "inline_keyboard": [
                         [
-                            {"text": "🔗 Open Settings", "url": "https://yourdomain.com/settings"}
+                            {"text": "🔗 Открыть настройки", "url": "https://yourdomain.com/settings"}
                         ]
                     ]
                 }
                 await telegram_service.send_message_with_keyboard(chat_id, error_text, keyboard)
                 return ""
-            
-            # Create digest selection keyboard
-            digest_text = "📰 Choose digest type:"
-            keyboard = {
-                "inline_keyboard": [
-                    [
-                        {"text": "📅 Daily Digest", "callback_data": "digest_daily"},
-                        {"text": "📊 Weekly Digest", "callback_data": "digest_weekly"}
-                    ],
-                    [
-                        {"text": "⚙️ Digest Settings", "callback_data": "settings_digest"}
-                    ]
-                ]
-            }
-            
-            await telegram_service.send_message_with_keyboard(chat_id, digest_text, keyboard)
+
+            current_mode = user_prefs.telegram_digest_mode or 'all'
+            await telegram_service.send_digest_settings_menu(chat_id_clean, current_mode)
             return ""
-            
+
     except Exception as e:
         logger.error(f"Error in handle_digest: {e}")
-        error_text = "❌ Error generating digest. Please try again later."
-        await telegram_service.send_digest(chat_id, error_text)
+        await telegram_service.send_digest(chat_id, "❌ Ошибка. Попробуйте позже.")
         return ""
 
 

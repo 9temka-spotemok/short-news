@@ -114,9 +114,8 @@ async def handle_telegram_message(message: Dict[str, Any], db: AsyncSession):
         # Send response back to user
         await telegram_service.send_digest(chat_id, response)
         
-        # If it's a /digest command, also trigger actual digest generation
-        if text.startswith('/digest'):
-            await handle_digest_command_real(chat_id, db)
+        # Previously /digest also сразу генерировал дайджест. Теперь /digest открывает окно настроек.
+        # Генерация запускается кнопками (digest_daily/digest_weekly).
             
     except Exception as e:
         logger.error(f"Error handling Telegram message: {e}")
@@ -451,13 +450,10 @@ async def handle_digest_mode_change(chat_id: str, data: str, db: AsyncSession):
             await telegram_service.send_digest(chat_id_clean, "❌ Unknown setting.")
             return
         
-        # Update user preferences in DB with explicit enum cast (supports old enum name telegramdigestmode)
-        from sqlalchemy import text
-        await db.execute(
-            text("UPDATE user_preferences SET telegram_digest_mode = CAST(:mode AS text)::telegramdigestmode WHERE id = :user_id"),
-            {"mode": new_mode, "user_id": user_prefs.id}
-        )
+        # Update via ORM assignment against the correct enum type
+        user_prefs.telegram_digest_mode = new_mode
         await db.commit()
+        await db.refresh(user_prefs)
 
         # Invalidate cached preferences for this chat to ensure new mode is used immediately
         try:

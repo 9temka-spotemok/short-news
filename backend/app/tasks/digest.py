@@ -120,6 +120,8 @@ async def _generate_daily_digests_async():
                 if user_prefs.telegram_enabled and user_prefs.telegram_chat_id:
                     digest_text = digest_service.format_digest_for_telegram(digest_data, user_prefs)
                     await telegram_service.send_digest(user_prefs.telegram_chat_id, digest_text)
+                    # Show quick controls after sending digest
+                    await telegram_service.send_post_digest_controls(user_prefs.telegram_chat_id)
                     logger.info(f"Digest sent to Telegram for user {user_prefs.user_id} (mode: {user_prefs.telegram_digest_mode or 'all'})")
                 
                 # Record last sent time
@@ -174,6 +176,8 @@ async def _generate_weekly_digests_async():
                 if user_prefs.telegram_enabled and user_prefs.telegram_chat_id:
                     digest_text = digest_service.format_digest_for_telegram(digest_data, user_prefs)
                     await telegram_service.send_digest(user_prefs.telegram_chat_id, digest_text)
+                    # Show quick controls after sending digest
+                    await telegram_service.send_post_digest_controls(user_prefs.telegram_chat_id)
                     logger.info(f"Weekly digest sent to Telegram for user {user_prefs.user_id} (mode: {user_prefs.telegram_digest_mode or 'all'})")
                 
                 # Record last sent time
@@ -218,6 +222,8 @@ async def _generate_user_digest_async(user_id: str, digest_type: str, tracked_on
         if user_prefs.telegram_enabled and user_prefs.telegram_chat_id:
             digest_text = digest_service.format_digest_for_telegram(digest_data, user_prefs)
             await telegram_service.send_digest(user_prefs.telegram_chat_id, digest_text)
+            # Show quick controls after sending digest
+            await telegram_service.send_post_digest_controls(user_prefs.telegram_chat_id)
         
         return {"status": "success", "user_id": user_id, "digest_type": digest_type, "news_count": digest_data["news_count"]}
 
