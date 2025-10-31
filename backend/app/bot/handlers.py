@@ -78,34 +78,62 @@ async def handle_digest(chat_id: str) -> str:
         chat_id_clean = chat_id.strip()
 
         async with AsyncSessionLocal() as db:
+            # Find user by telegram_chat_id (using trim to handle any whitespace issues)
+            # AND check that telegram_enabled is True
             result = await db.execute(
                 select(UserPreferences).where(
-                    func.trim(UserPreferences.telegram_chat_id) == chat_id_clean
+                    func.trim(UserPreferences.telegram_chat_id) == chat_id_clean,
+                    UserPreferences.telegram_enabled == True
                 )
             )
             user_prefs = result.scalar_one_or_none()
 
+            # If not found, try without trim (fallback)
             if not user_prefs:
                 result = await db.execute(
                     select(UserPreferences).where(
-                        UserPreferences.telegram_chat_id == chat_id_clean
+                        UserPreferences.telegram_chat_id == chat_id_clean,
+                        UserPreferences.telegram_enabled == True
                     )
                 )
                 user_prefs = result.scalar_one_or_none()
 
             if not user_prefs:
+                # Log diagnostic info to help debug the issue
+                result_debug = await db.execute(
+                    select(UserPreferences).where(
+                        func.trim(UserPreferences.telegram_chat_id) == chat_id_clean
+                    )
+                )
+                user_prefs_debug = result_debug.scalar_one_or_none()
+                
+                # If still not found, try without trim
+                if not user_prefs_debug:
+                    result_debug = await db.execute(
+                        select(UserPreferences).where(
+                            UserPreferences.telegram_chat_id == chat_id_clean
+                        )
+                    )
+                    user_prefs_debug = result_debug.scalar_one_or_none()
+                
+                logger.warning(
+                    f"User not found for chat_id={chat_id_clean} in handle_digest. "
+                    f"Found user without enabled check: {user_prefs_debug.user_id if user_prefs_debug else 'None'}. "
+                    f"telegram_enabled={user_prefs_debug.telegram_enabled if user_prefs_debug else 'N/A'}"
+                )
+                
                 error_text = (
                     "❌ User not found or Telegram not configured.\n\n"
-                    "Please:\n"
-                    "1) Add Chat ID to your profile\n"
-                    "2) Enable Telegram notifications\n"
-                    "3) Configure digests\n\n"
+                    "Make sure you:\n"
+                    "1. Added Chat ID to your profile settings\n"
+                    "2. Enabled Telegram notifications\n"
+                    "3. Configured digests\n\n"
                     f"Your Chat ID: `{chat_id_clean}`"
                 )
                 keyboard = {
                     "inline_keyboard": [
                         [
-                            {"text": "🔗 Open Settings", "url": "https://yourdomain.com/settings"}
+                            {"text": "🔗 Open Settings", "url": "https://short-news-ai.netlify.app/digest-settings"}
                         ]
                     ]
                 }
