@@ -224,9 +224,12 @@ npm run test:e2e
 **Скрипты (`scripts/`):**
 - `telegram_polling.py` - Polling для Telegram бота в режиме разработки. Обрабатывает callback queries и сообщения с детальным логированием. Обработка Digest Settings: нормализация chat_id, защита от пробелов, логирование. Использует `scalars().first()` вместо `scalar_one_or_none()` для обработки дубликатов chat_id. Все сообщения на английском языке
 - `check_telegram_user.py` - Диагностический скрипт для проверки настроек Telegram пользователя по chat_id. Показывает все варианты поиска (exact, trim, с enabled) и помогает диагностировать проблемы
+- `test_telegram_buttons_railway.py` - Скрипт для тестирования кнопок Telegram бота на проде через Railway CLI. Позволяет симулировать callback запросы для кнопок `digest_settings_all` и `digest_settings_tracked` без необходимости взаимодействовать с ботом вручную. Использование: `python -m scripts.test_telegram_buttons_railway --chat-id <id> --button digest_settings_all`
 
 **Диагностика:**
 - `backend/TELEGRAM_DIAGNOSTICS.md` - Подробная инструкция по диагностике проблем с Telegram ботом на Railway
+- `backend/TEST_TELEGRAM_BUTTONS_RAILWAY.md` - Инструкция по тестированию кнопок через Railway CLI
+- `backend/RAILWAY_CLI_DIAGNOSTICS.md` - Диагностика через Railway CLI и SQL
 - API эндпоинт `/api/v1/telegram/check-user/{chat_id}` - Проверка настроек пользователя через API
 
 **Frontend (`frontend/`):**
