@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 from app.core.database import get_db
 from app.services.telegram_service import telegram_service
 from app.bot.handlers import handle_message
-from app.models import UserPreferences
+from app.models import UserPreferences, User
 from app.tasks.digest import generate_user_digest
 from sqlalchemy import select, func
 
@@ -569,6 +569,96 @@ async def send_test_message(
             raise HTTPException(status_code=500, detail="Failed to send message")
     except Exception as e:
         logger.error(f"Error sending test message: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/check-user/{chat_id}")
+async def check_telegram_user(
+    chat_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Diagnostic endpoint to check Telegram user configuration
+    """
+    try:
+        chat_id_clean = chat_id.strip()
+        
+        # Check exact match
+        result = await db.execute(
+            select(UserPreferences).where(
+                UserPreferences.telegram_chat_id == chat_id_clean
+            )
+        )
+        user_prefs_exact = result.scalar_one_or_none()
+        
+        # Check with trim
+        result_trim = await db.execute(
+            select(UserPreferences).where(
+                func.trim(UserPreferences.telegram_chat_id) == chat_id_clean
+            )
+        )
+        user_prefs_trim = result_trim.scalar_one_or_none()
+        
+        # Check with telegram_enabled == True (exact)
+        result_enabled_exact = await db.execute(
+            select(UserPreferences).where(
+                UserPreferences.telegram_chat_id == chat_id_clean,
+                UserPreferences.telegram_enabled == True
+            )
+        )
+        user_prefs_enabled_exact = result_enabled_exact.scalar_one_or_none()
+        
+        # Check with trim AND telegram_enabled == True
+        result_enabled_trim = await db.execute(
+            select(UserPreferences).where(
+                func.trim(UserPreferences.telegram_chat_id) == chat_id_clean,
+                UserPreferences.telegram_enabled == True
+            )
+        )
+        user_prefs_enabled_trim = result_enabled_trim.scalar_one_or_none()
+        
+        # Get user email if found
+        user_email = None
+        if user_prefs_exact:
+            user_result = await db.execute(
+                select(User).where(User.id == user_prefs_exact.user_id)
+            )
+            user = user_result.scalar_one_or_none()
+            if user:
+                user_email = user.email
+        
+        return {
+            "chat_id": chat_id_clean,
+            "exact_match": {
+                "found": user_prefs_exact is not None,
+                "telegram_enabled": user_prefs_exact.telegram_enabled if user_prefs_exact else None,
+                "telegram_chat_id": user_prefs_exact.telegram_chat_id if user_prefs_exact else None,
+                "chat_id_repr": repr(user_prefs_exact.telegram_chat_id) if user_prefs_exact else None,
+                "user_id": str(user_prefs_exact.user_id) if user_prefs_exact else None,
+            },
+            "trim_match": {
+                "found": user_prefs_trim is not None,
+                "telegram_enabled": user_prefs_trim.telegram_enabled if user_prefs_trim else None,
+            },
+            "exact_with_enabled": {
+                "found": user_prefs_enabled_exact is not None,
+            },
+            "trim_with_enabled": {
+                "found": user_prefs_enabled_trim is not None,
+            },
+            "user_email": user_email,
+            "can_use_digest": user_prefs_enabled_exact is not None or user_prefs_enabled_trim is not None,
+            "diagnosis": (
+                "✅ User found and telegram_enabled == True. /digest should work!"
+                if (user_prefs_enabled_exact or user_prefs_enabled_trim) else
+                "⚠️ User found but telegram_enabled == False. Enable Telegram notifications in settings."
+                if user_prefs_exact else
+                "❌ User not found. Add Chat ID to profile settings."
+            )
+        }
+        
+    except Exception as e:
+        logger.error(f"Error checking Telegram user: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
