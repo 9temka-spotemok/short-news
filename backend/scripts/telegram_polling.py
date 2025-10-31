@@ -215,6 +215,8 @@ class TelegramPolling:
             # Format and send digest
             digest_text = digest_service.format_digest_for_telegram(digest_data, user_prefs)
             await telegram_service.send_digest(chat_id_clean, digest_text)
+            # Show quick controls after sending digest
+            await telegram_service.send_post_digest_controls(chat_id_clean)
             logger.info(f"Digest sent to chat {chat_id_clean}")
             
         except Exception as e:

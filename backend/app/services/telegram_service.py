@@ -372,25 +372,6 @@ class TelegramService:
         )
         
         return await self.send_message_with_keyboard(chat_id, message, keyboard)
-
-    async def send_post_digest_controls(self, chat_id: str) -> bool:
-        """Send control buttons after a digest is shown"""
-        keyboard = {
-            "inline_keyboard": [
-                [
-                    {"text": "📅 Daily Digest", "callback_data": "digest_daily"},
-                    {"text": "📊 Weekly Digest", "callback_data": "digest_weekly"}
-                ],
-                [
-                    {"text": "⚙️ Digest Settings", "callback_data": "settings_digest"}
-                ],
-                [
-                    {"text": "🔗 Open Web App", "url": "https://yourdomain.com"}
-                ]
-            ]
-        }
-        text = "👇 What would you like to do next?"
-        return await self.send_message_with_keyboard(chat_id, text, keyboard)
     
     async def answer_callback_query(self, callback_query_id: str, text: str = None, show_alert: bool = False) -> bool:
         """
