@@ -63,7 +63,7 @@ services:
       - ENVIRONMENT=development
       - DEBUG=true
       - SECRET_KEY=dev-secret-key-change-in-production
-      - TELEGRAM_BOT_TOKEN=8358550051:AAFVEGVvywc3n636YgYnHFT56JAbYgGIKLA
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
     ports:
       - "8000:8000"
     volumes:
@@ -91,7 +91,7 @@ services:
       - ENVIRONMENT=development
       - DEBUG=true
       - SECRET_KEY=dev-secret-key-change-in-production
-      - TELEGRAM_BOT_TOKEN=8358550051:AAFVEGVvywc3n636YgYnHFT56JAbYgGIKLA
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
     volumes:
       - ./backend:/app
     depends_on:
@@ -118,7 +118,7 @@ services:
       - ENVIRONMENT=development
       - DEBUG=true
       - SECRET_KEY=dev-secret-key-change-in-production
-      - TELEGRAM_BOT_TOKEN=8358550051:AAFVEGVvywc3n636YgYnHFT56JAbYgGIKLA
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
     volumes:
       - ./backend:/app
     depends_on:
@@ -145,7 +145,7 @@ services:
       - ENVIRONMENT=development
       - DEBUG=true
       - SECRET_KEY=dev-secret-key-change-in-production
-      - TELEGRAM_BOT_TOKEN=8358550051:AAFVEGVvywc3n636YgYnHFT56JAbYgGIKLA
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - FRONTEND_BASE_URL=http://localhost:5173
       - FRONTEND_SETTINGS_URL=http://localhost:5173/settings
       - FRONTEND_DIGEST_SETTINGS_URL=http://localhost:5173/settings/digest
@@ -180,7 +180,7 @@ services:
       - ENVIRONMENT=development
       - DEBUG=true
       - SECRET_KEY=dev-secret-key-change-in-production
-      - TELEGRAM_BOT_TOKEN=8358550051:AAFVEGVvywc3n636YgYnHFT56JAbYgGIKLA
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - PYTHONPATH=/app
     volumes:
       - ./backend:/app
