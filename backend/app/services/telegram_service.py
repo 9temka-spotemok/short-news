@@ -349,11 +349,11 @@ class TelegramService:
             "inline_keyboard": [
                 [
                     {
-                        "text": f"{'[ON]' if current_mode == 'all' else '[OFF]'} All News",
+                        "text": f"{'✅' if current_mode == 'all' else '❌'} All News",
                         "callback_data": "digest_settings_all"
                     },
                     {
-                        "text": f"{'[ON]' if current_mode == 'tracked' else '[OFF]'} Tracked Only",
+                        "text": f"{'✅' if current_mode == 'tracked' else '❌'} Tracked Only",
                         "callback_data": "digest_settings_tracked"
                     }
                 ],

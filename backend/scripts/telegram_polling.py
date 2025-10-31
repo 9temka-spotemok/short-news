@@ -113,45 +113,73 @@ class TelegramPolling:
             try:
                 async with AsyncSessionLocal() as db:
                     if data == "digest_daily":
+                        logger.info(f"Routing to handle_digest_callback (daily)")
                         await self.handle_digest_callback(chat_id, "daily", db)
                     elif data == "digest_weekly":
+                        logger.info(f"Routing to handle_digest_callback (weekly)")
                         await self.handle_digest_callback(chat_id, "weekly", db)
                     elif data == "settings_view":
+                        logger.info(f"Routing to handle_settings_callback")
                         await self.handle_settings_callback(chat_id, db)
                     elif data == "settings_digest":
+                        logger.info(f"Routing to handle_digest_settings_callback")
                         await self.handle_digest_settings_callback(chat_id, db)
                     elif data == "digest_settings_all":
+                        logger.info(f"Routing to handle_digest_mode_change (all)")
                         await self.handle_digest_mode_change(chat_id, "all", db)
                     elif data == "digest_settings_tracked":
+                        logger.info(f"Routing to handle_digest_mode_change (tracked)")
                         await self.handle_digest_mode_change(chat_id, "tracked", db)
                     elif data == "help":
+                        logger.info(f"Routing to handle_help_callback")
                         await self.handle_help_callback(chat_id, db)
                     elif data == "settings_menu":
+                        logger.info(f"Routing to handle_digest_settings_callback (via settings_menu)")
                         await self.handle_digest_settings_callback(chat_id, db)
                     elif data == "main_menu":
+                        logger.info(f"Routing to handle_main_menu_callback")
                         await self.handle_main_menu_callback(chat_id, db)
+                    else:
+                        logger.warning(f"Unknown callback data: '{data}'")
             except Exception as db_error:
-                logger.error(f"Database error handling callback: {db_error}")
+                logger.error(f"Database error handling callback: {db_error}", exc_info=True)
                 await telegram_service.send_digest(chat_id, "❌ Database connection error. Please try again later.")
                     
         except Exception as e:
-            logger.error(f"Error handling callback query: {e}")
+            logger.error(f"Error handling callback query: {e}", exc_info=True)
     
     async def handle_digest_callback(self, chat_id: str, digest_type: str, db):
         """Handle digest callback"""
         try:
             from app.models import UserPreferences
             from app.services.digest_service import DigestService
-            from sqlalchemy import select
+            from sqlalchemy import select, func
             
-            # Find user by telegram_chat_id
+            # Normalize chat_id
+            chat_id_clean = chat_id.strip()
+            
+            # Expire all cached data to ensure we get fresh data from database
+            # This is important because telegram_digest_mode might have been updated in another transaction
+            db.expire_all()
+            
+            # Find user by telegram_chat_id (with trim to handle whitespace)
             result = await db.execute(
                 select(UserPreferences).where(
-                    UserPreferences.telegram_chat_id == chat_id,
+                    func.trim(UserPreferences.telegram_chat_id) == chat_id_clean,
                     UserPreferences.telegram_enabled == True
                 )
             )
-            user_prefs = result.scalar_one_or_none()
+            user_prefs = result.scalars().first()
+            
+            # If not found, try without trim (fallback)
+            if not user_prefs:
+                result = await db.execute(
+                    select(UserPreferences).where(
+                        UserPreferences.telegram_chat_id == chat_id_clean,
+                        UserPreferences.telegram_enabled == True
+                    )
+                )
+                user_prefs = result.scalars().first()
             
             if not user_prefs:
                 error_text = (
@@ -160,16 +188,18 @@ class TelegramPolling:
                     "1. Added Chat ID to your profile settings\n"
                     "2. Enabled Telegram notifications\n"
                     "3. Configured digests\n\n"
-                    f"Your Chat ID: `{chat_id}`"
+                    f"Your Chat ID: `{chat_id_clean}`"
                 )
-                await telegram_service.send_digest(chat_id, error_text)
+                await telegram_service.send_digest(chat_id_clean, error_text)
                 return
             
             # Send processing message
-            await telegram_service.send_digest(chat_id, "🔄 Generating digest...")
+            await telegram_service.send_digest(chat_id_clean, "🔄 Generating digest...")
             
             # Determine tracked_only based on telegram_digest_mode
             tracked_only = (user_prefs.telegram_digest_mode == 'tracked') if user_prefs.telegram_digest_mode else False
+            
+            logger.info(f"Polling: digest for user {user_prefs.user_id}, telegram_digest_mode={user_prefs.telegram_digest_mode}, tracked_only={tracked_only}")
             
             # Generate digest directly (without Celery)
             logger.info(f"Generating digest for user {user_prefs.user_id} (type: {digest_type}, tracked_only: {tracked_only})")
@@ -184,28 +214,48 @@ class TelegramPolling:
             
             # Format and send digest
             digest_text = digest_service.format_digest_for_telegram(digest_data, user_prefs)
-            await telegram_service.send_digest(chat_id, digest_text)
-            logger.info(f"Digest sent to chat {chat_id}")
+            await telegram_service.send_digest(chat_id_clean, digest_text)
+            logger.info(f"Digest sent to chat {chat_id_clean}")
             
         except Exception as e:
-            logger.error(f"Error handling digest callback: {e}")
+            logger.error(f"Error handling digest callback: {e}", exc_info=True)
             await telegram_service.send_digest(chat_id, f"❌ Error generating digest: {str(e)}")
     
     async def handle_settings_callback(self, chat_id: str, db):
         """Handle settings callback"""
         try:
             from app.models import UserPreferences
-            from sqlalchemy import select
+            from sqlalchemy import select, func
             
+            # Normalize chat_id
+            chat_id_clean = chat_id.strip()
+            
+            # Expire all cached data to ensure we get fresh data from database
+            db.expire_all()
+            
+            # Try with trim first
             result = await db.execute(
-                select(UserPreferences).where(UserPreferences.telegram_chat_id == chat_id)
+                select(UserPreferences).where(
+                    func.trim(UserPreferences.telegram_chat_id) == chat_id_clean,
+                    UserPreferences.telegram_enabled == True
+                )
             )
-            user_prefs = result.scalar_one_or_none()
+            user_prefs = result.scalars().first()
+            
+            # If not found, try without trim (fallback)
+            if not user_prefs:
+                result = await db.execute(
+                    select(UserPreferences).where(
+                        UserPreferences.telegram_chat_id == chat_id_clean,
+                        UserPreferences.telegram_enabled == True
+                    )
+                )
+                user_prefs = result.scalars().first()
             
             if user_prefs:
                 settings_text = (
                     f"⚙️ **Settings**\n\n"
-                    f"Chat ID: `{chat_id}`\n"
+                    f"Chat ID: `{chat_id_clean}`\n"
                     f"Digests: {'✅' if user_prefs.digest_enabled else '❌'}\n"
                     f"Frequency: {user_prefs.digest_frequency or 'Not configured'}\n"
                     f"Format: {user_prefs.digest_format or 'Not configured'}\n\n"
@@ -214,14 +264,14 @@ class TelegramPolling:
             else:
                 settings_text = (
                     "⚙️ **Settings**\n\n"
-                    f"Chat ID: `{chat_id}`\n\n"
+                    f"Chat ID: `{chat_id_clean}`\n\n"
                     "User not found. Configure your profile in the web application."
                 )
             
-            await telegram_service.send_digest(chat_id, settings_text)
+            await telegram_service.send_digest(chat_id_clean, settings_text)
             
         except Exception as e:
-            logger.error(f"Error handling settings callback: {e}")
+            logger.error(f"Error handling settings callback: {e}", exc_info=True)
     
     async def handle_help_callback(self, chat_id: str, db):
         """Handle help callback"""
@@ -248,53 +298,108 @@ class TelegramPolling:
         """Handle digest settings callback - show digest mode selection menu"""
         try:
             from app.models import UserPreferences
-            from sqlalchemy import select
+            from sqlalchemy import select, func
             
+            logger.info(f"handle_digest_settings_callback called with chat_id: '{chat_id}'")
+            
+            # Normalize chat_id
+            chat_id_clean = chat_id.strip()
+            logger.info(f"Normalized chat_id: '{chat_id_clean}'")
+            
+            # Expire all cached data to ensure we get fresh data from database
+            db.expire_all()
+            
+            # Try with trim first (handles any whitespace issues)
             result = await db.execute(
-                select(UserPreferences).where(UserPreferences.telegram_chat_id == chat_id)
+                select(UserPreferences).where(
+                    func.trim(UserPreferences.telegram_chat_id) == chat_id_clean,
+                    UserPreferences.telegram_enabled == True
+                )
             )
-            user_prefs = result.scalar_one_or_none()
+            user_prefs = result.scalars().first()
+            
+            # If not found, try without trim (fallback)
+            if not user_prefs:
+                logger.info(f"User not found with trim, trying without trim...")
+                result = await db.execute(
+                    select(UserPreferences).where(
+                        UserPreferences.telegram_chat_id == chat_id_clean,
+                        UserPreferences.telegram_enabled == True
+                    )
+                )
+                user_prefs = result.scalars().first()
             
             if user_prefs:
                 current_mode = user_prefs.telegram_digest_mode or 'all'
-                await telegram_service.send_digest_settings_menu(chat_id, current_mode)
+                logger.info(f"Found user {user_prefs.user_id}, current_mode: {current_mode}")
+                await telegram_service.send_digest_settings_menu(chat_id_clean, current_mode)
             else:
-                await telegram_service.send_digest(chat_id, "❌ User not found. Use /start to configure.")
+                logger.warning(f"User not found for chat_id: '{chat_id_clean}'")
+                await telegram_service.send_digest(chat_id_clean, "❌ User not found. Use /start to configure.")
             
         except Exception as e:
-            logger.error(f"Error handling digest settings callback: {e}")
+            logger.error(f"Error handling digest settings callback: {e}", exc_info=True)
             await telegram_service.send_digest(chat_id, "❌ Error getting settings. Please try again later.")
     
     async def handle_digest_mode_change(self, chat_id: str, new_mode: str, db):
         """Handle digest mode change callback"""
         try:
             from app.models import UserPreferences
-            from sqlalchemy import select
+            from sqlalchemy import select, func
             
+            logger.info(f"handle_digest_mode_change called with chat_id: '{chat_id}', new_mode: '{new_mode}'")
+            
+            # Normalize chat_id
+            chat_id_clean = chat_id.strip()
+            logger.info(f"Normalized chat_id: '{chat_id_clean}'")
+            
+            # Expire all cached data to ensure we get fresh data from database
+            db.expire_all()
+            
+            # Try with trim first (handles any whitespace issues)
             result = await db.execute(
-                select(UserPreferences).where(UserPreferences.telegram_chat_id == chat_id)
+                select(UserPreferences).where(
+                    func.trim(UserPreferences.telegram_chat_id) == chat_id_clean,
+                    UserPreferences.telegram_enabled == True
+                )
             )
-            user_prefs = result.scalar_one_or_none()
+            user_prefs = result.scalars().first()
+            
+            # If not found, try without trim (fallback)
+            if not user_prefs:
+                logger.info(f"User not found with trim, trying without trim...")
+                result = await db.execute(
+                    select(UserPreferences).where(
+                        UserPreferences.telegram_chat_id == chat_id_clean,
+                        UserPreferences.telegram_enabled == True
+                    )
+                )
+                user_prefs = result.scalars().first()
             
             if not user_prefs:
-                await telegram_service.send_digest(chat_id, "❌ User not found. Use /start to configure.")
+                logger.warning(f"User not found for chat_id: '{chat_id_clean}'")
+                await telegram_service.send_digest(chat_id_clean, "❌ User not found. Use /start to configure.")
                 return
+            
+            logger.info(f"Found user {user_prefs.user_id}, updating mode from '{user_prefs.telegram_digest_mode}' to '{new_mode}'")
             
             # Update digest mode via ORM assignment against correct enum type
             user_prefs.telegram_digest_mode = new_mode
             await db.commit()
             await db.refresh(user_prefs)
             
+            logger.info(f"Mode successfully updated to '{user_prefs.telegram_digest_mode}'")
+            
             # Send confirmation and show updated menu
             mode_text = "All News" if new_mode == "all" else "Tracked Only"
             confirmation_text = f"✅ Digest mode changed to: **{mode_text}**"
-            await telegram_service.send_digest(chat_id, confirmation_text)
+            await telegram_service.send_digest(chat_id_clean, confirmation_text)
             
             # Show updated settings menu
-            await telegram_service.send_digest_settings_menu(chat_id, new_mode)
+            await telegram_service.send_digest_settings_menu(chat_id_clean, new_mode)
             
         except Exception as e:
-            logger.error(f"Error handling digest mode change: {e}")
+            logger.error(f"Error handling digest mode change: {e}", exc_info=True)
             await telegram_service.send_digest(chat_id, "❌ Error changing settings. Please try again later.")
     
     async def handle_main_menu_callback(self, chat_id: str, db):

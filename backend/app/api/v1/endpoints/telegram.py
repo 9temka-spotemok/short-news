@@ -114,8 +114,8 @@ async def handle_telegram_message(message: Dict[str, Any], db: AsyncSession):
         # Send response back to user
         await telegram_service.send_digest(chat_id, response)
         
-        # Previously /digest also сразу генерировал дайджест. Теперь /digest открывает окно настроек.
-        # Генерация запускается кнопками (digest_daily/digest_weekly).
+        # Previously /digest generated digest immediately. Now /digest opens settings menu.
+        # Generation is triggered by buttons (digest_daily/digest_weekly).
             
     except Exception as e:
         logger.error(f"Error handling Telegram message: {e}")
@@ -172,7 +172,7 @@ async def handle_digest_command_real(chat_id: str, db: AsyncSession):
                 UserPreferences.telegram_enabled == True
             )
         )
-        user_prefs = result.scalar_one_or_none()
+        user_prefs = result.scalars().first()
         
         # If not found, try without trim (fallback)
         if not user_prefs:
@@ -182,7 +182,7 @@ async def handle_digest_command_real(chat_id: str, db: AsyncSession):
                     UserPreferences.telegram_enabled == True
                 )
             )
-            user_prefs = result.scalar_one_or_none()
+            user_prefs = result.scalars().first()
         
         if not user_prefs:
             # Log diagnostic info
@@ -191,7 +191,7 @@ async def handle_digest_command_real(chat_id: str, db: AsyncSession):
                     func.trim(UserPreferences.telegram_chat_id) == chat_id_clean
                 )
             )
-            user_prefs_debug = result_debug.scalar_one_or_none()
+            user_prefs_debug = result_debug.scalars().first()
             
             logger.warning(
                 f"User not found for chat_id={chat_id_clean}. "
@@ -216,8 +216,8 @@ async def handle_digest_command_real(chat_id: str, db: AsyncSession):
         
         await telegram_service.send_digest(
             chat_id,
-            "📰 Дайджест генерируется...\n\n"
-            "Ваш персонализированный дайджест будет отправлен в ближайшее время!"
+            "📰 Digest is generating...\n\n"
+            "Your personalized digest will be sent shortly!"
         )
         
         logger.info(f"Digest generation triggered for user {user_prefs.user_id}")
@@ -226,7 +226,7 @@ async def handle_digest_command_real(chat_id: str, db: AsyncSession):
         logger.error(f"Error handling real digest command: {e}")
         await telegram_service.send_digest(
             chat_id,
-            "❌ Ошибка при генерации дайджеста. Попробуйте позже."
+            "❌ Error generating digest. Please try again later."
         )
 
 
@@ -241,8 +241,14 @@ async def handle_digest_callback(chat_id: str, data: str, db: AsyncSession):
         
         # Try to get cached user preferences first
         user_prefs = _get_cached_user_prefs(chat_id_clean)
+        cache_source = "cache"
         
         if not user_prefs:
+            cache_source = "database"
+            # Expire all cached data to ensure we get fresh data from database
+            # This is important because telegram_digest_mode might have been updated in another transaction
+            db.expire_all()
+            
             # Find user by telegram_chat_id (using trim to handle any whitespace issues)
             result = await db.execute(
                 select(UserPreferences).where(
@@ -250,7 +256,7 @@ async def handle_digest_callback(chat_id: str, data: str, db: AsyncSession):
                     UserPreferences.telegram_enabled == True
                 )
             )
-            user_prefs = result.scalar_one_or_none()
+            user_prefs = result.scalars().first()
             
             # If not found, try without trim (fallback)
             if not user_prefs:
@@ -260,7 +266,7 @@ async def handle_digest_callback(chat_id: str, data: str, db: AsyncSession):
                         UserPreferences.telegram_enabled == True
                     )
                 )
-                user_prefs = result.scalar_one_or_none()
+                user_prefs = result.scalars().first()
             
             if user_prefs:
                 _cache_user_prefs(chat_id_clean, user_prefs)
@@ -272,7 +278,7 @@ async def handle_digest_callback(chat_id: str, data: str, db: AsyncSession):
                     func.trim(UserPreferences.telegram_chat_id) == chat_id_clean
                 )
             )
-            user_prefs_debug = result_debug.scalar_one_or_none()
+            user_prefs_debug = result_debug.scalars().first()
             
             logger.warning(
                 f"User not found for chat_id={chat_id_clean} in digest callback. "
@@ -295,23 +301,27 @@ async def handle_digest_callback(chat_id: str, data: str, db: AsyncSession):
             # Determine tracked_only based on telegram_digest_mode
             tracked_only = (user_prefs.telegram_digest_mode == 'tracked') if user_prefs.telegram_digest_mode else False
             
+            logger.info(f"Daily digest for user {user_prefs.user_id}: source={cache_source}, telegram_digest_mode={user_prefs.telegram_digest_mode}, tracked_only={tracked_only}")
+            
             task = generate_user_digest.delay(str(user_prefs.user_id), "daily", tracked_only=tracked_only)
-            mode_text = "только отслеживаемых компаний" if tracked_only else "всех новостей"
+            mode_text = "tracked companies only" if tracked_only else "all news"
             await telegram_service.send_digest(
                 chat_id,
-                f"📅 Дневной дайджест ({mode_text}) генерируется...\n\n"
-                "Ваш персонализированный дайджест будет отправлен в ближайшее время!"
+                f"📅 Daily digest ({mode_text}) is generating...\n\n"
+                "Your personalized digest will be sent shortly!"
             )
         elif data == "digest_weekly":
             # Determine tracked_only based on telegram_digest_mode
             tracked_only = (user_prefs.telegram_digest_mode == 'tracked') if user_prefs.telegram_digest_mode else False
             
+            logger.info(f"Weekly digest for user {user_prefs.user_id}: source={cache_source}, telegram_digest_mode={user_prefs.telegram_digest_mode}, tracked_only={tracked_only}")
+            
             task = generate_user_digest.delay(str(user_prefs.user_id), "weekly", tracked_only=tracked_only)
-            mode_text = "только отслеживаемых компаний" if tracked_only else "всех новостей"
+            mode_text = "tracked companies only" if tracked_only else "all news"
             await telegram_service.send_digest(
                 chat_id,
-                f"📊 Недельный дайджест ({mode_text}) генерируется...\n\n"
-                "Ваш персонализированный дайджест будет отправлен в ближайшее время!"
+                f"📊 Weekly digest ({mode_text}) is generating...\n\n"
+                "Your personalized digest will be sent shortly!"
             )
         elif data == "settings_digest":
             await handle_digest_settings_menu(chat_id, db)
@@ -320,7 +330,7 @@ async def handle_digest_callback(chat_id: str, data: str, db: AsyncSession):
         logger.error(f"Error handling digest callback: {e}")
         await telegram_service.send_digest(
             chat_id,
-            "❌ Ошибка при генерации дайджеста. Попробуйте позже."
+            "❌ Error generating digest. Please try again later."
         )
 
 
@@ -330,22 +340,27 @@ async def handle_digest_settings_menu(chat_id: str, db: AsyncSession):
         # Normalize chat_id - remove whitespace
         chat_id_clean = chat_id.strip()
         
+        # Expire all cached data to ensure we get fresh data from database
+        db.expire_all()
+        
         # Find user by telegram_chat_id (using trim to handle any whitespace issues)
         result = await db.execute(
             select(UserPreferences).where(
-                func.trim(UserPreferences.telegram_chat_id) == chat_id_clean
+                func.trim(UserPreferences.telegram_chat_id) == chat_id_clean,
+                UserPreferences.telegram_enabled == True
             )
         )
-        user_prefs = result.scalar_one_or_none()
+        user_prefs = result.scalars().first()
         
         # If not found, try without trim (fallback)
         if not user_prefs:
             result = await db.execute(
                 select(UserPreferences).where(
-                    UserPreferences.telegram_chat_id == chat_id_clean
+                    UserPreferences.telegram_chat_id == chat_id_clean,
+                    UserPreferences.telegram_enabled == True
                 )
             )
-            user_prefs = result.scalar_one_or_none()
+            user_prefs = result.scalars().first()
         
         if user_prefs:
             current_mode = user_prefs.telegram_digest_mode or 'all'
@@ -371,22 +386,27 @@ async def handle_settings_callback(chat_id: str, data: str, db: AsyncSession):
     
     if data == "settings_view":
         # Show current settings
+        # Expire all cached data to ensure we get fresh data from database
+        db.expire_all()
+        
         # Find user by telegram_chat_id (using trim to handle any whitespace issues)
         result = await db.execute(
             select(UserPreferences).where(
-                func.trim(UserPreferences.telegram_chat_id) == chat_id_clean
+                func.trim(UserPreferences.telegram_chat_id) == chat_id_clean,
+                UserPreferences.telegram_enabled == True
             )
         )
-        user_prefs = result.scalar_one_or_none()
+        user_prefs = result.scalars().first()
         
         # If not found, try without trim (fallback)
         if not user_prefs:
             result = await db.execute(
                 select(UserPreferences).where(
-                    UserPreferences.telegram_chat_id == chat_id_clean
+                    UserPreferences.telegram_chat_id == chat_id_clean,
+                    UserPreferences.telegram_enabled == True
                 )
             )
-            user_prefs = result.scalar_one_or_none()
+            user_prefs = result.scalars().first()
         
         if user_prefs:
             settings_text = f"""
@@ -417,22 +437,27 @@ async def handle_digest_mode_change(chat_id: str, data: str, db: AsyncSession):
         # Normalize chat_id - remove whitespace
         chat_id_clean = chat_id.strip()
         
+        # Expire all cached data to ensure we get fresh data from database
+        db.expire_all()
+        
         # Find user by telegram_chat_id (using trim to handle any whitespace issues)
         result = await db.execute(
             select(UserPreferences).where(
-                func.trim(UserPreferences.telegram_chat_id) == chat_id_clean
+                func.trim(UserPreferences.telegram_chat_id) == chat_id_clean,
+                UserPreferences.telegram_enabled == True
             )
         )
-        user_prefs = result.scalar_one_or_none()
+        user_prefs = result.scalars().first()
         
         # If not found, try without trim (fallback)
         if not user_prefs:
             result = await db.execute(
                 select(UserPreferences).where(
-                    UserPreferences.telegram_chat_id == chat_id_clean
+                    UserPreferences.telegram_chat_id == chat_id_clean,
+                    UserPreferences.telegram_enabled == True
                 )
             )
-            user_prefs = result.scalar_one_or_none()
+            user_prefs = result.scalars().first()
         
         if not user_prefs:
             await telegram_service.send_digest(
@@ -531,7 +556,7 @@ async def get_webhook_info():
 @router.post("/send-test-message")
 async def send_test_message(
     chat_id: str,
-    message: str = "🧪 Тестовое сообщение от AI Competitor Insight Hub"
+    message: str = "🧪 Test message from AI Competitor Insight Hub"
 ):
     """
     Send test message to specified chat
@@ -551,34 +576,34 @@ async def handle_help_callback(chat_id: str, db: AsyncSession):
     """Handle help callback query"""
     try:
         help_text = (
-            "🤖 **AI Competitor Insight Hub - Помощь**\n\n"
-            "**Доступные команды:**\n"
-            "• /start - Главное меню\n"
-            "• /help - Показать эту справку\n"
-            "• /digest - Получить дайджест новостей\n"
-            "• /subscribe - Подписаться на уведомления\n"
-            "• /unsubscribe - Отписаться от уведомлений\n"
-            "• /settings - Настройки профиля\n\n"
-            "**Кнопки в меню:**\n"
-            "• 📅 Дневной дайджест - новости за последние 24 часа\n"
-            "• 📊 Недельный дайджест - новости за последние 7 дней\n"
-            "• ⚙️ Настройки - управление предпочтениями\n"
-            "• 🔗 Веб-приложение - переход на сайт\n\n"
-            "**Настройка:**\n"
-            "1. Скопируйте ваш Chat ID из главного меню\n"
-            "2. Откройте веб-приложение\n"
-            "3. Добавьте Chat ID в настройки профиля\n"
-            "4. Включите отправку в Telegram\n"
-            "5. Настройте категории новостей и компании\n\n"
-            "**Поддержка:**\n"
-            "Если у вас есть вопросы, обратитесь к администратору."
+            "🤖 **AI Competitor Insight Hub - Help**\n\n"
+            "**Available Commands:**\n"
+            "• /start - Main menu\n"
+            "• /help - Show this help\n"
+            "• /digest - Get news digest\n"
+            "• /subscribe - Subscribe to notifications\n"
+            "• /unsubscribe - Unsubscribe from notifications\n"
+            "• /settings - Profile settings\n\n"
+            "**Menu Buttons:**\n"
+            "• 📅 Daily Digest - news from the last 24 hours\n"
+            "• 📊 Weekly Digest - news from the last 7 days\n"
+            "• ⚙️ Settings - manage preferences\n"
+            "• 🔗 Web App - go to website\n\n"
+            "**Setup:**\n"
+            "1. Copy your Chat ID from the main menu\n"
+            "2. Open the web application\n"
+            "3. Add Chat ID to profile settings\n"
+            "4. Enable Telegram notifications\n"
+            "5. Configure news categories and companies\n\n"
+            "**Support:**\n"
+            "If you have questions, please contact the administrator."
         )
         
         # Create keyboard to return to main menu
         keyboard = {
             "inline_keyboard": [
                 [
-                    {"text": "🏠 Главное меню", "callback_data": "main_menu"}
+                    {"text": "🏠 Main Menu", "callback_data": "main_menu"}
                 ]
             ]
         }
@@ -589,7 +614,7 @@ async def handle_help_callback(chat_id: str, db: AsyncSession):
         logger.error(f"Error handling help callback: {e}")
         await telegram_service.send_digest(
             chat_id,
-            "❌ Ошибка при показе справки. Попробуйте позже."
+            "❌ Error showing help. Please try again later."
         )
 
 
@@ -600,8 +625,15 @@ async def handle_main_menu_callback(chat_id: str, db: AsyncSession):
         
         # Get username from database if available
         from sqlalchemy import select
+        
+        # Expire all cached data to ensure we get fresh data from database
+        db.expire_all()
+        
         result = await db.execute(
-            select(UserPreferences).where(UserPreferences.telegram_chat_id == chat_id)
+            select(UserPreferences).where(
+                UserPreferences.telegram_chat_id == chat_id,
+                UserPreferences.telegram_enabled == True
+            )
         )
         user_prefs = result.scalar_one_or_none()
         username = None  # We don't store username, but this is fine
@@ -613,5 +645,5 @@ async def handle_main_menu_callback(chat_id: str, db: AsyncSession):
         logger.error(f"Error handling main menu callback: {e}")
         await telegram_service.send_digest(
             chat_id,
-            "❌ Ошибка при возврате в главное меню. Используйте /start"
+            "❌ Error returning to main menu. Use /start"
         )

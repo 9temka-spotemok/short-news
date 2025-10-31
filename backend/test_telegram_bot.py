@@ -16,28 +16,28 @@ async def test_telegram_bot():
         # You need to start a conversation with @short_news_sender_bot first
         chat_id = "123456789"  # Replace with your actual chat ID
         
-        message = """🧪 **Тестовое сообщение от AI Competitor Insight Hub**
+        message = """🧪 **Test message from AI Competitor Insight Hub**
 
-✅ Telegram бот настроен и работает!
+✅ Telegram bot configured and working!
 
-📊 **Статус системы:**
-- Backend API: ✅ Работает
-- Celery Worker: ✅ Работает  
-- Генерация дайджестов: ✅ Работает
-- Telegram интеграция: ✅ Работает
+📊 **System Status:**
+- Backend API: ✅ Running
+- Celery Worker: ✅ Running  
+- Digest Generation: ✅ Working
+- Telegram Integration: ✅ Working
 
-🚀 Теперь вы можете получать дайджесты прямо в Telegram!"""
+🚀 Now you can receive digests directly in Telegram!"""
         
-        print(f"📤 Отправка сообщения в чат {chat_id}...")
+        print(f"📤 Sending message to chat {chat_id}...")
         result = await telegram_service.send_digest(chat_id, message)
         
         if result:
-            print("✅ Сообщение отправлено успешно!")
+            print("✅ Message sent successfully!")
         else:
-            print("❌ Ошибка отправки сообщения")
+            print("❌ Error sending message")
             
     except Exception as e:
-        print(f"❌ Ошибка: {e}")
+        print(f"❌ Error: {e}")
         import traceback
         traceback.print_exc()
 

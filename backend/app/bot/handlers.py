@@ -95,17 +95,17 @@ async def handle_digest(chat_id: str) -> str:
 
             if not user_prefs:
                 error_text = (
-                    "❌ Пользователь не найден или Telegram не настроен.\n\n"
-                    "Сделайте:\n"
-                    "1) Добавьте Chat ID в профиль\n"
-                    "2) Включите отправку в Telegram\n"
-                    "3) Настройте дайджесты\n\n"
-                    f"Ваш Chat ID: `{chat_id_clean}`"
+                    "❌ User not found or Telegram not configured.\n\n"
+                    "Please:\n"
+                    "1) Add Chat ID to your profile\n"
+                    "2) Enable Telegram notifications\n"
+                    "3) Configure digests\n\n"
+                    f"Your Chat ID: `{chat_id_clean}`"
                 )
                 keyboard = {
                     "inline_keyboard": [
                         [
-                            {"text": "🔗 Открыть настройки", "url": "https://yourdomain.com/settings"}
+                            {"text": "🔗 Open Settings", "url": "https://yourdomain.com/settings"}
                         ]
                     ]
                 }
@@ -118,7 +118,7 @@ async def handle_digest(chat_id: str) -> str:
 
     except Exception as e:
         logger.error(f"Error in handle_digest: {e}")
-        await telegram_service.send_digest(chat_id, "❌ Ошибка. Попробуйте позже.")
+        await telegram_service.send_digest(chat_id, "❌ Error. Please try again later.")
         return ""
 
 

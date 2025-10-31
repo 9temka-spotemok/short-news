@@ -42,13 +42,16 @@ class DigestService:
         Returns:
             Dictionary with digest data
         """
-        logger.info(f"Generating {period} digest for user {user_id}")
+        logger.info(f"Generating {period} digest for user {user_id}, tracked_only={tracked_only}")
         
         # Get user preferences
         result = await self.db.execute(
             select(UserPreferences).where(UserPreferences.user_id == user_id)
         )
         user_prefs = result.scalar_one_or_none()
+        
+        if user_prefs:
+            logger.info(f"User preferences: telegram_digest_mode={user_prefs.telegram_digest_mode}, subscribed_companies={user_prefs.subscribed_companies}")
         
         # Create default preferences if they don't exist
         if not user_prefs:
@@ -88,8 +91,8 @@ class DigestService:
         # Get news items
         news_items = await self._fetch_news(user_prefs, date_from, date_to, tracked_only)
         
-        # Filter by preferences
-        filtered_news = self._filter_news_by_preferences(user_prefs, news_items)
+        # Filter by preferences (pass tracked_only to control company filtering)
+        filtered_news = self._filter_news_by_preferences(user_prefs, news_items, tracked_only)
         
         # Rank by relevance
         ranked_news = self._rank_news_by_relevance(filtered_news, user_prefs)
@@ -220,6 +223,7 @@ class DigestService:
         """Fetch news items based on user preferences and date range"""
         
         logger.info(f"Fetching news: tracked_only={tracked_only}, subscribed_companies={user_prefs.subscribed_companies}")
+        logger.info(f"Interested categories: {user_prefs.interested_categories}")
         
         # Build query
         query = select(NewsItem).where(
@@ -238,23 +242,33 @@ class DigestService:
             logger.info("All News mode - no company filtering")
             pass
         
-        # Filter by interested categories if any
-        if user_prefs.interested_categories:
+        # Filter by interested categories ONLY in tracked_only mode
+        # In "All News" mode, show all news (categories are used for ranking/boosting)
+        # In "Tracked Only" mode, filter by both companies AND categories
+        if tracked_only and user_prefs.interested_categories:
+            logger.info(f"Tracked Only mode - filtering by interested categories: {user_prefs.interested_categories}")
             query = query.where(NewsItem.category.in_(user_prefs.interested_categories))
+        elif not tracked_only:
+            logger.info("All News mode - no category filtering")
         
         # Order by published date (newest first)
         query = query.order_by(desc(NewsItem.published_at))
         
         result = await self.db.execute(query)
-        return list(result.scalars().all())
+        news_items = list(result.scalars().all())
+        logger.info(f"Fetched {len(news_items)} news items")
+        return news_items
     
     def _filter_news_by_preferences(
         self,
         user_prefs: UserPreferences,
-        news_items: List[NewsItem]
+        news_items: List[NewsItem],
+        tracked_only: bool = False
     ) -> List[NewsItem]:
         """Filter news items by user preferences"""
         filtered = []
+        
+        logger.info(f"Filtering {len(news_items)} news items, tracked_only={tracked_only}, keywords={user_prefs.keywords}")
         
         for news in news_items:
             # Check keywords if any
@@ -264,13 +278,16 @@ class DigestService:
                     keyword.lower() in (news.content or "").lower()
                     for keyword in user_prefs.keywords
                 )
-                if not has_keyword and user_prefs.subscribed_companies:
-                    # Skip if no keyword match and user has specific keyword preferences
+                # Only filter by company if tracked_only mode is enabled
+                # In "All News" mode, show all news regardless of keywords
+                if not has_keyword and tracked_only and user_prefs.subscribed_companies:
+                    # Skip if no keyword match and user has specific keyword preferences in tracked_only mode
                     if news.company_id not in user_prefs.subscribed_companies:
                         continue
             
             filtered.append(news)
         
+        logger.info(f"After filtering: {len(filtered)} news items")
         return filtered
     
     def _rank_news_by_relevance(
@@ -477,15 +494,15 @@ class DigestService:
         """Format digest for Telegram message with company grouping"""
         
         if digest_data["news_count"] == 0:
-            return "📭 Нет новостей за выбранный период"
+            return "📭 No news for the selected period"
         
         lines = []
-        lines.append(f"📰 **Дайджест новостей**")
+        lines.append(f"📰 **News Digest**")
         lines.append(f"📅 {digest_data['date_from'][:10]} - {digest_data['date_to'][:10]}")
-        lines.append(f"📊 Всего новостей: {digest_data['news_count']}")
+        lines.append(f"📊 Total news: {digest_data['news_count']}")
         
         if digest_data.get('companies_count'):
-            lines.append(f"🏢 Компаний: {digest_data['companies_count']}")
+            lines.append(f"🏢 Companies: {digest_data['companies_count']}")
         
         lines.append("")  # Empty line
         
@@ -495,16 +512,16 @@ class DigestService:
                 company = company_data['company']
                 stats = company_data['stats']
                 
-                lines.append(f"🏢 **{company['name']}** ({stats['total']} новостей)")
+                lines.append(f"🏢 **{company['name']}** ({stats['total']} news)")
                 
                 # Group by categories within company
                 for category, count in stats['by_category'].items():
                     category_emoji = self._get_category_emoji(category)
                     lines.append(f"└─ {category_emoji} {self._format_category_name(category)} ({count})")
                     
-                    # Show top 3 news items for this category
+                    # Show all news items for this category
                     category_news = [news for news in company_data['news'] 
-                                   if (news.get('category') or 'other') == category][:3]
+                                   if (news.get('category') or 'other') == category]
                     
                     for news in category_news:
                         title = news['title']
@@ -531,7 +548,7 @@ class DigestService:
                     if len(title) > 80:
                         title = title[:77] + "..."
                     
-                    # Добавляем жирный шрифт для заголовка и отступ
+                    # Add bold font for title and indentation
                     lines.append(f"\n{i}. **{title}**")
                     lines.append(f"   🏢 {company_name}")
                     lines.append(f"   🔗 {news['source_url']}")

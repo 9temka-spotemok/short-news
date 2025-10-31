@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Railway Telegram Bot Webhook Setup
-Настраивает webhook для Telegram бота на Railway
+Configure webhook for Telegram bot on Railway
 """
 
 import asyncio

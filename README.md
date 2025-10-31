@@ -176,9 +176,11 @@ npm run test:e2e
 - `app/scrapers/` - Веб-скраперы для сбора новостей
 - `app/tasks/` - Celery задачи (scraping, digest, NLP)
 - `app/bot/` - Обработчики Telegram бота
-  - `app/bot/handlers.py` — команды `/start`, `/help`, `/digest` и др. Теперь `/digest` открывает окно настроек дайджеста
+  - `app/bot/handlers.py` — команды `/start`, `/help`, `/digest` и др. Теперь `/digest` открывает окно настроек дайджеста. Все сообщения на английском языке
   - `app/services/telegram_service.py` — отправка сообщений в Telegram, клавиатуры. Добавлено `send_post_digest_controls()` и улучшено `send_digest_settings_menu()`
+  - `app/services/digest_service.py` — генерация дайджестов. Форматирование для Telegram на английском языке. Логика фильтрации: "All News" — все новости без фильтра по категориям; "Tracked Only" — только отслеживаемые компании и выбранные категории
   - `app/tasks/digest.py` — генерация/отправка дайджестов. После отправки каждого дайджеста пользователю показываются быстрые кнопки
+- `scripts/telegram_polling.py` — polling для Telegram бота в режиме разработки. Обрабатывает callback queries и сообщения с детальным логированием. Обработка Digest Settings: нормализация chat_id, защита от пробелов, логирование. Использует `scalars().first()` вместо `scalar_one_or_none()` для обработки дубликатов chat_id. Все сообщения на английском языке
 
 **Frontend (`frontend/`):**
 - `src/components/` - React компоненты (21 компонент)
