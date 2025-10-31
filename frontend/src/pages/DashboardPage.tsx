@@ -166,8 +166,14 @@ export default function DashboardPage() {
   })
 
   useEffect(() => {
+    // Don't fetch if we're in tracked mode but userPreferences haven't loaded yet
+    // This prevents fetching "All News" data when user has "Tracked" mode selected after page reload
+    if (showTrackedOnly && !userPreferences) {
+      // Wait for preferences to load; once loaded, we'll fetch.
+      return
+    }
     fetchDashboardData()
-  }, [userPreferences?.subscribed_companies, showTrackedOnly])
+  }, [userPreferences?.subscribed_companies, showTrackedOnly, userPreferences])
 
   // Invalidate cache when tracked companies change
   useEffect(() => {
@@ -934,7 +940,6 @@ export default function DashboardPage() {
                               <div className="space-y-2">
                                 {companyData.news
                                   .filter(news => (news.category || 'other') === category)
-                                  .slice(0, 3)
                                   .map((news: any) => (
                                     <div key={news.id} className="border-l-2 border-primary-200 pl-3">
                                       <a
