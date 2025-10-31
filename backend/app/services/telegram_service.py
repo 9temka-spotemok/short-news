@@ -27,17 +27,25 @@ class TelegramService:
         Returns:
             True if successful, False otherwise
         """
+        logger.debug(f"send_digest called: chat_id={chat_id}, text_length={len(digest_text)}")
+        
         if not self.bot_token:
-            logger.warning("Telegram bot token not configured")
+            logger.warning(f"Telegram bot token not configured. Cannot send message to chat_id={chat_id}")
+            return False
+        
+        if not self.base_url:
+            logger.error(f"base_url not set. bot_token exists but base_url is None")
             return False
         
         try:
             url = f"{self.base_url}/sendMessage"
+            logger.debug(f"Sending message to URL: {url[:50]}... (chat_id: {chat_id})")
             
             # Split message if too long (Telegram limit is 4096 characters)
             messages = self._split_message(digest_text)
+            logger.debug(f"Split into {len(messages)} message(s)")
             
-            for message in messages:
+            for i, message in enumerate(messages):
                 payload = {
                     "chat_id": chat_id,
                     "text": message,
@@ -47,20 +55,30 @@ class TelegramService:
                 
                 async with aiohttp.ClientSession() as session:
                     async with session.post(url, json=payload) as response:
+                        logger.debug(f"Response status: {response.status}, chat_id: {chat_id}, message_part: {i+1}/{len(messages)}")
+                        
                         if response.status != 200:
-                            logger.error(f"Failed to send Telegram message: {response.status}")
+                            response_text = await response.text()
+                            logger.error(f"Failed to send Telegram message to chat_id={chat_id}: HTTP {response.status}, response: {response_text[:200]}")
                             return False
                         
-                        result = await response.json()
+                        try:
+                            result = await response.json()
+                        except Exception as json_error:
+                            response_text = await response.text()
+                            logger.error(f"Failed to parse JSON response: {json_error}, response text: {response_text[:200]}")
+                            return False
+                            
                         if not result.get("ok"):
-                            logger.error(f"Telegram API error: {result}")
+                            error_desc = result.get("description", "Unknown error")
+                            logger.error(f"Telegram API error for chat_id={chat_id}: {error_desc}, full response: {result}")
                             return False
             
-            logger.info(f"Digest sent to chat {chat_id}")
+            logger.info(f"Digest sent successfully to chat {chat_id} ({len(messages)} message(s))")
             return True
             
         except Exception as e:
-            logger.error(f"Error sending Telegram message: {e}")
+            logger.error(f"Error sending Telegram message to chat_id={chat_id}: {e}", exc_info=True)
             return False
     
     async def send_to_channel(self, digest_text: str) -> bool:

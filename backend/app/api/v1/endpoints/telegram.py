@@ -130,17 +130,19 @@ async def handle_telegram_callback(callback_query: Dict[str, Any], db: AsyncSess
         logger.info(f"Processing callback from {chat_id}: {data}")
         
         # Handle different callback types
-        if data.startswith("digest_"):
-            await handle_digest_callback(chat_id, data, db)
-        elif data.startswith("settings_"):
-            await handle_settings_callback(chat_id, data, db)
-        elif data.startswith("digest_settings_"):
+        # IMPORTANT: Check more specific prefixes FIRST to avoid conflicts!
+        if data.startswith("digest_settings_"):
             # Handle digest settings mode change (all/tracked) or show menu (settings_digest)
             if data in ["digest_settings_all", "digest_settings_tracked"]:
+                logger.info(f"Routing to handle_digest_mode_change: {data}")
                 await handle_digest_mode_change(chat_id, data, db)
             else:
                 # Show settings menu
                 await handle_digest_settings_menu(chat_id, db)
+        elif data.startswith("digest_"):
+            await handle_digest_callback(chat_id, data, db)
+        elif data.startswith("settings_"):
+            await handle_settings_callback(chat_id, data, db)
         elif data == "help":
             await handle_help_callback(chat_id, db)
         elif data == "main_menu":
@@ -150,7 +152,7 @@ async def handle_telegram_callback(callback_query: Dict[str, Any], db: AsyncSess
         await telegram_service.answer_callback_query(callback_query["id"])
         
     except Exception as e:
-        logger.error(f"Error handling Telegram callback: {e}")
+        logger.error(f"Error handling Telegram callback: {e}", exc_info=True)
 
 
 async def handle_channel_post(channel_post: Dict[str, Any], db: AsyncSession):
@@ -235,9 +237,12 @@ async def handle_digest_callback(chat_id: str, data: str, db: AsyncSession):
     from app.tasks.digest import generate_user_digest
     from sqlalchemy import select
     
+    logger.info(f"handle_digest_callback called: chat_id={chat_id}, data={data}")
+    
     try:
         # Normalize chat_id - remove whitespace
         chat_id_clean = chat_id.strip()
+        logger.debug(f"Normalized chat_id: '{chat_id_clean}'")
         
         # Try to get cached user preferences first
         user_prefs = _get_cached_user_prefs(chat_id_clean)
@@ -286,7 +291,7 @@ async def handle_digest_callback(chat_id: str, data: str, db: AsyncSession):
                 f"telegram_enabled={user_prefs_debug.telegram_enabled if user_prefs_debug else 'N/A'}"
             )
             
-            await telegram_service.send_digest(
+            message_sent = await telegram_service.send_digest(
                 chat_id,
                 "❌ User not found or Telegram not configured.\n\n"
                 "Make sure you:\n"
@@ -295,6 +300,8 @@ async def handle_digest_callback(chat_id: str, data: str, db: AsyncSession):
                 "3. Configured digests\n\n"
                 f"Your Chat ID: `{chat_id_clean}`"
             )
+            if not message_sent:
+                logger.error(f"Failed to send error message to chat_id={chat_id_clean}")
             return
         
         if data == "digest_daily":
@@ -305,11 +312,14 @@ async def handle_digest_callback(chat_id: str, data: str, db: AsyncSession):
             
             task = generate_user_digest.delay(str(user_prefs.user_id), "daily", tracked_only=tracked_only)
             mode_text = "tracked companies only" if tracked_only else "all news"
-            await telegram_service.send_digest(
+            message_sent = await telegram_service.send_digest(
                 chat_id,
                 f"📅 Daily digest ({mode_text}) is generating...\n\n"
                 "Your personalized digest will be sent shortly!"
             )
+            if not message_sent:
+                logger.error(f"Failed to send 'generating' message to chat_id={chat_id} for daily digest")
+            
         elif data == "digest_weekly":
             # Determine tracked_only based on telegram_digest_mode
             tracked_only = (user_prefs.telegram_digest_mode == 'tracked') if user_prefs.telegram_digest_mode else False
@@ -318,20 +328,25 @@ async def handle_digest_callback(chat_id: str, data: str, db: AsyncSession):
             
             task = generate_user_digest.delay(str(user_prefs.user_id), "weekly", tracked_only=tracked_only)
             mode_text = "tracked companies only" if tracked_only else "all news"
-            await telegram_service.send_digest(
+            message_sent = await telegram_service.send_digest(
                 chat_id,
                 f"📊 Weekly digest ({mode_text}) is generating...\n\n"
                 "Your personalized digest will be sent shortly!"
             )
+            if not message_sent:
+                logger.error(f"Failed to send 'generating' message to chat_id={chat_id} for weekly digest")
+            
         elif data == "settings_digest":
             await handle_digest_settings_menu(chat_id, db)
             
     except Exception as e:
-        logger.error(f"Error handling digest callback: {e}")
-        await telegram_service.send_digest(
+        logger.error(f"Error handling digest callback: {e}", exc_info=True)
+        message_sent = await telegram_service.send_digest(
             chat_id,
             "❌ Error generating digest. Please try again later."
         )
+        if not message_sent:
+            logger.error(f"Failed to send error message to chat_id={chat_id} after exception")
 
 
 async def handle_digest_settings_menu(chat_id: str, db: AsyncSession):
@@ -433,9 +448,11 @@ Use the web application to change settings.
 
 async def handle_digest_mode_change(chat_id: str, data: str, db: AsyncSession):
     """Handle digest mode change (all/tracked)"""
+    logger.info(f"handle_digest_mode_change called: chat_id={chat_id}, data={data}")
     try:
         # Normalize chat_id - remove whitespace
         chat_id_clean = chat_id.strip()
+        logger.debug(f"Normalized chat_id: '{chat_id_clean}'")
         
         # Expire all cached data to ensure we get fresh data from database
         db.expire_all()
@@ -491,19 +508,25 @@ async def handle_digest_mode_change(chat_id: str, data: str, db: AsyncSession):
         
         # Send confirmation and updated menu
         confirmation_text = f"✅ Setting changed to: **{'All News' if new_mode == 'all' else 'Tracked Only'}**"
-        await telegram_service.send_digest(chat_id_clean, confirmation_text)
+        confirmation_sent = await telegram_service.send_digest(chat_id_clean, confirmation_text)
+        if not confirmation_sent:
+            logger.error(f"Failed to send confirmation message to chat_id={chat_id_clean}")
         
         # Show updated settings menu
-        await telegram_service.send_digest_settings_menu(chat_id_clean, new_mode)
+        menu_sent = await telegram_service.send_digest_settings_menu(chat_id_clean, new_mode)
+        if not menu_sent:
+            logger.error(f"Failed to send settings menu to chat_id={chat_id_clean}")
         
         logger.info(f"Digest mode changed to {new_mode} for user {user_prefs.user_id} (chat_id: {chat_id_clean})")
         
     except Exception as e:
-        logger.error(f"Error handling digest mode change: {e}")
-        await telegram_service.send_digest(
+        logger.error(f"Error handling digest mode change: {e}", exc_info=True)
+        error_message_sent = await telegram_service.send_digest(
             chat_id,
             "❌ Error changing settings. Please try again later."
         )
+        if not error_message_sent:
+            logger.error(f"Failed to send error message to chat_id={chat_id} after exception")
 
 
 @router.get("/set-webhook")
