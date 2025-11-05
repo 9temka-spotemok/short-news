@@ -251,7 +251,7 @@ export class ApiService {
   }
   
   static async updateUser(userData: Partial<User>): Promise<User> {
-    const response = await api.patch<User>('/users/me', userData)
+    const response = await api.put<User>('/users/me', userData)
     return response.data
   }
   

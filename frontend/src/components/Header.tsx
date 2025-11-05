@@ -23,7 +23,7 @@ export default function Header() {
     { name: 'Dashboard', href: '/dashboard' },
     { name: 'News', href: '/news' },
     { name: 'Analytics', href: '/news-analytics' },
-    { name: 'Competitors', href: '/competitor-analysis' },
+    { name: 'Competitors analysis', href: '/competitor-analysis' },
   ]
 
   const isActive = (path: string) => location.pathname === path
@@ -143,12 +143,12 @@ export default function Header() {
                         Profile
                       </Link>
                       <Link
-                        to="/dashboard"
+                        to="/settings"
                         onClick={() => setIsDropdownOpen(false)}
                         className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                       >
                         <Settings className="h-4 w-4 mr-3 text-gray-400" />
-                        Dashboard
+                        Settings
                       </Link>
                       <div className="border-t border-gray-100 my-1"></div>
                       <button
@@ -254,15 +254,14 @@ export default function Header() {
                   <User className="h-4 w-4 mr-3 text-gray-400" />
                   Profile
                 </Link>
-                {/* <Link
+                <Link
                   to="/settings"
                   onClick={() => setIsMenuOpen(false)}
                   className="flex items-center px-3 py-2 text-gray-700 hover:text-primary-600 hover:bg-gray-50 rounded-md transition-colors"
                 >
                   <Settings className="h-4 w-4 mr-3 text-gray-400" />
                   Settings
-                </Link> */}
-                {/* TODO: Add settings link */}
+                </Link>
                 <button
                   onClick={handleLogout}
                   className="flex items-center w-full text-left px-3 py-2 text-red-600 hover:bg-red-50 rounded-md transition-colors mt-1"
