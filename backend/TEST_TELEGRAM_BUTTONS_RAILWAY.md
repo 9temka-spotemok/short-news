@@ -249,3 +249,4 @@ SELECT telegram_digest_mode FROM user_preferences WHERE telegram_chat_id = '1018
 - Скрипт создает уникальные `callback_id` на основе timestamp для избежания конфликтов
 
 
+
