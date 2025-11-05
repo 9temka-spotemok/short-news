@@ -2,11 +2,12 @@ import CompanyMultiSelect from '@/components/CompanyMultiSelect'
 import TrackedCompaniesManager from '@/components/TrackedCompaniesManager'
 import api, { ApiService } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
+import type { Company } from '@/types'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { formatDistance } from 'date-fns'
 import { enUS } from 'date-fns/locale'
-import { Bell, Calendar, Filter, Search, TrendingUp } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { Bell, Calendar, ChevronDown, ChevronUp, ExternalLink, Filter, Github, Globe, Search, TrendingUp, Twitter } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
  
 
@@ -82,6 +83,21 @@ export default function DashboardPage() {
     return saved ? JSON.parse(saved) : false
   })
 
+  // Companies list state
+  const [companies, setCompanies] = useState<Company[]>([])
+  const [companiesLoading, setCompaniesLoading] = useState(false)
+  const [companiesSearchQuery, setCompaniesSearchQuery] = useState('')
+  const [companiesTotal, setCompaniesTotal] = useState(0)
+  const [companiesOffset, setCompaniesOffset] = useState(0)
+  const companiesLimit = 20
+  const [expandedCompanies, setExpandedCompanies] = useState<Set<string>>(new Set())
+  
+  // Состояние для источников новостей компаний
+  const [companySources, setCompanySources] = useState<Record<string, {
+    sources: Array<{ url: string; type: string; count: number }>
+    loading: boolean
+  }>>({})
+
   // Save showTrackedOnly locally and persist telegram_digest_mode to backend
   const handleToggleTrackedOnly = async (value: boolean) => {
     setShowTrackedOnly(value)
@@ -125,7 +141,7 @@ export default function DashboardPage() {
     { id: 'overview', label: 'Overview' },
     // { id: 'news', label: 'News' },
     { id: 'digest', label: 'Digests' },
-    // { id: 'analytics', label: 'Analytics' },
+    { id: 'competitors', label: 'Competitors list' },
   ]
 
   const categoryLabels: Record<string, string> = {
@@ -208,6 +224,40 @@ export default function DashboardPage() {
       fetchFilteredNews()
     }
   }, [selectedCategory, selectedCompanies, activeTab])
+
+  const fetchCompanies = useCallback(async () => {
+    try {
+      setCompaniesLoading(true)
+      const response = await ApiService.getCompanies(
+        companiesSearchQuery || undefined,
+        companiesLimit,
+        companiesOffset
+      )
+      setCompanies(response.items)
+      setCompaniesTotal(response.total)
+    } catch (error) {
+      console.error('Failed to fetch companies:', error)
+    } finally {
+      setCompaniesLoading(false)
+    }
+  }, [companiesSearchQuery, companiesOffset, companiesLimit])
+
+  // Reset offset when search query changes (but only if search is not empty)
+  useEffect(() => {
+    if (activeTab === 'competitors') {
+      setCompaniesOffset(0)
+    }
+  }, [companiesSearchQuery, activeTab])
+
+  // Fetch companies when competitors tab is active or search/offset changes
+  useEffect(() => {
+    if (activeTab === 'competitors') {
+      const timer = setTimeout(() => {
+        fetchCompanies()
+      }, companiesSearchQuery ? 500 : 0) // Debounce only for search
+      return () => clearTimeout(timer)
+    }
+  }, [activeTab, companiesSearchQuery, companiesOffset, fetchCompanies])
 
   const fetchDashboardData = async () => {
     try {
@@ -353,6 +403,90 @@ export default function DashboardPage() {
     } finally {
       setDigestLoading(false)
     }
+  }
+
+  // Функция для загрузки источников новостей компании
+  const fetchCompanySources = useCallback(async (companyId: string) => {
+    // Проверяем, не загружаем ли уже или уже загружено
+    setCompanySources(prev => {
+      if (prev[companyId] && !prev[companyId].loading) {
+        return prev // Уже загружено
+      }
+      if (prev[companyId]?.loading) {
+        return prev // Уже загружается
+      }
+      
+      return {
+        ...prev,
+        [companyId]: { sources: [], loading: true }
+      }
+    })
+
+    try {
+      // Загружаем новости компании для получения источников
+      const response = await api.get('/news/', {
+        params: {
+          company_id: companyId,
+          limit: 100 // Достаточно для получения разнообразных источников
+        }
+      })
+
+      // Группируем по домену для получения уникальных источников
+      const sourcesMap = new Map<string, { type: string; count: number }>()
+      
+      response.data.items.forEach((item: any) => {
+        try {
+          const url = item.source_url
+          const domain = new URL(url).origin
+          
+          if (!sourcesMap.has(domain)) {
+            sourcesMap.set(domain, {
+              type: item.source_type || 'unknown',
+              count: 0
+            })
+          }
+          sourcesMap.get(domain)!.count++
+        } catch (e) {
+          // Пропускаем некорректные URL
+          console.warn('Invalid URL:', item.source_url)
+        }
+      })
+
+      const sources = Array.from(sourcesMap.entries())
+        .map(([url, data]) => ({
+          url,
+          type: data.type,
+          count: data.count
+        }))
+        .sort((a, b) => b.count - a.count) // Сортируем по количеству новостей
+
+      setCompanySources(prev => ({
+        ...prev,
+        [companyId]: { sources, loading: false }
+      }))
+    } catch (error) {
+      console.error('Failed to fetch company sources:', error)
+      setCompanySources(prev => ({
+        ...prev,
+        [companyId]: { sources: [], loading: false }
+      }))
+    }
+  }, [])
+
+  const toggleCompanyExpanded = (companyId: string) => {
+    setExpandedCompanies((prev) => {
+      const newSet = new Set(prev)
+      const isExpanded = newSet.has(companyId)
+      
+      if (isExpanded) {
+        newSet.delete(companyId)
+      } else {
+        newSet.add(companyId)
+        // Загружаем источники при разворачивании
+        fetchCompanySources(companyId)
+      }
+      return newSet
+    })
   }
 
   const formatDate = (dateString: string) => {
@@ -760,6 +894,243 @@ export default function DashboardPage() {
                   </div>
                 )}
               </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'competitors' && (
+          <div className="space-y-6">
+            {/* Search Bar */}
+            <div className="card p-6">
+              <div className="flex items-center space-x-4">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search companies by name..."
+                    value={companiesSearchQuery}
+                    onChange={(e) => setCompaniesSearchQuery(e.target.value)}
+                    className="input pl-10 w-full"
+                  />
+                </div>
+                {companiesSearchQuery && (
+                  <button
+                    onClick={() => {
+                      setCompaniesSearchQuery('')
+                      setCompaniesOffset(0)
+                    }}
+                    className="btn btn-outline btn-sm"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              {companiesTotal > 0 && (
+                <p className="text-sm text-gray-600 mt-2">
+                  Found {companiesTotal} {companiesTotal === 1 ? 'company' : 'companies'}
+                </p>
+              )}
+            </div>
+
+            {/* Companies List */}
+            {companiesLoading ? (
+              <div className="text-center py-12">
+                <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+                <p className="mt-4 text-gray-600">Loading companies...</p>
+              </div>
+            ) : companies.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-gray-600">
+                  {companiesSearchQuery ? 'No companies found matching your search' : 'No companies available'}
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="flex flex-col gap-4">
+                  {companies.map((company) => {
+                    const isExpanded = expandedCompanies.has(company.id)
+                    return (
+                      <div key={company.id} className="card p-6 hover:shadow-lg transition-shadow">
+                        <div className="flex items-start gap-4">
+                          {/* Logo */}
+                          <div className="flex-shrink-0">
+                            {company.logo_url ? (
+                              <img
+                                src={company.logo_url}
+                                alt={company.name}
+                                className="w-16 h-16 rounded-lg object-cover"
+                                onError={(e) => {
+                                  // Fallback to placeholder if image fails to load
+                                  e.currentTarget.style.display = 'none'
+                                }}
+                              />
+                            ) : (
+                              <div className="w-16 h-16 rounded-lg bg-gray-200 flex items-center justify-center">
+                                <Globe className="h-8 w-8 text-gray-400" />
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Company Info */}
+                          <div className="flex-1 min-w-0">
+                            {/* Header - always visible */}
+                            <div className="flex items-start justify-between gap-4 mb-2">
+                              <div className="flex-1 min-w-0">
+                                <h3 className="text-lg font-semibold text-gray-900">{company.name}</h3>
+                                {company.category && (
+                                  <span className="inline-block mt-1 text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded-full">
+                                    {company.category}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-3">
+                                {company.created_at && (
+                                  <p className="text-xs text-gray-500 whitespace-nowrap">
+                                    Added {formatDate(company.created_at)}
+                                  </p>
+                                )}
+                                {/* Expand/Collapse Button */}
+                                <button
+                                  onClick={() => toggleCompanyExpanded(company.id)}
+                                  className="flex-shrink-0 p-1 hover:bg-gray-100 rounded transition-colors"
+                                  aria-label={isExpanded ? 'Collapse' : 'Expand'}
+                                >
+                                  {isExpanded ? (
+                                    <ChevronUp className="h-5 w-5 text-gray-500" />
+                                  ) : (
+                                    <ChevronDown className="h-5 w-5 text-gray-500" />
+                                  )}
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Expanded content */}
+                            {isExpanded && (
+                              <div className="mt-3 space-y-3">
+                                {company.description && (
+                                  <p className="text-sm text-gray-600">{company.description}</p>
+                                )}
+
+                                {/* Website URL */}
+                                {company.website && (
+                                  <div>
+                                    <p className="text-xs font-medium text-gray-700 mb-1">Website:</p>
+                                    <a
+                                      href={company.website}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-sm text-primary-600 hover:text-primary-700 break-all inline-flex items-center gap-1"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      {company.website}
+                                      <ExternalLink className="h-3 w-3" />
+                                    </a>
+                                  </div>
+                                )}
+
+                                {/* News Sources */}
+                                <div>
+                                  <p className="text-xs font-medium text-gray-700 mb-2">Источники новостей:</p>
+                                  {companySources[company.id]?.loading ? (
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-4 h-4 border-2 border-primary-600 border-t-transparent rounded-full animate-spin"></div>
+                                      <span className="text-xs text-gray-500">Загрузка источников...</span>
+                                    </div>
+                                  ) : companySources[company.id]?.sources.length > 0 ? (
+                                    <div className="space-y-2">
+                                      {companySources[company.id].sources.map((source, idx) => (
+                                        <div key={idx} className="flex items-start justify-between gap-2 p-2 bg-gray-50 rounded text-sm">
+                                          <div className="flex-1 min-w-0">
+                                            <a
+                                              href={source.url}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="text-primary-600 hover:text-primary-700 break-all inline-flex items-center gap-1"
+                                              onClick={(e) => e.stopPropagation()}
+                                            >
+                                              {source.url}
+                                              <ExternalLink className="h-3 w-3" />
+                                            </a>
+                                            <span className="text-xs text-gray-500 ml-2 capitalize">
+                                              ({source.type})
+                                            </span>
+                                          </div>
+                                          <span className="text-xs text-gray-500 whitespace-nowrap">
+                                            {source.count} новостей
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : companySources[company.id]?.loading === false ? (
+                                    <p className="text-xs text-gray-500">Источники не найдены</p>
+                                  ) : null}
+                                </div>
+
+                                {/* Social Links */}
+                                {(company.twitter_handle || company.github_org) && (
+                                  <div className="pt-2 border-t border-gray-200">
+                                    <div className="flex flex-wrap items-center gap-3">
+                                      {company.twitter_handle && (
+                                        <a
+                                          href={`https://twitter.com/${company.twitter_handle}`}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="inline-flex items-center space-x-1 text-sm text-blue-600 hover:text-blue-700"
+                                          onClick={(e) => e.stopPropagation()}
+                                        >
+                                          <Twitter className="h-4 w-4" />
+                                          <span>Twitter</span>
+                                          <ExternalLink className="h-3 w-3" />
+                                        </a>
+                                      )}
+                                      {company.github_org && (
+                                        <a
+                                          href={`https://github.com/${company.github_org}`}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="inline-flex items-center space-x-1 text-sm text-gray-600 hover:text-gray-700"
+                                          onClick={(e) => e.stopPropagation()}
+                                        >
+                                          <Github className="h-4 w-4" />
+                                          <span>GitHub</span>
+                                          <ExternalLink className="h-3 w-3" />
+                                        </a>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {/* Pagination */}
+                {companiesTotal > companiesLimit && (
+                  <div className="flex items-center justify-between pt-4">
+                    <button
+                      onClick={() => setCompaniesOffset(Math.max(0, companiesOffset - companiesLimit))}
+                      disabled={companiesOffset === 0}
+                      className="btn btn-outline btn-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Previous
+                    </button>
+                    <span className="text-sm text-gray-600">
+                      Showing {companiesOffset + 1}-{Math.min(companiesOffset + companiesLimit, companiesTotal)} of {companiesTotal}
+                    </span>
+                    <button
+                      onClick={() => setCompaniesOffset(companiesOffset + companiesLimit)}
+                      disabled={companiesOffset + companiesLimit >= companiesTotal}
+                      className="btn btn-outline btn-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Next
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
