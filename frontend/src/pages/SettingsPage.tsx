@@ -1,9 +1,9 @@
-import { Bell, Filter, Shield, User, X, Search } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import api, { ApiService } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
-import { ApiService } from '@/services/api'
-import toast from 'react-hot-toast'
 import type { Company, NewsCategoryInfo } from '@/types'
+import { Bell, Filter, Search, Shield, User, X } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import toast from 'react-hot-toast'
 import { useNavigate } from 'react-router-dom'
 
 export default function SettingsPage() {
@@ -22,6 +22,11 @@ export default function SettingsPage() {
   const [interestedCategories, setInterestedCategories] = useState<string[]>([])
   const [keywords, setKeywords] = useState<string[]>([])
   const [notificationFrequency, setNotificationFrequency] = useState<'realtime' | 'daily' | 'weekly' | 'never'>('daily')
+
+  // Digest settings state
+  const [digestEnabled, setDigestEnabled] = useState(false)
+  const [digestFrequency, setDigestFrequency] = useState<'daily' | 'weekly'>('daily')
+  const [digestFormat, setDigestFormat] = useState<'short' | 'detailed'>('short')
 
   // Data for dropdowns
   const [allCompanies, setAllCompanies] = useState<Company[]>([])
@@ -66,6 +71,12 @@ export default function SettingsPage() {
       setInterestedCategories(preferences.interested_categories || [])
       setKeywords(preferences.keywords || [])
       setNotificationFrequency((preferences.notification_frequency as any) || 'daily')
+
+      // Load digest settings
+      setDigestEnabled(preferences.digest_enabled || false)
+      const freq = preferences.digest_frequency
+      setDigestFrequency((freq === 'custom' || (freq !== 'daily' && freq !== 'weekly')) ? 'daily' : (freq as 'daily' | 'weekly'))
+      setDigestFormat((preferences.digest_format as 'short' | 'detailed') || 'short')
 
       // Load companies
       const companiesResponse = await ApiService.getCompanies('', 200, 0)
@@ -120,9 +131,19 @@ export default function SettingsPage() {
   const handleSaveNotifications = async () => {
     try {
       setIsSaving(true)
+      
+      // Save notification frequency
       await ApiService.updateUserPreferences({
         notification_frequency: notificationFrequency,
       })
+      
+      // Save digest settings
+      await api.put('/users/preferences/digest', {
+        digest_enabled: digestEnabled,
+        digest_frequency: digestFrequency,
+        digest_format: digestFormat,
+      })
+      
       toast.success('Notification settings saved successfully')
     } catch (error: any) {
       console.error('Error saving notification settings:', error)
@@ -319,13 +340,118 @@ export default function SettingsPage() {
 
             {activeTab === 'notifications' && (
               <div className="space-y-6">
+                {/* Digest Settings */}
                 <div className="card p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                    Digest Settings
+                  </h3>
+                  
+                  {/* Enable/Disable Toggle */}
+                  <div className="flex items-center justify-between mb-6 pb-6 border-b border-gray-200">
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-900">
+                        Enable Digests
+                      </h4>
+                      <p className="text-sm text-gray-500 mt-1">
+                        Receive personalized news digests
+                      </p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={digestEnabled}
+                        onChange={(e) => setDigestEnabled(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                    </label>
+                  </div>
+
+                  {/* Frequency Selection */}
+                  {digestEnabled && (
+                    <>
+                      <div className="mb-6">
+                        <h4 className="text-sm font-medium text-gray-900 mb-3">
+                          Frequency
+                        </h4>
+                        <div className="grid grid-cols-2 gap-3">
+                          {[
+                            { value: 'daily', label: 'Daily' },
+                            { value: 'weekly', label: 'Weekly' },
+                          ].map((option) => (
+                            <label
+                              key={option.value}
+                              className={`flex items-center justify-center p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                                digestFrequency === option.value
+                                  ? 'border-primary-500 bg-primary-50 text-primary-700'
+                                  : 'border-gray-200 hover:border-gray-300'
+                              }`}
+                            >
+                              <input
+                                type="radio"
+                                name="digest-frequency"
+                                value={option.value}
+                                checked={digestFrequency === option.value}
+                                onChange={(e) => setDigestFrequency(e.target.value as 'daily' | 'weekly')}
+                                className="sr-only"
+                              />
+                              <span className="text-sm font-medium">{option.label}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Format Selection */}
+                      <div className="mb-6">
+                        <h4 className="text-sm font-medium text-gray-900 mb-3">
+                          Format
+                        </h4>
+                        <div className="grid grid-cols-2 gap-3">
+                          {[
+                            { value: 'short', label: 'Short', description: 'Headlines only' },
+                            { value: 'detailed', label: 'Detailed', description: 'Full summaries' },
+                          ].map((option) => (
+                            <label
+                              key={option.value}
+                              className={`flex flex-col p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                                digestFormat === option.value
+                                  ? 'border-primary-500 bg-primary-50 text-primary-700'
+                                  : 'border-gray-200 hover:border-gray-300'
+                              }`}
+                            >
+                              <input
+                                type="radio"
+                                name="digest-format"
+                                value={option.value}
+                                checked={digestFormat === option.value}
+                                onChange={(e) => setDigestFormat(e.target.value as 'short' | 'detailed')}
+                                className="sr-only"
+                              />
+                              <span className="text-sm font-medium mb-1">{option.label}</span>
+                              <span className="text-xs text-gray-600">{option.description}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  <button
+                    onClick={handleSaveNotifications}
+                    disabled={isSaving}
+                    className="btn btn-primary btn-md w-full"
+                  >
+                    {isSaving ? 'Saving...' : 'Save Changes'}
+                  </button>
+                </div>
+
+                {/* Notification Frequency */}
+                {/* <div className="card p-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">
                     Notification Frequency
                   </h3>
                   <div className="space-y-3">
                     {[
-                      { value: 'realtime', label: 'Real-time' },
                       { value: 'daily', label: 'Daily' },
                       { value: 'weekly', label: 'Weekly' },
                       { value: 'never', label: 'Never' },
@@ -352,8 +478,9 @@ export default function SettingsPage() {
                   >
                     {isSaving ? 'Saving...' : 'Save Changes'}
                   </button>
-                </div>
+                </div> */}
 
+                {/* Notification Types */}
                 <div className="card p-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">
                     Notification Types
@@ -374,25 +501,6 @@ export default function SettingsPage() {
                         disabled
                         className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
                       />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="text-sm font-medium text-gray-900">
-                          Daily Digests
-                        </h4>
-                        <p className="text-sm text-gray-500">
-                          Receive daily news digests
-                        </p>
-                      </div>
-                      <input
-                        type="checkbox"
-                        defaultChecked
-                        disabled
-                        className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                      />
-                      <p className="text-xs text-gray-500 ml-2">
-                        Configure in <a href="/digest-settings" className="text-primary-600 hover:underline">Digest Settings</a>
-                      </p>
                     </div>
                   </div>
                 </div>
