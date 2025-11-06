@@ -33,8 +33,10 @@ class UniversalBlogScraper:
         # Common blog/news URL patterns
         patterns = [
             f"{base_domain}/blog",
-            f"{base_domain}/news",
+            f"{base_domain}/blogs",  # Next.js sites often use /blogs
             f"{base_domain}/blog/",
+            f"{base_domain}/blogs/",  # Next.js sites often use /blogs/
+            f"{base_domain}/news",
             f"{base_domain}/news/",
             f"{base_domain}/insights",
             f"{base_domain}/updates",
@@ -126,7 +128,7 @@ class UniversalBlogScraper:
                         continue
                     
                     # Check if looks like an article URL
-                    article_patterns = ['/blog/', '/news/', '/post/', '/posts/', '/article/', '/articles/', '/update/', '/updates/', '/insight/', '/insights/', '/press/', '/press-release/']
+                    article_patterns = ['/blog/', '/blogs/', '/news/', '/post/', '/posts/', '/article/', '/articles/', '/update/', '/updates/', '/insight/', '/insights/', '/press/', '/press-release/']
                     if any(pattern in full_url.lower() for pattern in article_patterns):
                         found_links.add(full_url)
                         articles.append({
@@ -150,7 +152,7 @@ class UniversalBlogScraper:
                     full_url = urljoin(base_url, href)
                     
                     # Check if URL pattern matches article patterns
-                    article_patterns = ['/blog/', '/news/', '/post/', '/posts/', '/article/']
+                    article_patterns = ['/blog/', '/blogs/', '/news/', '/post/', '/posts/', '/article/']
                     if any(pattern in full_url.lower() for pattern in article_patterns):
                         # Skip duplicates and non-content files
                         if full_url in found_links:
@@ -174,22 +176,179 @@ class UniversalBlogScraper:
             except Exception as e:
                 logger.debug(f"Error in fallback article extraction: {e}")
         
+        # If no articles found with CSS selectors or fallback, try Next.js script parsing
+        if not articles:
+            logger.debug("No articles found with CSS selectors, trying Next.js script parsing")
+            nextjs_articles = self._extract_from_nextjs_scripts(soup, base_url)
+            if nextjs_articles:
+                articles.extend(nextjs_articles)
+        
+        return articles
+    
+    def _extract_from_nextjs_scripts(self, soup: BeautifulSoup, base_url: str) -> List[Dict[str, Any]]:
+        """
+        Extract article links from Next.js script tags containing JSON data
+        
+        Next.js stores page data in <script> tags with format:
+        self.__next_f.push([1, "JSON_DATA"])
+        
+        This method parses those scripts to extract article links and titles.
+        """
+        articles = []
+        found_links = set()
+        
+        try:
+            # Find all script tags
+            scripts = soup.find_all('script')
+            
+            for script in scripts:
+                script_text = script.string
+                if not script_text:
+                    continue
+                
+                # Method 1: Look for href patterns in Next.js JSON data
+                # Pattern: "href":"/blogs/article-slug" or href:"/blogs/article-slug"
+                href_pattern = r'["\']href["\']:\s*["\'](/blogs?/[^"\']+)["\']'
+                href_matches = re.finditer(href_pattern, script_text)
+                
+                for href_match in href_matches:
+                    href = href_match.group(1)
+                    full_url = urljoin(base_url, href)
+                    
+                    if full_url in found_links:
+                        continue
+                    
+                    # Skip non-article URLs
+                    if any(ext in full_url.lower() for ext in ['.jpg', '.jpeg', '.png', '.gif', '.pdf', '.zip', '.mp4', '.mp3', '.svg']):
+                        continue
+                    
+                    # Check domain
+                    base_domain = urlparse(base_url).netloc
+                    link_domain = urlparse(full_url).netloc
+                    if link_domain and base_domain not in link_domain:
+                        continue
+                    
+                    # Try to find title near this href
+                    # Look in a window around the href match
+                    start_pos = max(0, href_match.start() - 500)
+                    end_pos = min(len(script_text), href_match.end() + 2000)
+                    context = script_text[start_pos:end_pos]
+                    
+                    # Try multiple title patterns
+                    title = None
+                    
+                    # Pattern 1: Next.js format with children array
+                    # Look for patterns like: "children":["Title Text"] or ["$","...","...","...",["Title"]]
+                    title_patterns = [
+                        # Next.js format: ["$","...","...","...",["Title"]]
+                        r'["\']children["\']:\s*\[\[["\']\$["\'],[^,]+,[^,]+,[^,]+,\[["\']([^"\']{10,})["\']',
+                        # Simple format: "children":["Title Text"]
+                        r'["\']children["\']:\s*\[["\']([^"\']{10,})["\']',
+                        # Direct title: "title":"Title Text"
+                        r'["\']title["\']:\s*["\']([^"\']{10,})["\']',
+                        # CSS class based: "blogs_postTitle" or similar
+                        r'["\']blogs_postTitle[^}]*children["\']:\s*\[["\']([^"\']{10,})["\']',
+                        # Look for text near href that looks like a title
+                        r'href["\']:\s*["\']' + re.escape(href) + r'["\'][^}]{0,500}["\']([A-Z][^"\']{10,})["\']',
+                    ]
+                    
+                    for pattern in title_patterns:
+                        title_match = re.search(pattern, context, re.IGNORECASE)
+                        if title_match:
+                            title = title_match.group(1)
+                            # Clean up title (remove escape sequences)
+                            title = title.replace('\\n', ' ').replace('\\t', ' ').strip()
+                            if len(title) >= 10:
+                                break
+                    
+                    # If no title found, extract from URL slug
+                    if not title or len(title) < 10:
+                        slug = href.split('/')[-1]
+                        title = slug.replace('-', ' ').replace('_', ' ').title()
+                    
+                    if title and len(title) >= 10:
+                        found_links.add(full_url)
+                        articles.append({
+                            'url': full_url,
+                            'title': title[:500]
+                        })
+                
+                # Method 2: Look for Next.js data structure with article links
+                # Sometimes Next.js stores data in a different format
+                # Look for patterns like: "/blogs/article-slug" directly in script
+                if not articles:
+                    # More aggressive pattern: find any /blogs/ or /blog/ URLs in script
+                    url_pattern = r'["\'](/blogs?/[a-zA-Z0-9\-]+)["\']'
+                    url_matches = re.finditer(url_pattern, script_text)
+                    
+                    for url_match in url_matches:
+                        href = url_match.group(1)
+                        full_url = urljoin(base_url, href)
+                        
+                        if full_url in found_links:
+                            continue
+                        
+                        # Skip non-article URLs
+                        if any(ext in full_url.lower() for ext in ['.jpg', '.jpeg', '.png', '.gif', '.pdf']):
+                            continue
+                        
+                        # Check domain
+                        base_domain = urlparse(base_url).netloc
+                        link_domain = urlparse(full_url).netloc
+                        if link_domain and base_domain not in link_domain:
+                            continue
+                        
+                        # Extract title from slug
+                        slug = href.split('/')[-1]
+                        title = slug.replace('-', ' ').replace('_', ' ').title()
+                        
+                        if title and len(title) >= 10:
+                            found_links.add(full_url)
+                            articles.append({
+                                'url': full_url,
+                                'title': title[:500]
+                            })
+        
+        except Exception as e:
+            logger.debug(f"Error extracting from Next.js scripts: {e}")
+            return []
+        
+        if articles:
+            logger.info(f"Extracted {len(articles)} articles from Next.js scripts")
+        
         return articles
     
     async def scrape_company_blog(
         self, 
         company_name: str, 
-        website: str, 
+        website: str,
+        news_page_url: Optional[str] = None,
         max_articles: int = 10
     ) -> List[Dict[str, Any]]:
-        """Scrape blog/news from a company website"""
-        logger.info(f"Scraping blog for: {company_name}")
+        """
+        Scrape blog/news from a company website
+        
+        Args:
+            company_name: Name of the company
+            website: Company website URL
+            news_page_url: Optional manual URL for news/blog page (if auto-detection fails)
+            max_articles: Maximum number of articles to scrape
+        
+        Returns:
+            List of news items found
+        """
+        logger.info(f"Scraping blog for: {company_name}, news_page_url: {news_page_url}")
         
         news_items = []
         
         try:
-            # Try different blog URL patterns
-            blog_urls = self._detect_blog_url(website)
+            # If manual news page URL is provided, use it instead of auto-detection
+            if news_page_url:
+                blog_urls = [news_page_url]
+                logger.info(f"Using manual news page URL: {news_page_url}")
+            else:
+                # Try different blog URL patterns (auto-detection)
+                blog_urls = self._detect_blog_url(website)
             
             for blog_url in blog_urls:
                 try:

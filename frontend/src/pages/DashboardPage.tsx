@@ -1,3 +1,4 @@
+import AddCompetitorModal from '@/components/AddCompetitorModal'
 import CompanyMultiSelect from '@/components/CompanyMultiSelect'
 import TrackedCompaniesManager from '@/components/TrackedCompaniesManager'
 import api, { ApiService } from '@/services/api'
@@ -97,6 +98,9 @@ export default function DashboardPage() {
     sources: Array<{ url: string; type: string; count: number }>
     loading: boolean
   }>>({})
+
+  // Состояние для модального окна добавления конкурента
+  const [showAddModal, setShowAddModal] = useState(false)
 
   // Save showTrackedOnly locally and persist telegram_digest_mode to backend
   const handleToggleTrackedOnly = async (value: boolean) => {
@@ -902,6 +906,15 @@ export default function DashboardPage() {
           <div className="space-y-6">
             {/* Search Bar */}
             <div className="card p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Competitors</h3>
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  className="btn btn-primary btn-sm"
+                >
+                  + Add Competitor
+                </button>
+              </div>
               <div className="flex items-center space-x-4">
                 <div className="flex-1 relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -1387,6 +1400,18 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
+
+      {/* Add Competitor Modal */}
+      <AddCompetitorModal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onSuccess={() => {
+          // Обновить список компаний
+          fetchCompanies()
+          // Обновить дашборд
+          fetchDashboardData()
+        }}
+      />
     </div>
   )
 }

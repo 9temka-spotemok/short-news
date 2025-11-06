@@ -1,21 +1,25 @@
 import { useAuthStore } from '@/store/authStore'
 import type {
-    ApiResponse,
-    AuthResponse,
-    Company,
-    LoginRequest,
-    NewsCategoryInfo,
-    NewsFilter,
-    NewsItem,
-    NewsListResponse,
-    NewsSearchResponse,
-    NewsStats,
-    RefreshTokenRequest,
-    RefreshTokenResponse,
-    RegisterRequest,
-    SearchRequest,
-    SourceTypeInfo,
-    User
+  ApiResponse,
+  AuthResponse,
+  Company,
+  CompanyScanRequest,
+  CompanyScanResult,
+  CreateCompanyRequest,
+  CreateCompanyResponse,
+  LoginRequest,
+  NewsCategoryInfo,
+  NewsFilter,
+  NewsItem,
+  NewsListResponse,
+  NewsSearchResponse,
+  NewsStats,
+  RefreshTokenRequest,
+  RefreshTokenResponse,
+  RegisterRequest,
+  SearchRequest,
+  SourceTypeInfo,
+  User
 } from '@/types'
 import axios, { AxiosError, AxiosResponse } from 'axios'
 import toast from 'react-hot-toast'
@@ -447,6 +451,28 @@ export class ApiService {
     const response = await api.post('/competitors/compare', request)
     return response.data
   }
+
+  // Company scanning endpoints
+  static async scanCompany(request: CompanyScanRequest): Promise<CompanyScanResult> {
+    const response = await api.post<CompanyScanResult>('/companies/scan', request)
+    return response.data
+  }
+
+  static async createCompany(request: CreateCompanyRequest): Promise<CreateCompanyResponse> {
+    const response = await api.post<CreateCompanyResponse>('/companies/', request)
+    return response.data
+  }
+
+  // TODO: Add async scanning methods for large sites
+  // static async scanCompanyAsync(request: CompanyScanRequest): Promise<{ task_id: string }> {
+  //   const response = await api.post('/companies/scan/async', request)
+  //   return response.data
+  // }
+  //
+  // static async getScanStatus(taskId: string): Promise<ScanStatus> {
+  //   const response = await api.get(`/companies/scan/status/${taskId}`)
+  //   return response.data
+  // }
 
   // Health check
   static async healthCheck(): Promise<{

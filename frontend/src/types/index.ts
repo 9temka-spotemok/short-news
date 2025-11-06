@@ -333,3 +333,72 @@ export interface CompareRequest {
   date_to?: string
   name?: string
 }
+
+// Company scanning types
+export interface CompanyScanRequest {
+  website_url: string
+  news_page_url?: string
+}
+
+export interface CompanyScanResult {
+  company_preview: {
+    name: string
+    website: string
+    description?: string
+    logo_url?: string
+    category?: string
+  }
+  news_preview: {
+    total_found: number
+    categories: Record<string, number>
+    source_types: Record<string, number>
+    sample_items: Array<{
+      title: string
+      source_url: string
+      source_type: string
+      category: string
+      published_at: string
+    }>
+  }
+  all_news_items: Array<{
+    title: string
+    content?: string
+    summary?: string
+    source_url: string
+    source_type: string
+    category: string
+    published_at: string
+  }>
+}
+
+export interface CreateCompanyRequest {
+  company: {
+    name: string
+    website: string
+    description?: string
+    logo_url?: string
+    category?: string
+    twitter_handle?: string
+    github_org?: string
+  }
+  news_items: Array<{
+    title: string
+    content?: string
+    summary?: string
+    source_url: string
+    source_type: string
+    category: string
+    published_at: string
+  }>
+}
+
+export interface CreateCompanyResponse {
+  status: string
+  action: 'created' | 'updated'
+  company: Company
+  news_stats: {
+    saved: number
+    skipped: number
+    total: number
+  }
+}
