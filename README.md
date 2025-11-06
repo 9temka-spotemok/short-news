@@ -192,7 +192,7 @@ npm run test:e2e
 - [docs/QUICK_START.md](docs/QUICK_START.md) - Быстрый старт
 - [docs/FEATURES_GUIDE.md](docs/FEATURES_GUIDE.md) - Руководство по функциям
 - [docs/TELEGRAM_SETUP.md](docs/TELEGRAM_SETUP.md) - Настройка Telegram бота
-- [docs/SYSTEM_ANALYSIS.md](docs/SYSTEM_ANALYSIS.md) - Полный анализ системы ⭐
+- [docs/ANALYSIS/README.md](docs/ANALYSIS/README.md) - Полный анализ системы (разделен на части) ⭐
 - [docs/competitor-analysis.md](docs/competitor-analysis.md) - Анализ 123 конкурентов
 
 ### Структура файлов:
