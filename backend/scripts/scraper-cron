@@ -11,6 +11,3 @@
 0 2 * * 0 root find /var/log -name "scraper.log*" -mtime +7 -delete
 
 # Empty line at the end is required
-
-
-

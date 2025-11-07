@@ -207,8 +207,8 @@ class UniversalBlogScraper:
                     continue
                 
                 # Method 1: Look for href patterns in Next.js JSON data
-                # Pattern: "href":"/blogs/article-slug" or href:"/blogs/article-slug"
-                href_pattern = r'["\']href["\']:\s*["\'](/blogs?/[^"\']+)["\']'
+                # Pattern: "href":"/blogs/article-slug" with optional escaping
+                href_pattern = r'(?:\\?["\'])href(?:\\?["\']):\s*(?:\\?["\'])(/blogs?/[^"\'\\]+)(?:\\?["\'])'
                 href_matches = re.finditer(href_pattern, script_text)
                 
                 for href_match in href_matches:
@@ -237,31 +237,39 @@ class UniversalBlogScraper:
                     # Try multiple title patterns
                     title = None
                     
-                    # Pattern 1: Next.js format with children array
-                    # Look for patterns like: "children":["Title Text"] or ["$","...","...","...",["Title"]]
                     title_patterns = [
-                        # Next.js format: ["$","...","...","...",["Title"]]
-                        r'["\']children["\']:\s*\[\[["\']\$["\'],[^,]+,[^,]+,[^,]+,\[["\']([^"\']{10,})["\']',
-                        # Simple format: "children":["Title Text"]
-                        r'["\']children["\']:\s*\[["\']([^"\']{10,})["\']',
-                        # Direct title: "title":"Title Text"
-                        r'["\']title["\']:\s*["\']([^"\']{10,})["\']',
-                        # CSS class based: "blogs_postTitle" or similar
-                        r'["\']blogs_postTitle[^}]*children["\']:\s*\[["\']([^"\']{10,})["\']',
-                        # Look for text near href that looks like a title
-                        r'href["\']:\s*["\']' + re.escape(href) + r'["\'][^}]{0,500}["\']([A-Z][^"\']{10,})["\']',
+                        # Escaped JSON strings (\") with className hints first
+                        r'\\"className\\":\\"[^\\"]*(?:postTitle|articleTitle)[^\\"]*\\",\\"children\\":\\"((?:\\u[0-9a-fA-F]{4}|[^\\"\\]){10,})\\"',
+                        r'\\"title\\":\\"((?:\\u[0-9a-fA-F]{4}|[^\\"\\]){10,})\\"',
+                        r'\\"children\\":\\"((?:\\u[0-9a-fA-F]{4}|[^\\"\\]){10,})\\"',
+                        # Unescaped JSON strings
+                        r'"className":"[^"]*(?:postTitle|articleTitle)[^"]*","children":"((?:\\u[0-9a-fA-F]{4}|[^"\\]){10,})"',
+                        r'"title":"((?:\\u[0-9a-fA-F]{4}|[^"\\]){10,})"',
+                        r'"children":"((?:\\u[0-9a-fA-F]{4}|[^"\\]){10,})"',
                     ]
                     
                     for pattern in title_patterns:
                         title_match = re.search(pattern, context, re.IGNORECASE)
-                        if title_match:
-                            title = title_match.group(1)
-                            # Clean up title (remove escape sequences)
-                            title = title.replace('\\n', ' ').replace('\\t', ' ').strip()
-                            if len(title) >= 10:
-                                break
-                    
-                    # If no title found, extract from URL slug
+                        if not title_match:
+                            continue
+                        candidate = title_match.group(1)
+                        candidate = candidate.replace('\\n', ' ').replace('\\t', ' ').strip()
+                        try:
+                            candidate = bytes(candidate, 'utf-8').decode('unicode_escape')
+                        except Exception:
+                            pass
+                        try:
+                            candidate = candidate.encode('latin1').decode('utf-8')
+                        except Exception:
+                            pass
+                        if len(candidate) < 10:
+                            continue
+                        # Ensure we are capturing the article title, not a page-level title
+                        if 'postTitle' not in context and 'articleTitle' not in context:
+                            continue
+                        title = candidate
+                        break
+
                     if not title or len(title) < 10:
                         slug = href.split('/')[-1]
                         title = slug.replace('-', ' ').replace('_', ' ').title()
@@ -278,7 +286,7 @@ class UniversalBlogScraper:
                 # Look for patterns like: "/blogs/article-slug" directly in script
                 if not articles:
                     # More aggressive pattern: find any /blogs/ or /blog/ URLs in script
-                    url_pattern = r'["\'](/blogs?/[a-zA-Z0-9\-]+)["\']'
+                    url_pattern = r'(?:\\?["\'])(/blogs?/[a-zA-Z0-9\-]+)(?:\\?["\'])'
                     url_matches = re.finditer(url_pattern, script_text)
                     
                     for url_match in url_matches:

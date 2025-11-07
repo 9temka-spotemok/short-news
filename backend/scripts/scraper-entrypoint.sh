@@ -1,82 +1,82 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
-echo "🚀 Starting News Scraper Container..."
-echo "📅 Scheduled to run every hour"
+log_info() {
+    printf '[scraper][%s] %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$1"
+}
 
-# Function to wait for database
+log_error() {
+    printf '[scraper][%s][ERROR] %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$1" >&2
+}
+
 wait_for_database() {
-    echo "⏳ Waiting for database to be ready..."
+    log_info "Waiting for database to be ready"
     local max_attempts=30
     local attempt=1
-    
-    while [ $attempt -le $max_attempts ]; do
-        if python scripts/check_database.py 2>/dev/null; then
-            echo "✅ Database is ready!"
+
+    while [ "$attempt" -le "$max_attempts" ]; do
+        if python scripts/check_database.py >/dev/null 2>&1; then
+            log_info "Database is ready"
             return 0
         fi
-        
-        echo "Attempt $attempt/$max_attempts: Database not ready, waiting 10 seconds..."
+
+        log_info "Attempt ${attempt}/${max_attempts}: database not ready, retrying in 10s"
         sleep 10
         attempt=$((attempt + 1))
     done
-    
-    echo "❌ Database connection failed after $max_attempts attempts"
-    exit 1
+
+    log_error "Database connection failed after ${max_attempts} attempts"
+    return 1
 }
 
-# Function to run scraper
 run_scraper() {
-    echo "🔍 Running news scraper..."
-    cd /app
-    
-    # Run the scraper and capture output
+    log_info "Running scrape_all_companies"
     if python scripts/scrape_all_companies.py 2>&1 | tee -a /var/log/scraper.log; then
-        echo "✅ Scraping completed successfully"
-        echo "$(date): Scraping completed successfully" >> /var/log/scraper.log
+        log_info "Scraping completed successfully"
+        printf '%s Scraping completed successfully\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" >> /var/log/scraper.log
     else
-        echo "❌ Scraping failed"
-        echo "$(date): Scraping failed" >> /var/log/scraper.log
+        log_error "Scraping failed"
+        printf '%s Scraping failed\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" >> /var/log/scraper.log
     fi
 }
 
-# Function to run populate script
 run_populate() {
-    echo "📰 Running news population..."
-    cd /app
-    
+    log_info "Running populate_news"
     if python scripts/populate_news.py 2>&1 | tee -a /var/log/scraper.log; then
-        echo "✅ News population completed successfully"
-        echo "$(date): News population completed successfully" >> /var/log/scraper.log
+        log_info "News population completed successfully"
+        printf '%s News population completed successfully\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" >> /var/log/scraper.log
     else
-        echo "❌ News population failed"
-        echo "$(date): News population failed" >> /var/log/scraper.log
+        log_error "News population failed"
+        printf '%s News population failed\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" >> /var/log/scraper.log
     fi
 }
 
-# Main execution
+start_cron() {
+    log_info "Starting cron daemon"
+    service cron start
+}
+
+follow_logs() {
+    log_info "Container is running. Tail logs from /var/log/scraper.log"
+    touch /var/log/scraper.log
+    tail -F /var/log/scraper.log
+}
+
+shutdown() {
+    log_info "Stopping cron daemon"
+    service cron stop || true
+    exit 0
+}
+
+trap shutdown SIGTERM SIGINT
+
 main() {
-    # Wait for database
+    cd /app
     wait_for_database
-    
-    # Run initial scraping
-    echo "🎯 Running initial scraping..."
     run_scraper
     run_populate
-    
-    # Start cron daemon
-    echo "⏰ Starting cron daemon for scheduled scraping..."
-    service cron start
-    
-    # Keep container running and show logs
-    echo "📊 Container is running. Cron jobs will execute every hour."
-    echo "📋 Recent logs:"
-    tail -f /var/log/scraper.log
+    start_cron
+    follow_logs
 }
 
-# Handle signals
-trap 'echo "🛑 Received shutdown signal, stopping cron..."; service cron stop; exit 0' SIGTERM SIGINT
-
-# Run main function
-main
-
+main "$@"

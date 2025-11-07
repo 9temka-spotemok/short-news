@@ -1,0 +1,84 @@
+[1mdiff --git a/backend/app/scrapers/universal_scraper.py b/backend/app/scrapers/universal_scraper.py[m
+[1mindex 8e95c0c..1017593 100644[m
+[1m--- a/backend/app/scrapers/universal_scraper.py[m
+[1m+++ b/backend/app/scrapers/universal_scraper.py[m
+[36m@@ -207,8 +207,8 @@[m [mclass UniversalBlogScraper:[m
+                     continue[m
+                 [m
+                 # Method 1: Look for href patterns in Next.js JSON data[m
+[31m-                # Pattern: "href":"/blogs/article-slug" or href:"/blogs/article-slug"[m
+[31m-                href_pattern = r'["\']href["\']:\s*["\'](/blogs?/[^"\']+)["\']'[m
+[32m+[m[32m                # Pattern: "href":"/blogs/article-slug" with optional escaping[m
+[32m+[m[32m                href_pattern = r'(?:\\?["\'])href(?:\\?["\']):\s*(?:\\?["\'])(/blogs?/[^"\'\\]+)(?:\\?["\'])'[m
+                 href_matches = re.finditer(href_pattern, script_text)[m
+                 [m
+                 for href_match in href_matches:[m
+[36m@@ -237,31 +237,39 @@[m [mclass UniversalBlogScraper:[m
+                     # Try multiple title patterns[m
+                     title = None[m
+                     [m
+[31m-                    # Pattern 1: Next.js format with children array[m
+[31m-                    # Look for patterns like: "children":["Title Text"] or ["$","...","...","...",["Title"]][m
+                     title_patterns = [[m
+[31m-                        # Next.js format: ["$","...","...","...",["Title"]][m
+[31m-                        r'["\']children["\']:\s*\[\[["\']\$["\'],[^,]+,[^,]+,[^,]+,\[["\']([^"\']{10,})["\']',[m
+[31m-                        # Simple format: "children":["Title Text"][m
+[31m-                        r'["\']children["\']:\s*\[["\']([^"\']{10,})["\']',[m
+[31m-                        # Direct title: "title":"Title Text"[m
+[31m-                        r'["\']title["\']:\s*["\']([^"\']{10,})["\']',[m
+[31m-                        # CSS class based: "blogs_postTitle" or similar[m
+[31m-                        r'["\']blogs_postTitle[^}]*children["\']:\s*\[["\']([^"\']{10,})["\']',[m
+[31m-                        # Look for text near href that looks like a title[m
+[31m-                        r'href["\']:\s*["\']' + re.escape(href) + r'["\'][^}]{0,500}["\']([A-Z][^"\']{10,})["\']',[m
+[32m+[m[32m                        # Escaped JSON strings (\") with className hints first[m
+[32m+[m[32m                        r'\\"className\\":\\"[^\\"]*(?:postTitle|articleTitle)[^\\"]*\\",\\"children\\":\\"((?:\\u[0-9a-fA-F]{4}|[^\\"\\]){10,})\\"',[m
+[32m+[m[32m                        r'\\"title\\":\\"((?:\\u[0-9a-fA-F]{4}|[^\\"\\]){10,})\\"',[m
+[32m+[m[32m                        r'\\"children\\":\\"((?:\\u[0-9a-fA-F]{4}|[^\\"\\]){10,})\\"',[m
+[32m+[m[32m                        # Unescaped JSON strings[m
+[32m+[m[32m                        r'"className":"[^"]*(?:postTitle|articleTitle)[^"]*","children":"((?:\\u[0-9a-fA-F]{4}|[^"\\]){10,})"',[m
+[32m+[m[32m                        r'"title":"((?:\\u[0-9a-fA-F]{4}|[^"\\]){10,})"',[m
+[32m+[m[32m                        r'"children":"((?:\\u[0-9a-fA-F]{4}|[^"\\]){10,})"',[m
+                     ][m
+                     [m
+                     for pattern in title_patterns:[m
+                         title_match = re.search(pattern, context, re.IGNORECASE)[m
+[31m-                        if title_match:[m
+[31m-                            title = title_match.group(1)[m
+[31m-                            # Clean up title (remove escape sequences)[m
+[31m-                            title = title.replace('\\n', ' ').replace('\\t', ' ').strip()[m
+[31m-                            if len(title) >= 10:[m
+[31m-                                break[m
+[31m-                    [m
+[31m-                    # If no title found, extract from URL slug[m
+[32m+[m[32m                        if not title_match:[m
+[32m+[m[32m                            continue[m
+[32m+[m[32m                        candidate = title_match.group(1)[m
+[32m+[m[32m                        candidate = candidate.replace('\\n', ' ').replace('\\t', ' ').strip()[m
+[32m+[m[32m                        try:[m
+[32m+[m[32m                            candidate = bytes(candidate, 'utf-8').decode('unicode_escape')[m
+[32m+[m[32m                        except Exception:[m
+[32m+[m[32m                            pass[m
+[32m+[m[32m                        try:[m
+[32m+[m[32m                            candidate = candidate.encode('latin1').decode('utf-8')[m
+[32m+[m[32m                        except Exception:[m
+[32m+[m[32m                            pass[m
+[32m+[m[32m                        if len(candidate) < 10:[m
+[32m+[m[32m                            continue[m
+[32m+[m[32m                        # Ensure we are capturing the article title, not a page-level title[m
+[32m+[m[32m                        if 'postTitle' not in context and 'articleTitle' not in context:[m
+[32m+[m[32m                            continue[m
+[32m+[m[32m                        title = candidate[m
+[32m+[m[32m                        break[m
+[32m+[m
+                     if not title or len(title) < 10:[m
+                         slug = href.split('/')[-1][m
+                         title = slug.replace('-', ' ').replace('_', ' ').title()[m
+[36m@@ -278,7 +286,7 @@[m [mclass UniversalBlogScraper:[m
+                 # Look for patterns like: "/blogs/article-slug" directly in script[m
+                 if not articles:[m
+                     # More aggressive pattern: find any /blogs/ or /blog/ URLs in script[m
+[31m-                    url_pattern = r'["\'](/blogs?/[a-zA-Z0-9\-]+)["\']'[m
+[32m+[m[32m                    url_pattern = r'(?:\\?["\'])(/blogs?/[a-zA-Z0-9\-]+)(?:\\?["\'])'[m
+                     url_matches = re.finditer(url_pattern, script_text)[m
+                     [m
+                     for url_match in url_matches:[m
