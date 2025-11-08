@@ -6,7 +6,8 @@ from .base import Base, BaseModel
 from .user import User
 from .company import Company
 from .keyword import NewsKeyword
-from .news import NewsItem, NewsCategory, SourceType
+from .news import NewsItem, NewsCategory, SourceType, NewsTopic, SentimentLabel
+from .nlp import NewsNLPLog, NLPStage, NLPProvider
 from .preferences import UserPreferences, NotificationFrequency, DigestFrequency, DigestFormat
 from .activity import UserActivity, ActivityType
 from .scraper import ScraperState
@@ -22,6 +23,8 @@ __all__ = [
     "NewsItem",
     "NewsCategory",
     "SourceType",
+    "NewsTopic",
+    "SentimentLabel",
     "UserPreferences",
     "NotificationFrequency",
     "DigestFrequency",
@@ -34,4 +37,7 @@ __all__ = [
     "NotificationType",
     "NotificationPriority",
     "CompetitorComparison",
+    "NewsNLPLog",
+    "NLPStage",
+    "NLPProvider",
 ]

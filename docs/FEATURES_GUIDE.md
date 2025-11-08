@@ -200,8 +200,9 @@ Compare multiple companies side-by-side to understand competitive landscape.
 
 1. Navigate to **Competitor Analysis** page
 2. Select 2-5 companies to compare
-3. Choose date range (default: last 30 days)
-4. Click "Compare Companies"
+3. (Optional) Apply advanced filters (source types, topics, sentiment, min priority)
+4. Choose date range (default: last 30 days)
+5. Click "Compare Companies"
 
 ### Comparison Metrics
 
@@ -223,7 +224,22 @@ Higher score = More active and diverse company activity
 - Percentage distribution
 - Top 5 categories shown
 
-#### 4. Comparison Table
+#### 4. Topic Distribution (NEW)
+- Aggregated counts по темам NLP (`product`, `finance`, `technology` и т.д.)
+- Визуализируется прогресс-барами и процентами на карточке "Topic Distribution"
+- Помогает понять, какие темы доминируют в контенте конкурента
+
+#### 5. Sentiment Overview (NEW)
+- Раскладка тональности (`positive`, `neutral`, `negative`, `mixed`)
+- Цветовые индикаторы помогают быстро оценить эмоциональный фон новостей
+- Поддерживает фильтры по тональности
+
+#### 6. Average Priority Score (NEW)
+- Усреднённый `priority_score` (0–1) по отфильтрованным новостям
+- Карточка "Average Priority" показывает абсолютное значение и процентное соотношение
+- Полезно для выделения наиболее критичных обновлений
+
+#### 7. Comparison Table
 - Side-by-side comparison of all metrics
 - Easy to spot leaders and laggards
 
@@ -364,7 +380,11 @@ Authorization: Bearer {token}
   "company_ids": ["uuid1", "uuid2", "uuid3"],
   "date_from": "2025-01-01",
   "date_to": "2025-01-31",
-  "name": "Q1 2025 Comparison"
+  "name": "Q1 2025 Comparison",
+  "source_types": ["blog", "press_release"],
+  "topics": ["product", "technology"],
+  "sentiments": ["positive", "neutral"],
+  "min_priority": 0.6
 }
 ```
 
@@ -379,6 +399,16 @@ Authorization: Bearer {token}
 GET /api/v1/competitors/comparisons/{comparison_id}
 Authorization: Bearer {token}
 ```
+
+**Response поля (ключевые):**
+
+- `metrics.news_volume[company_id]` — количество новостей
+- `metrics.category_distribution[company_id]` — распределение по категориям
+- `metrics.topic_distribution[company_id]` — распределение по темам (если доступны данные NLP)
+- `metrics.sentiment_distribution[company_id]` — распределение по тональности
+- `metrics.avg_priority[company_id]` — средний `priority_score`
+- `metrics.top_news[company_id]` — расширенный список топ-новостей (включая `topic`, `sentiment`, `source_type`, `priority_score`)
+- `filters` — возвращает применённые фильтры для последующей визуализации в UI
 
 #### Get Company Activity
 ```bash

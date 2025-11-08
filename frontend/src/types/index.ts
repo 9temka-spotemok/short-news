@@ -93,6 +93,21 @@ export type SourceType =
   | 'news_site'
   | 'press_release'
 
+export type NewsTopic =
+  | 'product'
+  | 'strategy'
+  | 'finance'
+  | 'technology'
+  | 'security'
+  | 'research'
+  | 'community'
+  | 'talent'
+  | 'regulation'
+  | 'market'
+  | 'other'
+
+export type SentimentLabel = 'positive' | 'neutral' | 'negative' | 'mixed'
+
 export interface NewsCategoryInfo {
   value: NewsCategory
   description: string
@@ -120,6 +135,9 @@ export interface NewsItem {
   source_type: SourceType
   company_id: string | null
   category: NewsCategory | null
+  topic?: NewsTopic | null
+  sentiment?: SentimentLabel | null
+  raw_snapshot_url?: string | null
   priority_score: number
   priority_level: 'High' | 'Medium' | 'Low'
   published_at: string
@@ -325,6 +343,9 @@ export interface ComparisonMetrics {
   activity_score: Record<string, number>
   daily_activity?: Record<string, Record<string, number>>
   top_news?: Record<string, NewsItem[]>
+  topic_distribution?: Record<string, Record<string, number>>
+  sentiment_distribution?: Record<string, Record<string, number>>
+  avg_priority?: Record<string, number>
 }
 
 export interface CompareRequest {
@@ -332,12 +353,17 @@ export interface CompareRequest {
   date_from?: string
   date_to?: string
   name?: string
+  topics?: NewsTopic[]
+  sentiments?: SentimentLabel[]
+  source_types?: SourceType[]
+  min_priority?: number
 }
 
 // Company scanning types
 export interface CompanyScanRequest {
   website_url: string
   news_page_url?: string
+  sources?: ScraperSourceOverride[]
 }
 
 export interface CompanyScanResult {
@@ -357,6 +383,9 @@ export interface CompanyScanResult {
       source_url: string
       source_type: string
       category: string
+      topic?: string | null
+      sentiment?: string | null
+      raw_snapshot_url?: string | null
       published_at: string
     }>
   }
@@ -367,8 +396,33 @@ export interface CompanyScanResult {
     source_url: string
     source_type: string
     category: string
+    topic?: string | null
+    sentiment?: string | null
+    raw_snapshot_url?: string | null
+    priority_score?: number
     published_at: string
   }>
+}
+
+export interface ScraperSourceOverride {
+  id?: string
+  url?: string
+  urls?: string[]
+  source_type?: string
+  timeout?: number
+  retry?: {
+    attempts?: number
+    backoff_factor?: number
+  }
+  rate_limit?: {
+    requests?: number
+    interval?: number
+  }
+  min_delay?: number
+  use_headless?: boolean
+  use_proxy?: boolean
+  max_articles?: number
+  selectors?: string[]
 }
 
 export interface CreateCompanyRequest {
@@ -388,6 +442,10 @@ export interface CreateCompanyRequest {
     source_url: string
     source_type: string
     category: string
+    topic?: string | null
+    sentiment?: string | null
+    raw_snapshot_url?: string | null
+    priority_score?: number
     published_at: string
   }>
 }

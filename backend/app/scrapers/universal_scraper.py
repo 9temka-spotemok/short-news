@@ -1,4 +1,509 @@
 """
+Universal scraper for company blogs and news pages with configurable sources,
+retry policies, rate limiting, and SPA fallbacks.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import hashlib
+import re
+from collections import OrderedDict
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
+from urllib.parse import urljoin, urlparse
+
+import httpx
+from bs4 import BeautifulSoup
+from loguru import logger
+
+from app.core.config import settings
+from app.models.news import NewsCategory
+from app.scrapers.config_loader import ScraperConfigRegistry, SourceConfig
+from app.scrapers.headless import fetch_page_with_headless
+from app.scrapers.rate_limiter import RateLimiter
+
+
+DEFAULT_ARTICLE_SELECTORS: Tuple[str, ...] = (
+    "article a",
+    "article h2 a",
+    "article h3 a",
+    "div.post a",
+    "div.blog-post a",
+    "div.news-item a",
+    "div.card a",
+    "div.entry a",
+    "li.post a",
+    "li.article a",
+    "h2 a",
+    "h3 a",
+    "h4 a",
+    'a[href*="/blog/"]',
+    'a[href*="/news/"]',
+    'a[href*="/post/"]',
+    'a[href*="/article/"]',
+    'a[href*="/posts/"]',
+    ".article-link",
+    ".post-link",
+    ".news-link",
+    ".entry-title a",
+    ".post-title a",
+    '[class*="post"] a',
+    '[class*="article"] a',
+    '[class*="blog"] a',
+    '[class*="news"] a',
+)
+
+
+class NeedsHeadless(RuntimeError):
+    """Raised when a request is blocked and should be retried via headless browser."""
+
+
+class UniversalBlogScraper:
+    """Universal scraper that can scrape blogs from any company."""
+
+    def __init__(
+        self,
+        config_registry: Optional[ScraperConfigRegistry] = None,
+        rate_limiter: Optional[RateLimiter] = None,
+    ):
+        self.session = httpx.AsyncClient(
+            headers={"User-Agent": settings.SCRAPER_USER_AGENT},
+            timeout=settings.SCRAPER_TIMEOUT,
+            follow_redirects=True,
+        )
+        self.config_registry = config_registry or ScraperConfigRegistry()
+        self.rate_limiter = rate_limiter or RateLimiter()
+
+    @staticmethod
+    def detect_blog_urls(website: str) -> List[str]:
+        """
+        Detect possible blog/news URLs from company website.
+        """
+        parsed = urlparse(website)
+        if not parsed.scheme or not parsed.netloc:
+            return []
+        base_domain = f"{parsed.scheme}://{parsed.netloc}".rstrip("/")
+        patterns = [
+            f"{base_domain}/blog",
+            f"{base_domain}/blogs",
+            f"{base_domain}/blog/",
+            f"{base_domain}/blogs/",
+            f"{base_domain}/news",
+            f"{base_domain}/news/",
+            f"{base_domain}/insights",
+            f"{base_domain}/updates",
+            f"{base_domain}/press",
+            f"{base_domain}/newsroom",
+            f"{base_domain}/press-releases",
+            f"{base_domain}/company/blog",
+            f"{base_domain}/company/news",
+            f"{base_domain}/resources/blog",
+            f"{base_domain}/hub/blog",
+        ]
+        return patterns
+
+    async def scrape_company_blog(
+        self,
+        company_name: str,
+        website: str,
+        news_page_url: Optional[str] = None,
+        max_articles: int = 10,
+        source_overrides: Optional[List[Dict[str, Any]]] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Scrape blog/news from a company website.
+        """
+        logger.info(
+            "Scraping blog for %s (news_page_url=%s, overrides=%s)",
+            company_name,
+            news_page_url,
+            bool(source_overrides),
+        )
+
+        news_items: List[Dict[str, Any]] = []
+        seen_urls: Set[str] = set()
+
+        source_configs = self.config_registry.get_sources(
+            company_name=company_name,
+            website=website,
+            manual_url=news_page_url,
+            overrides=source_overrides,
+        )
+
+        if not source_configs:
+            logger.warning("No source configurations found for %s", company_name)
+            return []
+
+        for source_config in source_configs:
+            per_source_limit = source_config.max_articles or max_articles
+            logger.info(
+                "Scraping source %s for %s with %d max articles",
+                source_config.id,
+                company_name,
+                per_source_limit,
+            )
+            try:
+                source_items = await self._scrape_source(
+                    company_name=company_name,
+                    source_config=source_config,
+                    max_articles=per_source_limit,
+                    seen_urls=seen_urls,
+                )
+                news_items.extend(source_items)
+            except Exception as exc:
+                logger.warning(
+                    "Failed to scrape source %s for %s: %s",
+                    source_config.id,
+                    company_name,
+                    exc,
+                )
+
+        if news_items:
+            logger.info("Successfully scraped %d items from %s", len(news_items), company_name)
+        else:
+            logger.warning("No articles found for %s", company_name)
+
+        return news_items
+
+    async def scrape_multiple_companies(
+        self,
+        companies: List[Dict[str, str]],
+        max_articles_per_company: int = 5,
+        source_override_map: Optional[Dict[str, List[Dict[str, Any]]]] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Scrape blogs from multiple companies.
+        """
+        logger.info("Scraping blogs from %d companies...", len(companies))
+
+        all_news: List[Dict[str, Any]] = []
+
+        for company in companies:
+            company_name = company.get("name")
+            website = company.get("website")
+
+            if not company_name or not website:
+                continue
+
+            overrides = None
+            if source_override_map:
+                overrides = source_override_map.get(company_name) or source_override_map.get(
+                    company_name.lower()
+                )
+
+            news = await self.scrape_company_blog(
+                company_name=company_name,
+                website=website,
+                max_articles=max_articles_per_company,
+                source_overrides=overrides,
+            )
+            all_news.extend(news)
+
+        logger.info(
+            "Total scraped: %d news items from %d companies", len(all_news), len(companies)
+        )
+        return all_news
+
+    async def close(self) -> None:
+        """Close HTTP session."""
+        await self.session.aclose()
+
+    async def _scrape_source(
+        self,
+        company_name: str,
+        source_config: SourceConfig,
+        max_articles: int,
+        seen_urls: Set[str],
+    ) -> List[Dict[str, Any]]:
+        items: List[Dict[str, Any]] = []
+
+        for raw_url in source_config.urls:
+            url = str(raw_url)
+            html, final_url = await self._fetch_with_retry(url, source_config)
+            if not html:
+                continue
+
+            snapshot_path = self._persist_snapshot(company_name, source_config.id, final_url, html)
+            soup = BeautifulSoup(html, "html.parser")
+            selectors = source_config.selectors or DEFAULT_ARTICLE_SELECTORS
+            articles = self._extract_articles(soup, final_url, selectors)
+
+            if not articles:
+                logger.debug(
+                    "No articles found for %s at %s (source %s)",
+                    company_name,
+                    final_url,
+                    source_config.id,
+                )
+                continue
+
+            logger.info(
+                "Found %d articles for %s at %s (source %s)",
+                len(articles),
+                company_name,
+                final_url,
+                source_config.id,
+            )
+
+            for idx, article in enumerate(articles):
+                if article["url"] in seen_urls:
+                    continue
+                seen_urls.add(article["url"])
+
+                inferred_category = self._infer_category(article["title"])
+                published_at = datetime.now() - timedelta(days=idx)
+                items.append(
+                    {
+                        "title": article["title"],
+                        "content": f"Article from {company_name}: {article['title']}",
+                        "summary": article["title"][:200],
+                        "source_url": article["url"],
+                        "source_type": source_config.source_type,
+                        "company_name": company_name,
+                        "category": inferred_category or NewsCategory.PRODUCT_UPDATE.value,
+                        "topic": None,
+                        "sentiment": None,
+                        "priority_score": 0.5,
+                        "raw_snapshot_url": snapshot_path,
+                        "published_at": published_at,
+                    }
+                )
+
+                if len(items) >= max_articles:
+                    break
+
+            if len(items) >= max_articles:
+                break
+
+        return items
+
+    async def _fetch_with_retry(
+        self,
+        url: str,
+        source_config: SourceConfig,
+    ) -> Tuple[Optional[str], str]:
+        attempts = max(1, source_config.retry.attempts + 1)
+        timeout = source_config.timeout or settings.SCRAPER_TIMEOUT
+        proxy = settings.SCRAPER_PROXY_URL if source_config.use_proxy and settings.SCRAPER_PROXY_URL else None
+        parsed = urlparse(url)
+        host_key = parsed.netloc or url
+
+        for attempt in range(attempts):
+            try:
+                await self.rate_limiter.throttle(
+                    key=host_key,
+                    max_requests=source_config.rate_limit.requests,
+                    period=source_config.rate_limit.interval,
+                )
+                response = await self.session.get(url, timeout=timeout, proxies=proxy)
+                if self._requires_headless(response):
+                    raise NeedsHeadless(f"Blocked by edge protection ({response.status_code})")
+                response.raise_for_status()
+
+                if source_config.min_delay:
+                    await asyncio.sleep(source_config.min_delay)
+
+                return response.text, str(response.url)
+            except NeedsHeadless as exc:
+                logger.warning("Headless fetch required for %s: %s", url, exc)
+                if self._can_use_headless(source_config):
+                    html = await fetch_page_with_headless(url, timeout)
+                    if html:
+                        return html, url
+                break
+            except (httpx.TimeoutException, httpx.HTTPError) as exc:
+                logger.debug("Attempt %d failed for %s: %s", attempt + 1, url, exc)
+                if attempt + 1 < attempts:
+                    backoff = (source_config.retry.backoff_factor) ** attempt
+                    await asyncio.sleep(min(10, backoff))
+                else:
+                    logger.warning("Gave up fetching %s after %d attempts", url, attempts)
+                    break
+
+        return None, url
+
+    def _extract_articles(
+        self,
+        soup: BeautifulSoup,
+        base_url: str,
+        selectors: Iterable[str],
+    ) -> List[Dict[str, str]]:
+        articles: "OrderedDict[str, str]" = OrderedDict()
+
+        for selector in selectors:
+            try:
+                elements = soup.select(selector)
+            except Exception:
+                continue
+
+            for element in elements:
+                href = element.get("href", "")
+                if not href:
+                    continue
+
+                title = element.get_text(strip=True)
+                if not title or len(title) < 6:
+                    parent = element.parent
+                    if parent:
+                        title = parent.get_text(strip=True)[:500]
+                    if not title or len(title) < 6:
+                        continue
+
+                full_url = urljoin(base_url, href)
+                if not self._looks_like_article(full_url, base_url):
+                    continue
+
+                if full_url not in articles:
+                    articles[full_url] = title[:500]
+
+        if not articles:
+            nextjs_articles = self._extract_from_nextjs_scripts(soup, base_url)
+            for url_value, title_value in nextjs_articles:
+                if url_value not in articles:
+                    articles[url_value] = title_value
+
+        return [{"url": url_value, "title": title_value} for url_value, title_value in articles.items()]
+
+    def _extract_from_nextjs_scripts(self, soup: BeautifulSoup, base_url: str) -> List[Tuple[str, str]]:
+        found: Dict[str, str] = {}
+
+        scripts = soup.find_all("script")
+        for script in scripts:
+            script_text = script.string
+            if not script_text:
+                continue
+
+            href_pattern = r'(?:\\?["\'])href(?:\\?["\']):\s*(?:\\?["\'])(/blogs?/[^\\"\'\s]+)(?:\\?["\'])'
+            for href_match in re.finditer(href_pattern, script_text):
+                href = href_match.group(1)
+                full_url = urljoin(base_url, href)
+                if not self._looks_like_article(full_url, base_url):
+                    continue
+
+                title = self._find_title_near_match(script_text, href_match)
+                if title:
+                    found.setdefault(full_url, title)
+
+        return list(found.items())
+
+    def _find_title_near_match(self, script_text: str, match: re.Match) -> Optional[str]:
+        start_pos = max(0, match.start() - 500)
+        end_pos = min(len(script_text), match.end() + 2000)
+        context = script_text[start_pos:end_pos]
+
+        title_patterns = [
+            r'"title":"((?:\\u[0-9a-fA-F]{4}|[^"\\]){6,})"',
+            r'"children":"((?:\\u[0-9a-fA-F]{4}|[^"\\]){6,})"',
+        ]
+
+        for pattern in title_patterns:
+            title_match = re.search(pattern, context, re.IGNORECASE)
+            if not title_match:
+                continue
+            candidate = title_match.group(1)
+            candidate = candidate.replace("\\n", " ").replace("\\t", " ").strip()
+            try:
+                candidate = bytes(candidate, "utf-8").decode("unicode_escape")
+            except Exception:
+                pass
+            if len(candidate) >= 6:
+                return candidate[:500]
+
+        slug = match.group(1).split("/")[-1]
+        if slug:
+            return slug.replace("-", " ").replace("_", " ").title()[:500]
+        return None
+
+    def _persist_snapshot(
+        self,
+        company_name: str,
+        source_id: str,
+        url: str,
+        html: str,
+    ) -> Optional[str]:
+        if not settings.SCRAPER_SNAPSHOTS_ENABLED:
+            return None
+
+        snapshot_dir = Path(settings.SCRAPER_SNAPSHOT_DIR)
+        slug = self._slugify(company_name)
+        digest_input = f"{url}|{html}".encode("utf-8")
+        digest = hashlib.sha256(digest_input).hexdigest()
+        path = snapshot_dir / slug / f"{source_id}_{digest}.html"
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            if not path.exists():
+                path.write_text(html, encoding="utf-8")
+            return str(path.resolve())
+        except Exception as exc:
+            logger.warning("Failed to persist snapshot for %s: %s", url, exc)
+            return None
+
+    def _infer_category(self, title: str) -> Optional[str]:
+        lower = title.lower()
+        mapping = [
+            (("price", "pricing", "plan", "billing"), NewsCategory.PRICING_CHANGE.value),
+            (("funding", "seed", "series a", "series b", "investment"), NewsCategory.FUNDING_NEWS.value),
+            (("release", "launched", "launch", "introducing"), NewsCategory.PRODUCT_UPDATE.value),
+            (("security", "vulnerability", "patch", "cve"), NewsCategory.SECURITY_UPDATE.value),
+            (("api", "sdk"), NewsCategory.API_UPDATE.value),
+            (("integration", "integrates with"), NewsCategory.INTEGRATION.value),
+            (("deprecated", "deprecation", "sunset"), NewsCategory.FEATURE_DEPRECATION.value),
+            (("acquires", "acquisition", "merger"), NewsCategory.ACQUISITION.value),
+            (("partner", "partnership"), NewsCategory.PARTNERSHIP.value),
+            (("model", "gpt", "llama"), NewsCategory.MODEL_RELEASE.value),
+            (("performance", "faster", "improvement"), NewsCategory.PERFORMANCE_IMPROVEMENT.value),
+            (("paper", "arxiv", "research"), NewsCategory.RESEARCH_PAPER.value),
+            (("webinar", "event", "conference", "meetup"), NewsCategory.COMMUNITY_EVENT.value),
+            (("strategy", "vision", "roadmap"), NewsCategory.STRATEGIC_ANNOUNCEMENT.value),
+            (("technical", "architecture", "infra", "infrastructure"), NewsCategory.TECHNICAL_UPDATE.value),
+        ]
+        for keywords, category in mapping:
+            if any(keyword in lower for keyword in keywords):
+                return category
+        return None
+
+    def _looks_like_article(self, full_url: str, base_url: str) -> bool:
+        if any(ext in full_url.lower() for ext in [".jpg", ".jpeg", ".png", ".gif", ".pdf", ".zip", ".mp4", ".mp3", ".svg"]):
+            return False
+        base_domain = urlparse(base_url).netloc
+        link_domain = urlparse(full_url).netloc
+        if link_domain and base_domain not in link_domain:
+            return False
+        article_patterns = (
+            "/blog/",
+            "/blogs/",
+            "/news/",
+            "/post/",
+            "/posts/",
+            "/article/",
+            "/articles/",
+            "/update/",
+            "/updates/",
+            "/insight/",
+            "/insights/",
+            "/press/",
+            "/press-release/",
+        )
+        return any(pattern in full_url.lower() for pattern in article_patterns)
+
+    def _requires_headless(self, response: httpx.Response) -> bool:
+        if response.status_code in (403, 503):
+            return True
+        text = response.text[:2000]
+        if "Just a moment..." in text or "cf-browser-verification" in text.lower():
+            return True
+        return False
+
+    def _can_use_headless(self, source_config: SourceConfig) -> bool:
+        return source_config.use_headless or settings.SCRAPER_HEADLESS_ENABLED
+
+    @staticmethod
+    def _slugify(value: str) -> str:
+        return re.sub(r"[^a-zA-Z0-9\-]+", "-", value.lower()).strip("-")
+
+"""
 Universal scraper for company blogs and news pages
 """
 
@@ -449,6 +954,10 @@ class UniversalBlogScraper:
                             'source_type': source_type,
                             'company_name': company_name,
                             'category': inferred_category or NewsCategory.PRODUCT_UPDATE.value,
+                            'topic': None,
+                            'sentiment': None,
+                            'priority_score': 0.5,
+                            'raw_snapshot_url': None,
                             'published_at': datetime.now() - timedelta(days=idx),
                         })
                     

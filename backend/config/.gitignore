@@ -1,0 +1,4 @@
+# Custom scraper configuration files are deployment-specific.
+*
+!.gitignore
+

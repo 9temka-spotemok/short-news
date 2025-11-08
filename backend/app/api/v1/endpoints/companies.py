@@ -12,7 +12,13 @@ from datetime import datetime
 
 from app.core.database import get_db
 from app.models.company import Company
-from app.models.news import NewsItem, NewsCategory, SourceType
+from app.models.news import (
+    NewsItem,
+    NewsCategory,
+    SourceType,
+    NewsTopic,
+    SentimentLabel,
+)
 from app.scrapers.universal_scraper import UniversalBlogScraper
 from app.services.company_info_extractor import extract_company_info
 from app.api.dependencies import get_current_user
@@ -186,11 +192,13 @@ async def scan_company(
         
         # Scrape news with optional manual news page URL
         logger.info(f"Scraping news for {company_name}, news_page_url: {news_page_url}")
+        source_overrides = request.get("sources")
         news_items = await scraper.scrape_company_blog(
             company_name=company_name,
             website=website_url,
             news_page_url=news_page_url,
-            max_articles=50  # Limit for quick preview
+            max_articles=50,  # Limit for quick preview
+            source_overrides=source_overrides if isinstance(source_overrides, list) else None,
         )
         
         # Analyze results
@@ -324,6 +332,29 @@ async def create_company(
                 elif not isinstance(published_at, datetime):
                     published_at = datetime.now()
                 
+                priority_score = news_data.get("priority_score", 0.5)
+                try:
+                    priority_score = float(priority_score)
+                except (TypeError, ValueError):
+                    logger.warning(f"Invalid priority_score '{priority_score}' for {news_data.get('source_url')}, defaulting to 0.5")
+                    priority_score = 0.5
+
+                topic_value = news_data.get("topic")
+                topic = None
+                if topic_value:
+                    try:
+                        topic = NewsTopic(topic_value)
+                    except ValueError:
+                        logger.warning(f"Unknown topic '{topic_value}' for {news_data.get('source_url')}")
+
+                sentiment_value = news_data.get("sentiment")
+                sentiment = None
+                if sentiment_value:
+                    try:
+                        sentiment = SentimentLabel(sentiment_value)
+                    except ValueError:
+                        logger.warning(f"Unknown sentiment '{sentiment_value}' for {news_data.get('source_url')}")
+
                 news_item = NewsItem(
                     title=news_data.get("title", "Untitled"),
                     content=news_data.get("content"),
@@ -332,7 +363,11 @@ async def create_company(
                     source_type=SourceType(news_data.get("source_type", "blog")),
                     category=NewsCategory(news_data.get("category", "product_update")) if news_data.get("category") else None,
                     company_id=company.id,
-                    published_at=published_at
+                    published_at=published_at,
+                    priority_score=priority_score,
+                    topic=topic,
+                    sentiment=sentiment,
+                    raw_snapshot_url=news_data.get("raw_snapshot_url")
                 )
                 db.add(news_item)
                 saved_count += 1

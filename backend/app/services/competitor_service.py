@@ -4,13 +4,15 @@ Competitor analysis service
 
 from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Any, Optional
-from sqlalchemy.ext.asyncio import AsyncSession
+
 from sqlalchemy import select, and_, func, desc
+
+from sqlalchemy.ext.asyncio import AsyncSession
 from loguru import logger
 import uuid
 import math
 
-from app.models import NewsItem, Company, CompetitorComparison
+from app.models import NewsItem, Company, CompetitorComparison, NewsTopic, SentimentLabel, SourceType
 
 
 class CompetitorAnalysisService:
@@ -25,7 +27,8 @@ class CompetitorAnalysisService:
         date_from: datetime,
         date_to: datetime,
         user_id: Optional[str] = None,  # Пока не используется
-        comparison_name: Optional[str] = None  # Пока не используется
+        comparison_name: Optional[str] = None,  # Пока не используется
+        filters: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """
         Compare multiple companies
@@ -49,7 +52,10 @@ class CompetitorAnalysisService:
         metrics = {
             "news_volume": {},
             "category_distribution": {},
+            "topic_distribution": {},
+            "sentiment_distribution": {},
             "activity_score": {},
+            "avg_priority": {},
             "daily_activity": {},
             "top_news": {}
         }
@@ -59,27 +65,41 @@ class CompetitorAnalysisService:
             
             # News volume
             metrics["news_volume"][company_id] = await self.get_news_volume(
-                company_uuid, date_from, date_to
+                company_uuid, date_from, date_to, filters
             )
             
             # Category distribution
             metrics["category_distribution"][company_id] = await self.get_category_distribution(
-                company_uuid, date_from, date_to
+                company_uuid, date_from, date_to, filters
+            )
+
+            # Topic distribution
+            metrics["topic_distribution"][company_id] = await self.get_topic_distribution(
+                company_uuid, date_from, date_to, filters
+            )
+
+            # Sentiment distribution
+            metrics["sentiment_distribution"][company_id] = await self.get_sentiment_distribution(
+                company_uuid, date_from, date_to, filters
             )
             
             # Activity score
             metrics["activity_score"][company_id] = await self.get_activity_score(
-                company_uuid, date_from, date_to
+                company_uuid, date_from, date_to, filters
+            )
+
+            metrics["avg_priority"][company_id] = await self.get_average_priority(
+                company_uuid, date_from, date_to, filters
             )
             
             # Daily activity
             metrics["daily_activity"][company_id] = await self.get_daily_activity(
-                company_uuid, date_from, date_to
+                company_uuid, date_from, date_to, filters
             )
             
             # Top news
             metrics["top_news"][company_id] = await self.get_top_news(
-                company_uuid, date_from, date_to, limit=5
+                company_uuid, date_from, date_to, limit=5, filters=filters
             )
         
         comparison_data = {
@@ -94,9 +114,17 @@ class CompetitorAnalysisService:
             ],
             "date_from": date_from.isoformat(),
             "date_to": date_to.isoformat(),
-            "metrics": metrics
+            "metrics": metrics,
         }
-        
+
+        if filters:
+            comparison_data["filters"] = {
+                "topics": [topic.value for topic in filters.get("topics", [])],
+                "sentiments": [sent.value for sent in filters.get("sentiments", [])],
+                "source_types": [stype.value for stype in filters.get("source_types", [])],
+                "min_priority": filters.get("min_priority"),
+            }
+
         # TODO: Временно убираем сохранение в БД для исправления ошибки 500
         # Позже добавим полную функциональность сохранения отчетов
         # if user_id:
@@ -106,22 +134,48 @@ class CompetitorAnalysisService:
         
         return comparison_data
     
+    def _build_conditions(
+        self,
+        company_id: uuid.UUID,
+        date_from: datetime,
+        date_to: datetime,
+        filters: Optional[Dict[str, Any]] = None,
+    ) -> List[Any]:
+        conditions = [
+            NewsItem.company_id == company_id,
+            NewsItem.published_at >= date_from,
+            NewsItem.published_at <= date_to,
+        ]
+
+        if filters:
+            topics = filters.get("topics") or []
+            sentiments = filters.get("sentiments") or []
+            source_types = filters.get("source_types") or []
+            min_priority = filters.get("min_priority")
+
+            if topics:
+                conditions.append(NewsItem.topic.in_(topics))
+            if sentiments:
+                conditions.append(NewsItem.sentiment.in_(sentiments))
+            if source_types:
+                conditions.append(NewsItem.source_type.in_(source_types))
+            if min_priority is not None:
+                conditions.append(NewsItem.priority_score >= float(min_priority))
+
+        return conditions
+
     async def get_news_volume(
         self,
         company_id: uuid.UUID,
         date_from: datetime,
-        date_to: datetime
+        date_to: datetime,
+        filters: Optional[Dict[str, Any]] = None
     ) -> int:
         """Get total news volume for a company"""
+        conditions = self._build_conditions(company_id, date_from, date_to, filters)
         result = await self.db.execute(
             select(func.count(NewsItem.id))
-            .where(
-                and_(
-                    NewsItem.company_id == company_id,
-                    NewsItem.published_at >= date_from,
-                    NewsItem.published_at <= date_to
-                )
-            )
+            .where(and_(*conditions))
         )
         return result.scalar() or 0
     
@@ -129,18 +183,14 @@ class CompetitorAnalysisService:
         self,
         company_id: uuid.UUID,
         date_from: datetime,
-        date_to: datetime
+        date_to: datetime,
+        filters: Optional[Dict[str, Any]] = None
     ) -> Dict[str, int]:
         """Get category distribution for a company"""
+        conditions = self._build_conditions(company_id, date_from, date_to, filters)
         result = await self.db.execute(
             select(NewsItem.category, func.count(NewsItem.id).label('count'))
-            .where(
-                and_(
-                    NewsItem.company_id == company_id,
-                    NewsItem.published_at >= date_from,
-                    NewsItem.published_at <= date_to
-                )
-            )
+            .where(and_(*conditions))
             .group_by(NewsItem.category)
         )
         
@@ -150,12 +200,55 @@ class CompetitorAnalysisService:
                 distribution[category] = count
         
         return distribution
+
+    async def get_topic_distribution(
+        self,
+        company_id: uuid.UUID,
+        date_from: datetime,
+        date_to: datetime,
+        filters: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, int]:
+        conditions = self._build_conditions(company_id, date_from, date_to, filters)
+        result = await self.db.execute(
+            select(NewsItem.topic, func.count(NewsItem.id).label('count'))
+            .where(and_(*conditions))
+            .group_by(NewsItem.topic)
+        )
+
+        distribution: Dict[str, int] = {}
+        for topic, count in result.all():
+            if topic:
+                topic_value = topic.value if hasattr(topic, "value") else str(topic)
+                distribution[topic_value] = count
+        return distribution
+
+    async def get_sentiment_distribution(
+        self,
+        company_id: uuid.UUID,
+        date_from: datetime,
+        date_to: datetime,
+        filters: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, int]:
+        conditions = self._build_conditions(company_id, date_from, date_to, filters)
+        result = await self.db.execute(
+            select(NewsItem.sentiment, func.count(NewsItem.id).label('count'))
+            .where(and_(*conditions))
+            .group_by(NewsItem.sentiment)
+        )
+
+        distribution: Dict[str, int] = {}
+        for sentiment, count in result.all():
+            if sentiment:
+                sentiment_value = sentiment.value if hasattr(sentiment, "value") else str(sentiment)
+                distribution[sentiment_value] = count
+        return distribution
     
     async def get_activity_score(
         self,
         company_id: uuid.UUID,
         date_from: datetime,
-        date_to: datetime
+        date_to: datetime,
+        filters: Optional[Dict[str, Any]] = None
     ) -> float:
         """
         Calculate activity score for a company
@@ -166,15 +259,10 @@ class CompetitorAnalysisService:
         - Recency of news
         """
         # Get news items
+        conditions = self._build_conditions(company_id, date_from, date_to, filters)
         result = await self.db.execute(
             select(NewsItem)
-            .where(
-                and_(
-                    NewsItem.company_id == company_id,
-                    NewsItem.published_at >= date_from,
-                    NewsItem.published_at <= date_to
-                )
-            )
+            .where(and_(*conditions))
         )
         news_items = result.scalars().all()
         
@@ -199,26 +287,36 @@ class CompetitorAnalysisService:
         total_score = volume_score + diversity_score + recency_score
         
         return round(total_score, 2)
+
+    async def get_average_priority(
+        self,
+        company_id: uuid.UUID,
+        date_from: datetime,
+        date_to: datetime,
+        filters: Optional[Dict[str, Any]] = None
+    ) -> float:
+        conditions = self._build_conditions(company_id, date_from, date_to, filters)
+        result = await self.db.execute(
+            select(func.avg(NewsItem.priority_score)).where(and_(*conditions))
+        )
+        avg_priority = result.scalar()
+        return float(avg_priority) if avg_priority is not None else 0.0
     
     async def get_daily_activity(
         self,
         company_id: uuid.UUID,
         date_from: datetime,
-        date_to: datetime
+        date_to: datetime,
+        filters: Optional[Dict[str, Any]] = None
     ) -> Dict[str, int]:
         """Get daily activity breakdown"""
+        conditions = self._build_conditions(company_id, date_from, date_to, filters)
         result = await self.db.execute(
             select(
                 func.date(NewsItem.published_at).label('date'),
                 func.count(NewsItem.id).label('count')
             )
-            .where(
-                and_(
-                    NewsItem.company_id == company_id,
-                    NewsItem.published_at >= date_from,
-                    NewsItem.published_at <= date_to
-                )
-            )
+            .where(and_(*conditions))
             .group_by(func.date(NewsItem.published_at))
             .order_by(func.date(NewsItem.published_at))
         )
@@ -234,18 +332,14 @@ class CompetitorAnalysisService:
         company_id: uuid.UUID,
         date_from: datetime,
         date_to: datetime,
-        limit: int = 5
+        limit: int = 5,
+        filters: Optional[Dict[str, Any]] = None
     ) -> List[Dict[str, Any]]:
         """Get top news items for a company"""
+        conditions = self._build_conditions(company_id, date_from, date_to, filters)
         result = await self.db.execute(
             select(NewsItem)
-            .where(
-                and_(
-                    NewsItem.company_id == company_id,
-                    NewsItem.published_at >= date_from,
-                    NewsItem.published_at <= date_to
-                )
-            )
+            .where(and_(*conditions))
             .order_by(desc(NewsItem.priority_score), desc(NewsItem.published_at))
             .limit(limit)
         )
@@ -257,6 +351,9 @@ class CompetitorAnalysisService:
                 "id": str(item.id),
                 "title": item.title,
                 "category": item.category,
+                "topic": item.topic.value if hasattr(item.topic, "value") else item.topic,
+                "sentiment": item.sentiment.value if hasattr(item.sentiment, "value") else item.sentiment,
+                "source_type": item.source_type.value if hasattr(item.source_type, "value") else item.source_type,
                 "published_at": item.published_at.isoformat(),
                 "source_url": item.source_url,
                 "priority_score": item.priority_score

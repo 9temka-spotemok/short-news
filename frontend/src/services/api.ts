@@ -431,6 +431,10 @@ export class ApiService {
     date_from?: string
     date_to?: string
     name?: string
+    topics?: string[]
+    sentiments?: string[]
+    source_types?: string[]
+    min_priority?: number
   }): Promise<{
     companies: Company[]
     date_from: string
@@ -440,7 +444,16 @@ export class ApiService {
       category_distribution: Record<string, Record<string, number>>
       activity_score: Record<string, number>
       daily_activity?: Record<string, Record<string, number>>
-      top_news?: Record<string, any[]>
+      top_news?: Record<string, NewsItem[]>
+      topic_distribution?: Record<string, Record<string, number>>
+      sentiment_distribution?: Record<string, Record<string, number>>
+      avg_priority?: Record<string, number>
+    }
+    filters?: {
+      topics?: string[]
+      sentiments?: string[]
+      source_types?: string[]
+      min_priority?: number
     }
   }> {
     console.log('API Service - compareCompanies request:', request)

@@ -49,6 +49,14 @@ class Settings(BaseSettings):
                 return [host.strip() for host in v.split(',')]
         return v
     
+    @field_validator('SCRAPER_HEADLESS_ENABLED', 'SCRAPER_SNAPSHOTS_ENABLED', mode='before')
+    @classmethod
+    def validate_bool_flags(cls, v):
+        """Allow boolean flags to be passed as strings"""
+        if isinstance(v, str):
+            return v.lower() in ('true', '1', 'yes', 'on')
+        return bool(v)
+    
     # Database
     DATABASE_URL: str = Field(..., description="PostgreSQL database URL")
     
@@ -94,6 +102,15 @@ class Settings(BaseSettings):
     )
     SCRAPER_DELAY: float = Field(default=5.0, description="Delay between requests in seconds")
     SCRAPER_TIMEOUT: int = Field(default=30, description="Request timeout in seconds")
+    SCRAPER_MAX_RETRIES: int = Field(default=3, description="Default number of retry attempts for scraper HTTP requests")
+    SCRAPER_RETRY_BACKOFF: float = Field(default=1.5, description="Exponential backoff multiplier for scraper retries")
+    SCRAPER_RATE_LIMIT_REQUESTS: int = Field(default=6, description="Requests allowed per host within rate limit window")
+    SCRAPER_RATE_LIMIT_PERIOD: float = Field(default=60.0, description="Rate limit window in seconds for host throttling")
+    SCRAPER_CONFIG_PATH: Optional[str] = Field(default=None, description="Path to YAML/JSON scraper configuration file")
+    SCRAPER_HEADLESS_ENABLED: bool = Field(default=False, description="Enable headless browser fallback for protected sources")
+    SCRAPER_PROXY_URL: Optional[str] = Field(default=None, description="HTTP proxy URL for scraper fallback requests")
+    SCRAPER_SNAPSHOTS_ENABLED: bool = Field(default=True, description="Persist raw HTML snapshots for scraped pages")
+    SCRAPER_SNAPSHOT_DIR: str = Field(default="storage/raw_snapshots", description="Directory to store raw HTML snapshots")
     
     # Rate Limiting
     RATE_LIMIT_REQUESTS: int = Field(default=100, description="Rate limit requests per minute")

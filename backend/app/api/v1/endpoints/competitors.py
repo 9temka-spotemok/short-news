@@ -11,7 +11,7 @@ from loguru import logger
 
 from app.core.database import get_db
 from app.api.dependencies import get_current_user
-from app.models import User
+from app.models import User, NewsTopic, SentimentLabel, SourceType
 from app.services.competitor_service import CompetitorAnalysisService
 
 router = APIRouter()
@@ -52,6 +52,10 @@ async def compare_companies(
         date_from_str = request_data.get('date_from')
         date_to_str = request_data.get('date_to')
         name = request_data.get('name')
+        topics_raw = request_data.get('topics', [])
+        sentiments_raw = request_data.get('sentiments', [])
+        source_types_raw = request_data.get('source_types', [])
+        min_priority = request_data.get('min_priority')
         
         logger.info(f"Company IDs: {company_ids}")
         logger.info(f"Company IDs type: {type(company_ids)}")
@@ -94,7 +98,32 @@ async def compare_companies(
             date_to = datetime.now(timezone.utc).replace(tzinfo=None)
         
         logger.info(f"Parsed dates: from={date_from}, to={date_to}")
-        
+
+        filters: Optional[dict] = None
+
+        try:
+            topics = [NewsTopic(topic) for topic in topics_raw] if topics_raw else []
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=f"Invalid topic filter: {exc}")
+
+        try:
+            sentiments = [SentimentLabel(sentiment) for sentiment in sentiments_raw] if sentiments_raw else []
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=f"Invalid sentiment filter: {exc}")
+
+        try:
+            sources = [SourceType(source) for source in source_types_raw] if source_types_raw else []
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=f"Invalid source_type filter: {exc}")
+
+        if topics or sentiments or sources or min_priority is not None:
+            filters = {
+                "topics": topics,
+                "sentiments": sentiments,
+                "source_types": sources,
+                "min_priority": float(min_priority) if min_priority is not None else None,
+            }
+ 
         # Perform comparison
         competitor_service = CompetitorAnalysisService(db)
         comparison_data = await competitor_service.compare_companies(
@@ -102,7 +131,8 @@ async def compare_companies(
             date_from=date_from,
             date_to=date_to,
             user_id=str(current_user.id),
-            comparison_name=name
+            comparison_name=name,
+            filters=filters
         )
         
         return comparison_data

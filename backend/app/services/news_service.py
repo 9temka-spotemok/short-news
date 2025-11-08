@@ -11,8 +11,15 @@ from loguru import logger
 from uuid import UUID
 
 from app.models.news import (
-    NewsItem, NewsCategory, SourceType, 
-    NewsCreateSchema, NewsUpdateSchema, NewsSearchSchema, NewsStatsSchema
+    NewsItem,
+    NewsCategory,
+    SourceType,
+    NewsTopic,
+    SentimentLabel,
+    NewsCreateSchema,
+    NewsUpdateSchema,
+    NewsSearchSchema,
+    NewsStatsSchema,
 )
 from app.models.company import Company
 from app.core.exceptions import NewsServiceError, ValidationError, NotFoundError
@@ -101,6 +108,20 @@ class NewsService:
                     result['category'] = NewsCategory(result['category'])
                 except ValueError:
                     result.pop('category', None)
+
+            if isinstance(result.get('topic'), str):
+                try:
+                    result['topic'] = NewsTopic(result['topic'])
+                except ValueError:
+                    logger.warning(f"Unknown topic '{result['topic']}', dropping value")
+                    result.pop('topic', None)
+
+            if isinstance(result.get('sentiment'), str):
+                try:
+                    result['sentiment'] = SentimentLabel(result['sentiment'])
+                except ValueError:
+                    logger.warning(f"Unknown sentiment '{result['sentiment']}', dropping value")
+                    result.pop('sentiment', None)
 
             # Resolve company ID if company name is provided
             if result.get('company_id') and isinstance(result['company_id'], str):

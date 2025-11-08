@@ -87,6 +87,8 @@ async def get_news(
             # Handle enum serialization
             source_type_val = item.source_type.value if hasattr(item.source_type, 'value') else str(item.source_type) if item.source_type else None
             category_val = item.category.value if hasattr(item.category, 'value') else str(item.category) if item.category else None
+            topic_val = item.topic.value if hasattr(item.topic, 'value') else str(item.topic) if item.topic else None
+            sentiment_val = item.sentiment.value if hasattr(item.sentiment, 'value') else str(item.sentiment) if item.sentiment else None
             
             items.append({
                 "id": str(item.id),
@@ -97,6 +99,9 @@ async def get_news(
                 "source_url": item.source_url,
                 "source_type": source_type_val,
                 "category": category_val,
+                "topic": topic_val,
+                "sentiment": sentiment_val,
+                "raw_snapshot_url": item.raw_snapshot_url,
                 "priority_score": float(item.priority_score) if item.priority_score else 0.0,
                 "priority_level": item.priority_level,
                 "published_at": item.published_at.isoformat() if item.published_at else None,
@@ -263,6 +268,9 @@ async def get_news_item(
             "source_url": news_item.source_url,
             "source_type": news_item.source_type.value if hasattr(news_item.source_type, 'value') else str(news_item.source_type) if news_item.source_type else None,
             "category": news_item.category.value if hasattr(news_item.category, 'value') else str(news_item.category) if news_item.category else None,
+            "topic": news_item.topic.value if hasattr(news_item.topic, 'value') else str(news_item.topic) if news_item.topic else None,
+            "sentiment": news_item.sentiment.value if hasattr(news_item.sentiment, 'value') else str(news_item.sentiment) if news_item.sentiment else None,
+            "raw_snapshot_url": news_item.raw_snapshot_url,
             "priority_score": news_item.priority_score,
             "priority_level": news_item.priority_level,
             "published_at": news_item.published_at.isoformat() if news_item.published_at else None,
@@ -341,6 +349,8 @@ async def search_news(
             # Handle enum serialization
             source_type_val = item.source_type.value if hasattr(item.source_type, 'value') else str(item.source_type) if item.source_type else None
             category_val = item.category.value if hasattr(item.category, 'value') else str(item.category) if item.category else None
+            topic_val = item.topic.value if hasattr(item.topic, 'value') else str(item.topic) if item.topic else None
+            sentiment_val = item.sentiment.value if hasattr(item.sentiment, 'value') else str(item.sentiment) if item.sentiment else None
             
             items.append({
                 "id": str(item.id),
@@ -350,6 +360,9 @@ async def search_news(
                 "source_url": item.source_url,
                 "source_type": source_type_val,
                 "category": category_val,
+                "topic": topic_val,
+                "sentiment": sentiment_val,
+                "raw_snapshot_url": item.raw_snapshot_url,
                 "priority_score": float(item.priority_score) if item.priority_score else 0.0,
                 "priority_level": item.priority_level,
                 "published_at": item.published_at.isoformat() if item.published_at else None,
@@ -455,6 +468,8 @@ async def get_news_by_category(
             title_truncated = title[:100] + "..." if len(title) > 100 else title
             source_type_val = item.source_type.value if hasattr(item.source_type, 'value') else str(item.source_type) if item.source_type else None
             category_val = item.category.value if hasattr(item.category, 'value') else str(item.category) if item.category else None
+            topic_val = item.topic.value if hasattr(item.topic, 'value') else str(item.topic) if item.topic else None
+            sentiment_val = item.sentiment.value if hasattr(item.sentiment, 'value') else str(item.sentiment) if item.sentiment else None
 
             items.append({
                 "id": str(item.id),
@@ -465,6 +480,9 @@ async def get_news_by_category(
                 "source_url": item.source_url,
                 "source_type": source_type_val,
                 "category": category_val,
+                "topic": topic_val,
+                "sentiment": sentiment_val,
+                "raw_snapshot_url": item.raw_snapshot_url,
                 "priority_score": float(item.priority_score) if item.priority_score else 0.0,
                 "priority_level": item.priority_level,
                 "published_at": item.published_at.isoformat() if item.published_at else None,
