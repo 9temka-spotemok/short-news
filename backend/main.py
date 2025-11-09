@@ -12,6 +12,7 @@ import uvicorn
 from app.core.config import settings
 from app.core.database import init_db, engine
 from app.api.v1.api import api_router
+from app.api.v2.api import api_v2_router
 from app.core.exceptions import setup_exception_handlers
 import asyncio
 import subprocess
@@ -107,8 +108,11 @@ app.add_middleware(
 # Setup exception handlers
 setup_exception_handlers(app)
 
-# Include API router
+# Include API routers
 app.include_router(api_router)
+
+if settings.ENABLE_ANALYTICS_V2:
+    app.include_router(api_v2_router)
 
 
 @app.on_event("startup")

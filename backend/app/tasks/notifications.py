@@ -15,6 +15,8 @@ from app.celery_app import celery_app
 from app.core.database import AsyncSessionLocal
 from app.models import NewsItem, Notification
 from app.services.notification_service import NotificationService
+from app.services.notification_dispatcher import NotificationDispatcher
+from app.services.notification_delivery_executor import NotificationDeliveryExecutor
 from sqlalchemy import select, and_
 
 
@@ -170,6 +172,52 @@ async def _cleanup_old_notifications_async():
             "status": "success",
             "deleted_count": deleted_count,
             "cutoff_date": cutoff_date.isoformat()
+        }
+
+
+@celery_app.task(bind=True)
+def dispatch_notification_deliveries(self):
+    """
+    Dispatch pending notification deliveries across channels.
+    """
+    logger.info("Dispatching pending notification deliveries")
+
+    try:
+        result = asyncio.run(_dispatch_notification_deliveries_async())
+        logger.info(
+            "Notification deliveries dispatched: %s sent, %s failed",
+            result["sent"],
+            result["failed"],
+        )
+        return result
+
+    except Exception as e:
+        logger.error(f"Failed to dispatch notification deliveries: {e}")
+        raise self.retry(exc=e, countdown=60, max_retries=3)
+
+
+async def _dispatch_notification_deliveries_async():
+    """Async implementation for dispatching notification deliveries."""
+    async with AsyncSessionLocal() as db:
+        dispatcher = NotificationDispatcher(db)
+        executor = NotificationDeliveryExecutor(db)
+
+        deliveries = await dispatcher.get_pending_deliveries(limit=25)
+        sent = 0
+        failed = 0
+
+        for delivery in deliveries:
+            success = await executor.process_delivery(delivery)
+            if success:
+                sent += 1
+            else:
+                failed += 1
+
+        return {
+            "status": "success",
+            "sent": sent,
+            "failed": failed,
+            "total": len(deliveries),
         }
 
 

@@ -1,17 +1,19 @@
-import { ArrowLeft, ArrowRight, BarChart3, Building2, Clock, Download, Filter, Gauge, History, PieChart, RefreshCw, Smile, Users } from 'lucide-react'
+import { Activity, ArrowLeft, ArrowRight, BarChart3, Building2, Clock, Download, Filter, Gauge, History, LineChart, Newspaper, PieChart, RefreshCw, Smile, Sparkles, TrendingUp, Users } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
+import toast from 'react-hot-toast'
 import BrandPreview from '../components/BrandPreview'
 import { BusinessIntelligence } from '../components/BusinessIntelligence'
 import CompanySelector from '../components/CompanySelector'
 import CompetitorSuggestions from '../components/CompetitorSuggestions'
 import { ExportMenu } from '../components/ExportMenu'
+import ImpactTrendChart from '../components/ImpactTrendChart'
 import { InnovationMetrics } from '../components/InnovationMetrics'
 import { MarketPosition } from '../components/MarketPosition'
 import ProgressSteps from '../components/ProgressSteps'
 import { TeamInsights } from '../components/TeamInsights'
 import ThemeAnalysis from '../components/ThemeAnalysis'
 import { ApiService } from '../services/api'
-import { ChangeProcessingStatus, Company, CompetitorChangeEvent } from '../types'
+import { ChangeProcessingStatus, Company, CompanyAnalyticsSnapshot, CompetitorChangeEvent, KnowledgeGraphEdge, NewsItem, ReportPreset, SnapshotSeries } from '../types'
 
 type AnalysisMode = 'company' | 'custom'
 type Step = 'select' | 'suggest' | 'analyze'
@@ -82,12 +84,30 @@ export default function CompetitorAnalysisPage() {
   const [changeEventsLoading, setChangeEventsLoading] = useState(false)
   const [changeEventsError, setChangeEventsError] = useState<string | null>(null)
   const [recomputingEventId, setRecomputingEventId] = useState<string | null>(null)
+  const [impactSnapshot, setImpactSnapshot] = useState<CompanyAnalyticsSnapshot | null>(null)
+  const [impactSeries, setImpactSeries] = useState<SnapshotSeries | null>(null)
+  const [analyticsEdges, setAnalyticsEdges] = useState<KnowledgeGraphEdge[]>([])
+  const [analyticsLoading, setAnalyticsLoading] = useState(false)
+  const [analyticsError, setAnalyticsError] = useState<string | null>(null)
+  const [reportPresets, setReportPresets] = useState<ReportPreset[]>([])
+  const [presetsLoading, setPresetsLoading] = useState(false)
+  const [presetsError, setPresetsError] = useState<string | null>(null)
+  const [newPresetName, setNewPresetName] = useState('')
+  const [savingPreset, setSavingPreset] = useState(false)
+  const [presetApplyingId, setPresetApplyingId] = useState<string | null>(null)
+  const [metricsTab, setMetricsTab] = useState<'persistent' | 'signals'>('persistent')
+  const [focusedImpactPoint, setFocusedImpactPoint] = useState<CompanyAnalyticsSnapshot | null>(null)
 
   // Очищаем данные анализа при смене компании в режиме Company Analysis
   useEffect(() => {
     if (analysisMode === 'company' && selectedCompany) {
       setAnalysisData(null)
       setThemesData(null)
+      setImpactSnapshot(null)
+      setImpactSeries(null)
+      setAnalyticsEdges([])
+      setAnalyticsError(null)
+      setFocusedImpactPoint(null)
     }
   }, [selectedCompany, analysisMode])
 
@@ -123,19 +143,36 @@ export default function CompetitorAnalysisPage() {
     min_priority?: number
   }
 
-  const applyFiltersToPayload = <T extends Record<string, unknown>>(payload: T): FilteredPayload<T> => {
+  type FilterOptions = {
+    sourceTypes?: string[]
+    topics?: string[]
+    sentiments?: string[]
+    minPriority?: number | null
+  }
+  
+  const applyFiltersToPayload = <T extends Record<string, unknown>>(
+    payload: T,
+    options: FilterOptions = {}
+  ): FilteredPayload<T> => {
+    const {
+      sourceTypes = sourceTypeFilters,
+      topics = topicFilters,
+      sentiments = sentimentFilters,
+      minPriority = minPriorityFilter
+    } = options
+
     const nextPayload: FilteredPayload<T> = { ...payload }
-    if (sourceTypeFilters.length) {
-      nextPayload.source_types = sourceTypeFilters
+    if (sourceTypes.length) {
+      nextPayload.source_types = sourceTypes
     }
-    if (topicFilters.length) {
-      nextPayload.topics = topicFilters
+    if (topics.length) {
+      nextPayload.topics = topics
     }
-    if (sentimentFilters.length) {
-      nextPayload.sentiments = sentimentFilters
+    if (sentiments.length) {
+      nextPayload.sentiments = sentiments
     }
-    if (minPriorityFilter !== null) {
-      nextPayload.min_priority = Number(minPriorityFilter.toFixed(2))
+    if (minPriority !== null && minPriority !== undefined) {
+      nextPayload.min_priority = Number(minPriority.toFixed(2))
     }
     return nextPayload
   }
@@ -455,6 +492,10 @@ export default function CompetitorAnalysisPage() {
     loadChangeEvents(selectedCompany.id)
   }, [selectedCompany?.id, loadChangeEvents])
 
+  useEffect(() => {
+    setMetricsTab('persistent')
+  }, [selectedCompany?.id])
+
   const renderChangeFieldSummary = (change: Record<string, any>) => {
     if (change.field === 'price') {
       return `${formatPriceDisplay(change.previous ?? null, change.previous_currency)} → ${formatPriceDisplay(change.current ?? null, change.current_currency)}`
@@ -607,6 +648,976 @@ export default function CompetitorAnalysisPage() {
       </div>
     )
   }
+
+  const loadAnalyticsInsights = async (companyId: string) => {
+    setAnalyticsLoading(true)
+    setAnalyticsError(null)
+    setFocusedImpactPoint(null)
+    try {
+      const [latestSnapshot, snapshotSeries, edges] = await Promise.all([
+        ApiService.getLatestAnalyticsSnapshot(companyId),
+        ApiService.getAnalyticsSnapshots(companyId, 'daily', 60),
+        ApiService.getAnalyticsGraph(companyId, undefined, 25)
+      ])
+      setImpactSnapshot(latestSnapshot)
+      setImpactSeries(snapshotSeries)
+      setAnalyticsEdges(edges)
+      setFocusedImpactPoint(latestSnapshot)
+    } catch (error: any) {
+      console.error('Failed to load analytics insights:', error)
+      const message = error?.response?.data?.detail || error?.message || 'Failed to load analytics insights'
+      setAnalyticsError(message)
+    } finally {
+      setAnalyticsLoading(false)
+    }
+  }
+
+  const loadReportPresets = async () => {
+    setPresetsLoading(true)
+    setPresetsError(null)
+    try {
+      const presets = await ApiService.listReportPresets()
+      setReportPresets(presets)
+    } catch (error: any) {
+      console.error('Failed to load report presets:', error)
+      const message = error?.response?.data?.detail || error?.message || 'Failed to load report presets'
+      setPresetsError(message)
+    } finally {
+      setPresetsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadReportPresets()
+  }, [])
+
+  useEffect(() => {
+    if (impactSnapshot) {
+      setFocusedImpactPoint(impactSnapshot)
+    }
+  }, [impactSnapshot?.id])
+
+  const handleRecomputeAnalytics = async () => {
+    if (!selectedCompany) return
+    try {
+      await ApiService.triggerAnalyticsRecompute(selectedCompany.id, 'daily', 60)
+      toast.success('Analytics recompute queued')
+    } catch (error: any) {
+      console.error('Failed to queue analytics recompute:', error)
+      const message = error?.response?.data?.detail || error?.message || 'Failed to queue analytics recompute'
+      toast.error(message)
+    }
+  }
+
+  const handleSyncKnowledgeGraph = async () => {
+    if (!selectedCompany || !impactSnapshot) return
+    try {
+      await ApiService.triggerKnowledgeGraphSync(
+        selectedCompany.id,
+        impactSnapshot.period_start,
+        impactSnapshot.period
+      )
+      toast.success('Knowledge graph sync queued')
+    } catch (error: any) {
+      console.error('Failed to sync knowledge graph:', error)
+      const message = error?.response?.data?.detail || error?.message || 'Failed to sync knowledge graph'
+      toast.error(message)
+    }
+  }
+
+  const handleCreatePreset = async () => {
+    if (!selectedCompany) {
+      toast.error('Select a primary company before saving a preset')
+      return
+    }
+
+    const name = newPresetName.trim()
+    if (!name) {
+      toast.error('Preset name cannot be empty')
+      return
+    }
+
+    const companyIds = [selectedCompany.id, ...selectedCompetitors]
+
+    setSavingPreset(true)
+    try {
+      await ApiService.createReportPreset({
+        name,
+        companies: companyIds,
+        filters: {
+          source_types: sourceTypeFilters,
+          topics: topicFilters,
+          sentiments: sentimentFilters,
+          min_priority: minPriorityFilter
+        },
+        visualization_config: {
+          impact_panel: true,
+          comparison_chart: true
+        }
+      })
+      toast.success('Report preset saved')
+      setNewPresetName('')
+      await loadReportPresets()
+    } catch (error: any) {
+      console.error('Failed to save preset:', error)
+      const message = error?.response?.data?.detail || error?.message || 'Failed to save preset'
+      toast.error(message)
+    } finally {
+      setSavingPreset(false)
+    }
+  }
+
+  const handleApplyPreset = async (preset: ReportPreset) => {
+    if (!preset.companies || preset.companies.length === 0) {
+      toast.error('Preset does not contain any companies')
+      return
+    }
+
+    setPresetApplyingId(preset.id)
+
+    try {
+      const companies = await ApiService.getCompaniesByIds(preset.companies)
+      if (!companies.length) {
+        throw new Error('Preset companies could not be loaded')
+      }
+
+      const primaryId = preset.companies[0]
+      const primaryCompany = companies.find(company => company.id === primaryId) ?? companies[0]
+
+      if (!primaryCompany) {
+        throw new Error('Primary company is missing in preset')
+      }
+
+      const competitorIds = preset.companies.filter(id => id !== primaryCompany.id)
+      if (!competitorIds.length) {
+        toast.error('Preset must include at least one competitor')
+        setPresetApplyingId(null)
+        return
+      }
+
+      const presetSourceTypes = Array.isArray(preset.filters?.source_types) ? preset.filters.source_types as string[] : []
+      const presetTopics = Array.isArray(preset.filters?.topics) ? preset.filters.topics as string[] : []
+      const presetSentiments = Array.isArray(preset.filters?.sentiments) ? preset.filters.sentiments as string[] : []
+      const presetMinPriority = typeof preset.filters?.min_priority === 'number' ? preset.filters.min_priority : null
+
+      const competitorCompanies = companies.filter(company => competitorIds.includes(company.id))
+
+      setAnalysisMode('custom')
+      setSelectedCompany(primaryCompany)
+      setSelectedCompetitors(competitorIds)
+      setManuallyAddedCompetitors(competitorCompanies)
+      setSuggestedCompetitors(
+        competitorCompanies.map(company => ({
+          company,
+          similarity_score: 0,
+          common_categories: [],
+          reason: 'Preset'
+        }))
+      )
+      setSourceTypeFilters(presetSourceTypes)
+      setTopicFilters(presetTopics)
+      setSentimentFilters(presetSentiments)
+      setMinPriorityFilter(presetMinPriority)
+
+      await runAnalysis({
+        primaryCompany,
+        competitorIds,
+        filters: {
+          source_types: presetSourceTypes,
+          topics: presetTopics,
+          sentiments: presetSentiments,
+          min_priority: presetMinPriority
+        }
+      })
+
+      toast.success('Preset applied')
+    } catch (error: any) {
+      console.error('Failed to apply preset:', error)
+      const message = error?.response?.data?.detail || error?.message || 'Failed to apply preset'
+      toast.error(message)
+    } finally {
+      setPresetApplyingId(null)
+    }
+  }
+
+  const renderPersistentMetricsSection = () => {
+    if (!analysisData || !selectedCompany) {
+      return (
+        <div className="text-sm text-gray-500">
+          Run analysis and select a company to see persistent metrics.
+        </div>
+      )
+    }
+
+    const companyId = selectedCompany.id
+    const newsVolume = analysisData.metrics?.news_volume?.[companyId] ?? 0
+    const activityScore = analysisData.metrics?.activity_score?.[companyId] ?? 0
+    const avgPriority = analysisData.metrics?.avg_priority?.[companyId] ?? 0
+    const competitorTotal = (analysisData.companies?.length ?? 1) - 1
+
+    const dailyActivityRaw: Record<string, number> = analysisData.metrics?.daily_activity?.[companyId] ?? {}
+    const dailyActivity = Object.entries(dailyActivityRaw)
+      .map(([date, value]) => ({
+        date,
+        value: Number(value) || 0
+      }))
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    const recentActivity = dailyActivity.slice(-14)
+    const maxDailyValue = recentActivity.length
+      ? Math.max(...recentActivity.map(item => item.value), 0)
+      : 0
+
+    const trendSnapshots = impactSeries?.snapshots ?? []
+    const defaultImpact =
+      impactSnapshot ||
+      (trendSnapshots.length ? trendSnapshots[trendSnapshots.length - 1] : null)
+    const highlightImpact =
+      focusedImpactPoint && trendSnapshots.some(snapshot => snapshot.id === focusedImpactPoint.id)
+        ? focusedImpactPoint
+        : defaultImpact
+    const highlightIndex = highlightImpact
+      ? trendSnapshots.findIndex(snapshot => snapshot.id === highlightImpact.id)
+      : -1
+    const previousSnapshot = highlightIndex > 0 ? trendSnapshots[highlightIndex - 1] : null
+    const highlightedScore = highlightImpact?.impact_score ?? null
+    const impactDelta =
+      highlightedScore !== null && previousSnapshot
+        ? highlightedScore - previousSnapshot.impact_score
+        : null
+    const trendPercent =
+      typeof highlightImpact?.trend_delta === 'number' ? highlightImpact.trend_delta * 100 : null
+    const highlightDateLabel = highlightImpact
+      ? new Date(highlightImpact.period_start).toLocaleDateString()
+      : '—'
+
+    return (
+      <>
+        {renderActiveFiltersSummary(analysisData.filters)}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="p-4 rounded-lg border border-blue-100 bg-blue-50">
+            <div className="flex items-center justify-between">
+              <p className="text-xs uppercase font-semibold text-blue-700">Impact Score</p>
+              <TrendingUp className="w-4 h-4 text-blue-600" />
+            </div>
+            <p className="text-2xl font-bold text-blue-900 mt-2">
+              {highlightedScore !== null ? highlightedScore.toFixed(2) : 'n/a'}
+            </p>
+            <p className="text-xs text-blue-700 mt-1">
+              {impactDelta !== null ? `${impactDelta >= 0 ? '+' : ''}${impactDelta.toFixed(2)} vs previous` : 'Awaiting history for comparison'}
+            </p>
+          </div>
+
+          <div className="p-4 rounded-lg border border-emerald-100 bg-emerald-50">
+            <div className="flex items-center justify-between">
+              <p className="text-xs uppercase font-semibold text-emerald-700">Activity Score</p>
+              <Activity className="w-4 h-4 text-emerald-600" />
+            </div>
+            <p className="text-2xl font-bold text-emerald-900 mt-2">
+              {activityScore.toFixed(2)}
+            </p>
+            <p className="text-xs text-emerald-700 mt-1">
+              Benchmarked vs {Math.max(competitorTotal, 0)} competitor{competitorTotal === 1 ? '' : 's'}
+            </p>
+          </div>
+
+          <div className="p-4 rounded-lg border border-purple-100 bg-purple-50">
+            <div className="flex items-center justify-between">
+              <p className="text-xs uppercase font-semibold text-purple-700">News Volume (30d)</p>
+              <BarChart3 className="w-4 h-4 text-purple-600" />
+            </div>
+            <p className="text-2xl font-bold text-purple-900 mt-2">{newsVolume}</p>
+            <p className="text-xs text-purple-700 mt-1">
+              Coverage across {analysisData.companies?.length ?? 1} tracked companies
+            </p>
+          </div>
+
+          <div className="p-4 rounded-lg border border-amber-100 bg-amber-50">
+            <div className="flex items-center justify-between">
+              <p className="text-xs uppercase font-semibold text-amber-700">Signal Priority</p>
+              <Clock className="w-4 h-4 text-amber-600" />
+            </div>
+            <p className="text-2xl font-bold text-amber-900 mt-2">
+              {avgPriority ? avgPriority.toFixed(2) : '0.00'}
+            </p>
+            <p className="text-xs text-amber-700 mt-1">
+              Average priority score of aggregated news
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg border border-gray-200 p-5">
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h4 className="text-sm font-semibold text-gray-800">Impact score trend</h4>
+              <p className="text-xs text-gray-500">
+                Hover or tap points to inspect specific snapshots and contributions.
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-[10px] uppercase text-gray-400">Selected snapshot</p>
+              <p className="text-lg font-semibold text-gray-900">
+                {highlightedScore !== null ? highlightedScore.toFixed(2) : 'n/a'}
+              </p>
+              <p className="text-xs text-gray-500">{highlightDateLabel}</p>
+            </div>
+          </div>
+          <div className="mt-4">
+            {trendSnapshots.length > 0 ? (
+              <ImpactTrendChart
+                snapshots={trendSnapshots}
+                onPointHover={snapshot => {
+                  if (snapshot) {
+                    setFocusedImpactPoint(snapshot)
+                    return
+                  }
+                  if (impactSnapshot) {
+                    setFocusedImpactPoint(impactSnapshot)
+                  } else {
+                    setFocusedImpactPoint(null)
+                  }
+                }}
+              />
+            ) : (
+              <p className="text-xs text-gray-500">
+                Not enough data points yet. Queue analytics recompute to build the historical timeline.
+              </p>
+            )}
+          </div>
+        </div>
+
+        {trendPercent !== null && (
+          <div className={`p-4 rounded-lg border ${trendPercent >= 0 ? 'border-green-100 bg-green-50' : 'border-rose-100 bg-rose-50'}`}>
+            <div className="flex items-center space-x-2">
+              <TrendingUp className={`w-4 h-4 ${trendPercent >= 0 ? 'text-green-600' : 'text-rose-600'}`} />
+              <span className="text-sm font-semibold text-gray-800">
+                {trendPercent >= 0 ? 'Positive trend' : 'Negative trend'}: {trendPercent >= 0 ? '+' : ''}{trendPercent.toFixed(1)}%
+              </span>
+            </div>
+            <p className="text-xs text-gray-600 mt-1">
+              Change of cumulative impact over the configured period.
+            </p>
+          </div>
+        )}
+
+        {recentActivity.length > 0 && (
+          <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-2">
+                <Activity className="w-4 h-4 text-blue-600" />
+                <h4 className="text-sm font-semibold text-gray-800">30-day activity timeline</h4>
+              </div>
+              <span className="text-xs text-gray-500">
+                Last {recentActivity.length} data points
+              </span>
+            </div>
+            <div className="space-y-2 text-xs text-gray-600">
+              {recentActivity.map(({ date, value }) => (
+                <div key={date} className="flex items-center space-x-3">
+                  <span className="w-20 text-gray-500">{new Date(date).toLocaleDateString()}</span>
+                  <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div
+                      className="h-2 bg-gradient-to-r from-blue-300 to-blue-600 rounded-full"
+                      style={{ width: `${maxDailyValue ? Math.max(8, (value / maxDailyValue) * 100) : 8}%` }}
+                    />
+                  </div>
+                  <span className="w-10 text-right text-gray-500">{value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <BrandPreview
+          company={selectedCompany}
+          stats={{
+            total_news: newsVolume,
+            categories_breakdown: Object.entries(analysisData.metrics.category_distribution?.[companyId] || {}).map(([category, count]) => ({
+              category,
+              count: count as number
+            })),
+            activity_score: activityScore,
+            avg_priority: avgPriority ?? 0.5
+          }}
+        />
+
+        <BusinessIntelligence
+          company={selectedCompany}
+          metrics={analysisData.metrics.category_distribution?.[companyId] || {}}
+          activityScore={activityScore}
+          competitorCount={suggestedCompetitors.length}
+        />
+
+        <InnovationMetrics
+          company={selectedCompany}
+          metrics={analysisData.metrics.category_distribution?.[companyId] || {}}
+          totalNews={newsVolume}
+        />
+
+        <TeamInsights
+          company={selectedCompany}
+          metrics={analysisData.metrics.category_distribution?.[companyId] || {}}
+          totalNews={newsVolume}
+          activityScore={activityScore}
+        />
+
+        <MarketPosition
+          company={selectedCompany}
+          metrics={{
+            news_volume: newsVolume,
+            activity_score: activityScore,
+            category_distribution: analysisData.metrics.category_distribution?.[companyId] || {}
+          }}
+          competitors={suggestedCompetitors}
+          totalNews={Object.values(analysisData.metrics.news_volume || {}).reduce((sum: number, value: unknown) => sum + Number(value), 0)}
+        />
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {renderTopicDistributionCard(companyId)}
+          {renderSentimentDistributionCard(companyId)}
+          {renderPriorityCard(companyId)}
+        </div>
+
+        <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">
+              News Volume Comparison
+            </h3>
+          </div>
+          <div className="space-y-3">
+            {analysisData.companies.map((company: Company, index: number) => {
+              const volume = analysisData.metrics.news_volume?.[company.id] || 0
+              const maxVolume = Math.max(...Object.values(analysisData.metrics.news_volume || {}).map(value => Number(value)), 0)
+              const percentage = maxVolume > 0 ? (volume / maxVolume) * 100 : 0
+              const colors = ['bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-orange-500', 'bg-pink-500']
+
+              return (
+                <div key={company.id}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-medium text-gray-700">
+                      {company.name}
+                    </span>
+                    <span className="text-sm text-gray-600">{volume} news</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-3">
+                    <div
+                      className={`h-3 rounded-full ${colors[index % colors.length]}`}
+                      style={{ width: `${percentage}%` }}
+                    />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {themesData && (
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Theme Analysis
+            </h3>
+            <ThemeAnalysis
+              themesData={themesData}
+              companies={analysisData.companies}
+            />
+          </div>
+        )}
+      </>
+    )
+  }
+
+  const renderCurrentSignalsSection = () => {
+    if (!analysisData || !selectedCompany) {
+      return (
+        <div className="text-sm text-gray-500">
+          Run analysis and select a company to review live signals.
+        </div>
+      )
+    }
+
+    const companyId = selectedCompany.id
+    const topNews = (analysisData.metrics?.top_news?.[companyId] ?? []) as NewsItem[]
+    const newsPreview = topNews.slice(0, 4)
+    const highPriorityNews = newsPreview.filter(item => item.priority_level === 'High').length
+    const components = (impactSnapshot?.components ?? []).slice(0, 4)
+    const highConfidenceEdges = analyticsEdges.slice(0, 5)
+    const trendPercent = typeof impactSnapshot?.trend_delta === 'number' ? impactSnapshot.trend_delta * 100 : null
+
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className={`p-4 rounded-lg border ${trendPercent !== null && trendPercent < 0 ? 'border-rose-100 bg-rose-50' : 'border-emerald-100 bg-emerald-50'}`}>
+            <div className="flex items-center justify-between">
+              <p className="text-xs uppercase font-semibold text-gray-700">Trend Direction</p>
+              <TrendingUp className={`w-4 h-4 ${trendPercent !== null && trendPercent < 0 ? 'text-rose-600' : 'text-emerald-600'}`} />
+            </div>
+            <p className="text-2xl font-bold mt-2 text-gray-900">
+              {trendPercent !== null ? `${trendPercent >= 0 ? '+' : ''}${trendPercent.toFixed(1)}%` : 'n/a'}
+            </p>
+            <p className="text-xs text-gray-600 mt-1">
+              Based on weighted sentiment, pricing and product signals.
+            </p>
+          </div>
+
+          <div className="p-4 rounded-lg border border-indigo-100 bg-indigo-50">
+            <div className="flex items-center justify-between">
+              <p className="text-xs uppercase font-semibold text-indigo-700">Knowledge Links</p>
+              <Sparkles className="w-4 h-4 text-indigo-600" />
+            </div>
+            <p className="text-2xl font-bold text-indigo-900 mt-2">{analyticsEdges.length}</p>
+            <p className="text-xs text-indigo-700 mt-1">
+              Knowledge graph relations discovered this period.
+            </p>
+          </div>
+
+          <div className="p-4 rounded-lg border border-orange-100 bg-orange-50">
+            <div className="flex items-center justify-between">
+              <p className="text-xs uppercase font-semibold text-orange-700">Tracked Changes</p>
+              <History className="w-4 h-4 text-orange-600" />
+            </div>
+            <p className="text-2xl font-bold text-orange-900 mt-2">{changeEvents.length}</p>
+            <p className="text-xs text-orange-700 mt-1">
+              Pricing & feature updates in monitoring queue.
+            </p>
+          </div>
+
+          <div className="p-4 rounded-lg border border-rose-100 bg-rose-50">
+            <div className="flex items-center justify-between">
+              <p className="text-xs uppercase font-semibold text-rose-700">High-priority News</p>
+              <Newspaper className="w-4 h-4 text-rose-600" />
+            </div>
+            <p className="text-2xl font-bold text-rose-900 mt-2">{highPriorityNews}</p>
+            <p className="text-xs text-rose-700 mt-1">
+              High-priority articles from the latest batch of signals.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="bg-white rounded-lg border border-gray-200 p-5">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center space-x-2">
+                <Newspaper className="w-4 h-4 text-blue-600" />
+                <h4 className="text-sm font-semibold text-gray-800">Top Recent News</h4>
+              </div>
+              <span className="text-xs text-gray-500">
+                {newsPreview.length ? `${newsPreview.length} of ${topNews.length} shown` : 'No news yet'}
+              </span>
+            </div>
+            {newsPreview.length > 0 ? (
+              <div className="space-y-3 text-sm">
+                {newsPreview.map(item => (
+                  <div key={item.id} className="border border-gray-100 rounded-md p-3 hover:border-blue-200 transition-colors">
+                    <a
+                      href={item.source_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-semibold text-gray-900 hover:text-blue-600"
+                    >
+                      {item.title}
+                    </a>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                      <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full">
+                        {item.priority_level} priority
+                      </span>
+                      {item.topic && (
+                        <span className="px-2 py-0.5 bg-purple-50 text-purple-600 rounded-full">
+                          {formatLabel(item.topic)}
+                        </span>
+                      )}
+                      {item.sentiment && (
+                        <span className="px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded-full">
+                          {formatLabel(item.sentiment)}
+                        </span>
+                      )}
+                      <span>{new Date(item.published_at).toLocaleDateString()}</span>
+                    </div>
+                    {item.summary && (
+                      <p className="text-xs text-gray-600 mt-2 line-clamp-2">
+                        {item.summary}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-gray-500">
+                No high-impact news has been ingested for the selected filters yet.
+              </p>
+            )}
+          </div>
+
+          <div className="bg-white rounded-lg border border-gray-200 p-5">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center space-x-2">
+                <Sparkles className="w-4 h-4 text-indigo-500" />
+                <h4 className="text-sm font-semibold text-gray-800">Impact Drivers & Graph Insights</h4>
+              </div>
+              <span className="text-xs text-gray-500">
+                {highConfidenceEdges.length} graph links
+              </span>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <p className="text-xs uppercase font-semibold text-gray-500 mb-2">Impact contributors</p>
+                {components.length > 0 ? (
+                  <div className="space-y-1">
+                    {components.map(component => (
+                      <div key={component.id} className="flex items-center justify-between text-xs text-gray-600">
+                        <div>
+                          <p className="font-medium text-gray-800">{formatLabel(component.component_type)}</p>
+                          <p className="text-[11px] text-gray-500">
+                            Weight {(component.weight * 100).toFixed(0)}%
+                          </p>
+                        </div>
+                        <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">
+                          {component.score_contribution.toFixed(2)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-500">Run recompute to populate impact components.</p>
+                )}
+              </div>
+
+              <div>
+                <p className="text-xs uppercase font-semibold text-gray-500 mb-2">Knowledge graph highlights</p>
+                {highConfidenceEdges.length > 0 ? (
+                  <div className="space-y-1 text-xs text-gray-600">
+                    {highConfidenceEdges.map(edge => (
+                      <div key={edge.id} className="flex items-center justify-between border border-gray-100 rounded-md p-2">
+                        <div>
+                          <p className="font-medium text-gray-800">
+                            {formatLabel(edge.source_entity_type)} → {formatLabel(edge.target_entity_type)}
+                          </p>
+                          <p className="text-[11px] text-gray-500">
+                            {formatLabel(edge.relationship_type)} · {(edge.confidence * 100).toFixed(0)}% confidence
+                          </p>
+                        </div>
+                        <span className="text-[11px] text-gray-500">
+                          {edge.metadata?.change_detected_at
+                            ? new Date(edge.metadata.change_detected_at).toLocaleDateString()
+                            : ''}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-500">No graph edges detected for the selected filters yet.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {renderChangeEventsSection()}
+      </div>
+    )
+  }
+
+  const renderAnalyticsTabs = () => {
+    if (!analysisData || !selectedCompany) {
+      return null
+    }
+
+    const tabs: Array<{ id: 'persistent' | 'signals'; label: string; hint: string }> = [
+      {
+        id: 'persistent',
+        label: 'Persistent Metrics',
+        hint: 'KPIs, baselines, historical context'
+      },
+      {
+        id: 'signals',
+        label: 'Current Signals',
+        hint: 'Alerts, top news, knowledge graph'
+      }
+    ]
+
+    return (
+      <div className="rounded-lg border border-gray-200 shadow-sm overflow-hidden bg-white">
+        <div className="flex flex-wrap bg-gray-50 border-b border-gray-200">
+          {tabs.map(tab => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setMetricsTab(tab.id)}
+              className={`flex-1 min-w-[200px] px-4 py-3 text-left transition-colors border-b-2 ${
+                metricsTab === tab.id
+                  ? 'bg-white border-blue-500 text-blue-600'
+                  : 'bg-gray-50 border-transparent text-gray-600 hover:text-blue-600'
+              }`}
+            >
+              <span className="block text-sm font-semibold">{tab.label}</span>
+              <span className="block text-xs text-gray-500 mt-1">{tab.hint}</span>
+            </button>
+          ))}
+        </div>
+        <div className="p-6 space-y-6">
+          {metricsTab === 'persistent' ? renderPersistentMetricsSection() : renderCurrentSignalsSection()}
+        </div>
+      </div>
+    )
+  }
+
+  const renderImpactPanel = () => {
+    if (!impactSnapshot && !analyticsLoading && !analyticsError) {
+      return null
+    }
+
+    const recentSnapshots = impactSeries?.snapshots?.slice(-8) ?? []
+    const maxImpact = recentSnapshots.length ? Math.max(...recentSnapshots.map(snapshot => snapshot.impact_score)) : 0
+    const minImpact = recentSnapshots.length ? Math.min(...recentSnapshots.map(snapshot => snapshot.impact_score)) : 0
+    const previousScore = recentSnapshots.length > 1 ? recentSnapshots[recentSnapshots.length - 2].impact_score : null
+    const trendDeltaPercent = typeof impactSnapshot?.trend_delta === 'number' ? impactSnapshot.trend_delta * 100 : null
+    const absoluteChange = previousScore !== null && impactSnapshot
+      ? impactSnapshot.impact_score - previousScore
+      : null
+
+    return (
+      <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-4">
+          <div>
+            <div className="flex items-center space-x-2">
+              <Gauge className="w-5 h-5 text-blue-600" />
+              <h3 className="text-lg font-semibold text-gray-900">Impact Score</h3>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              Weighted blend of news, pricing and product signals for the selected company.
+            </p>
+            {impactSnapshot && (
+              <p className="text-xs text-gray-400 mt-1">
+                Snapshot range {new Date(impactSnapshot.period_start).toLocaleDateString()} — {new Date(impactSnapshot.period_end).toLocaleDateString()}
+              </p>
+            )}
+          </div>
+          <div className="flex items-center space-x-2">
+            <button
+              type="button"
+              onClick={handleRecomputeAnalytics}
+              className="text-xs px-3 py-1.5 rounded-md border border-blue-200 text-blue-600 hover:bg-blue-50 transition-colors"
+            >
+              Recompute
+            </button>
+            <button
+              type="button"
+              onClick={handleSyncKnowledgeGraph}
+              disabled={!impactSnapshot}
+              className="text-xs px-3 py-1.5 rounded-md border border-indigo-200 text-indigo-600 hover:bg-indigo-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Sync graph
+            </button>
+          </div>
+        </div>
+
+        {analyticsError && (
+          <div className="mb-4 p-3 rounded-md border border-red-200 bg-red-50 text-xs text-red-700">
+            {analyticsError}
+          </div>
+        )}
+
+        {analyticsLoading && !impactSnapshot ? (
+          <div className="py-6 text-center text-sm text-gray-500">
+            <div className="mx-auto h-6 w-6 border-2 border-blue-200 border-t-blue-600 rounded-full animate-spin mb-3" />
+            Loading analytics insights...
+          </div>
+        ) : impactSnapshot ? (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="p-4 rounded-lg bg-blue-50 border border-blue-100">
+                <p className="text-xs uppercase text-blue-600 font-semibold">Impact Score</p>
+                <p className="text-3xl font-bold text-blue-900 mt-2">{impactSnapshot.impact_score.toFixed(2)}</p>
+                <p className="text-xs text-blue-700 mt-1">Composite score across signal types</p>
+              </div>
+              <div className="p-4 rounded-lg bg-emerald-50 border border-emerald-100">
+                <p className="text-xs uppercase text-emerald-600 font-semibold">Trend</p>
+                <p className={`text-3xl font-bold mt-2 ${trendDeltaPercent !== null && trendDeltaPercent >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>
+                  {trendDeltaPercent !== null ? `${trendDeltaPercent >= 0 ? '+' : ''}${trendDeltaPercent.toFixed(1)}%` : 'n/a'}
+                </p>
+                <p className="text-xs text-emerald-700 mt-1">
+                  {absoluteChange !== null ? `${absoluteChange >= 0 ? '+' : ''}${absoluteChange.toFixed(2)} points vs previous snapshot` : 'Awaiting history for comparison'}
+                </p>
+              </div>
+              <div className="p-4 rounded-lg bg-purple-50 border border-purple-100">
+                <p className="text-xs uppercase text-purple-600 font-semibold">Signals</p>
+                <p className="text-sm text-purple-700 mt-2">
+                  {impactSnapshot.news_total} news · {impactSnapshot.pricing_changes} pricing · {impactSnapshot.feature_updates} features
+                </p>
+                <p className="text-xs text-purple-500 mt-1">
+                  Sentiment balance {(impactSnapshot.news_average_sentiment * 100).toFixed(1)}%
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="border border-gray-200 rounded-lg p-4">
+                <h4 className="text-sm font-semibold text-gray-800 mb-3 flex items-center">
+                  <BarChart3 className="w-4 h-4 text-blue-500 mr-2" />
+                  Impact breakdown
+                </h4>
+                <div className="space-y-2">
+                  {(impactSnapshot.components || []).slice(0, 4).map(component => (
+                    <div key={component.id} className="flex items-center justify-between text-sm">
+                      <div>
+                        <p className="font-medium text-gray-800">{formatLabel(component.component_type)}</p>
+                        <p className="text-xs text-gray-500">Weight {(component.weight * 100).toFixed(0)}%</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-semibold text-gray-900">{component.score_contribution.toFixed(2)}</p>
+                        {component.metadata?.pricing_changes !== undefined && (
+                          <p className="text-xs text-gray-500">{component.metadata.pricing_changes} pricing changes</p>
+                        )}
+                        {component.metadata?.feature_updates !== undefined && (
+                          <p className="text-xs text-gray-500">{component.metadata.feature_updates} feature updates</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {(!impactSnapshot.components || impactSnapshot.components.length === 0) && (
+                    <p className="text-xs text-gray-500">Recompute analytics to populate component breakdown.</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="border border-gray-200 rounded-lg p-4">
+                <h4 className="text-sm font-semibold text-gray-800 mb-3 flex items-center">
+                  <LineChart className="w-4 h-4 text-purple-500 mr-2" />
+                  Recent trend
+                </h4>
+                {recentSnapshots.length === 0 ? (
+                  <p className="text-xs text-gray-500">No historical snapshots yet.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {recentSnapshots.map(snapshot => {
+                      const normalized = maxImpact !== minImpact ? (snapshot.impact_score - minImpact) / (maxImpact - minImpact) : 0.5
+                      return (
+                        <div key={snapshot.id}>
+                          <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+                            <span>{new Date(snapshot.period_start).toLocaleDateString()}</span>
+                            <span className="font-medium text-gray-800">{snapshot.impact_score.toFixed(2)}</span>
+                          </div>
+                          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                            <div
+                              className="h-2 bg-gradient-to-r from-blue-400 to-blue-600 rounded-full"
+                              style={{ width: `${Math.max(10, normalized * 100)}%` }}
+                            />
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {analyticsEdges.length > 0 && (
+              <div className="mt-6 border border-gray-200 rounded-lg p-4">
+                <h4 className="text-sm font-semibold text-gray-800 mb-3 flex items-center">
+                  <Users className="w-4 h-4 text-indigo-500 mr-2" />
+                  Knowledge graph links
+                </h4>
+                <div className="space-y-2 text-xs text-gray-600">
+                  {analyticsEdges.slice(0, 5).map(edge => (
+                    <div key={edge.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-gray-100 pb-2 last:border-b-0 gap-1">
+                      <div>
+                        <span className="font-semibold text-gray-800">{formatLabel(edge.source_entity_type)}</span>
+                        <span className="mx-2 text-gray-400">→</span>
+                        <span className="font-semibold text-gray-800">{formatLabel(edge.target_entity_type)}</span>
+                        <span className="ml-2 text-gray-500">
+                          ({formatLabel(edge.relationship_type)} · {(edge.confidence * 100).toFixed(0)}%)
+                        </span>
+                      </div>
+                      <div className="flex items-center space-x-2 text-gray-400">
+                        {edge.metadata?.category && <span>{formatLabel(edge.metadata.category)}</span>}
+                        {edge.metadata?.change_detected_at && (
+                          <span>{new Date(edge.metadata.change_detected_at).toLocaleDateString()}</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        ) : null}
+      </div>
+    )
+  }
+
+  const renderPresetManager = () => (
+    <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+        <div>
+          <div className="flex items-center space-x-2">
+            <Building2 className="w-5 h-5 text-teal-600" />
+            <h3 className="text-lg font-semibold text-gray-900">Saved report presets</h3>
+          </div>
+          <p className="text-xs text-gray-500 mt-1">
+            Save frequently used combinations of companies и фильтров for quick access later.
+          </p>
+        </div>
+        <div className="flex items-center space-x-2">
+          <input
+            type="text"
+            value={newPresetName}
+            onChange={(event) => setNewPresetName(event.target.value)}
+            placeholder="Preset name"
+            className="w-48 md:w-56 rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+          />
+          <button
+            type="button"
+            onClick={handleCreatePreset}
+            disabled={savingPreset}
+            className="text-xs px-3 py-2 rounded-md bg-teal-600 text-white hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {savingPreset ? 'Saving…' : 'Save preset'}
+          </button>
+        </div>
+      </div>
+
+      {presetsError && (
+        <div className="mb-3 p-3 rounded-md border border-red-200 bg-red-50 text-xs text-red-700">
+          {presetsError}
+        </div>
+      )}
+
+      {presetsLoading ? (
+        <div className="py-6 text-center text-sm text-gray-500">
+          <div className="mx-auto h-6 w-6 border-2 border-teal-200 border-t-teal-600 rounded-full animate-spin mb-3" />
+          Loading presets…
+        </div>
+      ) : reportPresets.length === 0 ? (
+        <p className="text-sm text-gray-500">No presets yet. Save the current configuration to reuse it later.</p>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-gray-700">
+          {reportPresets.map((preset) => (
+            <div key={preset.id} className="border border-gray-200 rounded-lg p-3">
+              <div className="flex items-center justify-between">
+                <p className="font-semibold text-gray-900">{preset.name}</p>
+                {preset.is_favorite && <span className="text-xs text-amber-600 font-medium">Favorite</span>}
+              </div>
+              <p className="mt-1 text-xs text-gray-500">
+                Companies: {preset.companies?.length ?? 0} · Updated {new Date(preset.updated_at).toLocaleDateString()}
+              </p>
+              <p className="mt-1 text-xs text-gray-400">
+                Filters saved · companies: {preset.companies?.length ?? 0}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleApplyPreset(preset)}
+                  disabled={presetApplyingId === preset.id}
+                  className="text-xs px-3 py-1.5 rounded-md border border-teal-200 text-teal-600 hover:bg-teal-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {presetApplyingId === preset.id ? 'Applying…' : 'Apply preset'}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 
   const handleExport = async (format: 'json' | 'pdf' | 'csv') => {
     if (!analysisData || !selectedCompany) return
@@ -989,39 +2000,36 @@ export default function CompetitorAnalysisPage() {
   const runCompanyAnalysis = async () => {
     if (!selectedCompany) return
     
-    setLoading(true)
     setError(null)
     
     try {
-      // Получаем предложения конкурентов
       const suggestionsResponse = await ApiService.suggestCompetitors(selectedCompany.id, {
         limit: 5,
         days: 30
       })
       
-      // Берем первых 3 конкурентов для анализа
       const competitorIds = suggestionsResponse.suggestions.slice(0, 3).map(s => s.company.id)
-      const allCompanyIds = [selectedCompany.id, ...competitorIds]
-      
-      // Выполняем анализ
-      const dateFrom = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
-      const dateTo = new Date().toISOString()
-      
-      const payload = applyFiltersToPayload({
-        company_ids: allCompanyIds,
-        date_from: dateFrom,
-        date_to: dateTo
-      })
+      if (!competitorIds.length) {
+        toast.error('Not enough competitor data to run analysis yet')
+        return
+      }
 
-      const response = await ApiService.compareCompanies(payload)
-      
-      setAnalysisData(response)
-      
+      setSelectedCompetitors(competitorIds)
+      setManuallyAddedCompetitors(suggestionsResponse.suggestions.map(s => s.company))
+
+      await runAnalysis({
+        primaryCompany: selectedCompany,
+        competitorIds,
+        filters: {
+          source_types: sourceTypeFilters,
+          topics: topicFilters,
+          sentiments: sentimentFilters,
+          min_priority: minPriorityFilter
+        }
+      })
     } catch (err: any) {
       console.error('Error running company analysis:', err)
-      setError(err.response?.data?.detail || 'Failed to run analysis')
-    } finally {
-      setLoading(false)
+      setError(err.response?.data?.detail || err.message || 'Failed to run analysis')
     }
   }
   
@@ -1125,7 +2133,6 @@ export default function CompetitorAnalysisPage() {
             onClick={() => {
               if (selectedCompetitors.length > 0) {
                 runAnalysis()
-                setStep('analyze')
               }
             }}
             disabled={selectedCompetitors.length === 0}
@@ -1178,76 +2185,9 @@ export default function CompetitorAnalysisPage() {
       
       {analysisData && (
         <div className="space-y-6">
-          {/* Brand Preview */}
-          <BrandPreview
-            company={selectedCompany!}
-            stats={{
-              total_news: analysisData.metrics.news_volume[selectedCompany!.id] || 0,
-              categories_breakdown: Object.entries(analysisData.metrics.category_distribution[selectedCompany!.id] || {}).map(([category, count]) => ({
-                category,
-                count: count as number
-              })),
-              activity_score: analysisData.metrics.activity_score[selectedCompany!.id] || 0,
-              avg_priority: analysisData.metrics.avg_priority?.[selectedCompany!.id] ?? 0.5
-            }}
-          />
-
-          {renderActiveFiltersSummary(analysisData.filters)}
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {renderTopicDistributionCard(selectedCompany!.id)}
-            {renderSentimentDistributionCard(selectedCompany!.id)}
-            {renderPriorityCard(selectedCompany!.id)}
-          </div>
-
-          {renderChangeEventsSection()}
- 
-          {/* News Volume Comparison */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">
-                News Volume Comparison
-              </h3>
-            </div>
-            <div className="space-y-3">
-              {analysisData.companies.map((company: Company, index: number) => {
-                const volume = analysisData.metrics.news_volume[company.id] || 0
-                const maxVolume = Math.max(...Object.values(analysisData.metrics.news_volume).map(v => Number(v)))
-                const percentage = maxVolume > 0 ? (volume / maxVolume) * 100 : 0
-                const colors = ['bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-orange-500', 'bg-pink-500']
-                
-                return (
-                  <div key={company.id}>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-medium text-gray-700">
-                        {company.name}
-                      </span>
-                      <span className="text-sm text-gray-600">{volume} news</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-3">
-                      <div
-                        className={`h-3 rounded-full ${colors[index % colors.length]}`}
-                        style={{ width: `${percentage}%` }}
-                      />
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-          
-          {/* Theme Analysis */}
-          {themesData && (
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Theme Analysis
-              </h3>
-              <ThemeAnalysis
-                themesData={themesData}
-                companies={analysisData.companies}
-              />
-            </div>
-          )}
+          {renderImpactPanel()}
+          {renderPresetManager()}
+          {renderAnalyticsTabs()}
         </div>
       )}
     </div>
@@ -1281,62 +2221,65 @@ export default function CompetitorAnalysisPage() {
     )
   }
   
-  const runAnalysis = async () => {
-    if (!selectedCompany || selectedCompetitors.length === 0) return
+  const runAnalysis = async (
+    override?: {
+      primaryCompany: Company
+      competitorIds: string[]
+      filters?: {
+        source_types?: string[]
+        topics?: string[]
+        sentiments?: string[]
+        min_priority?: number | null
+      }
+    }
+  ) => {
+    const primaryCompany = override?.primaryCompany ?? selectedCompany
+    const competitorIds = override?.competitorIds ?? selectedCompetitors
+
+    if (!primaryCompany || !primaryCompany.id || !Array.isArray(competitorIds) || competitorIds.length === 0) {
+      setError('Select a primary company and at least one competitor before running analysis.')
+      return
+    }
+    
+    setImpactSnapshot(null)
+    setImpactSeries(null)
+    setAnalyticsEdges([])
+    setAnalyticsError(null)
+    setAnalysisData(null)
+    setThemesData(null)
+    setStep('analyze')
     
     setLoading(true)
     setError(null)
     
     try {
-      // Валидация данных
-      if (!selectedCompany || !selectedCompany.id) {
-        throw new Error('Selected company is invalid')
-      }
-      
-      if (!Array.isArray(selectedCompetitors)) {
-        throw new Error('Selected competitors is not an array')
-      }
-      
-      // Проверяем что все ID являются строками
-      const allCompanyIds = [selectedCompany.id, ...selectedCompetitors].map(id => String(id))
-      
-      // Исправить формат дат - добавить время
+      const allCompanyIds = [primaryCompany.id, ...competitorIds].map(id => String(id))
       const dateFrom = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
       const dateTo = new Date().toISOString()
-      
-      console.log('Sending request with:', {
-        company_ids: allCompanyIds,
-        date_from: dateFrom,
-        date_to: dateTo
-      })
-      
-      console.log('Selected company:', selectedCompany)
-      console.log('Selected competitors:', selectedCompetitors)
-      console.log('All company IDs:', allCompanyIds)
-      console.log('Request object:', {
-        company_ids: allCompanyIds,
-        date_from: dateFrom,
-        date_to: dateTo
-      })
       
       const comparisonPayload = applyFiltersToPayload({
         company_ids: allCompanyIds,
         date_from: dateFrom,
         date_to: dateTo
+      }, {
+        sourceTypes: override?.filters?.source_types ?? sourceTypeFilters,
+        topics: override?.filters?.topics ?? topicFilters,
+        sentiments: override?.filters?.sentiments ?? sentimentFilters,
+        minPriority: override?.filters?.min_priority ?? minPriorityFilter
       })
 
       const response = await ApiService.compareCompanies(comparisonPayload)
-      
       setAnalysisData(response)
       
-      // Get themes data
       const themesResponse = await ApiService.analyzeThemes(allCompanyIds, {
         date_from: dateFrom,
         date_to: dateTo
       })
-      
       setThemesData(themesResponse)
       
+      await loadAnalyticsInsights(primaryCompany.id)
+      await loadReportPresets()
+      setStep('analyze')
     } catch (err: any) {
       console.error('Error running analysis:', err)
       console.error('Error details:', err.response?.data)

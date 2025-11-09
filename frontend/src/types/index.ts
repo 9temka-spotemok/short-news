@@ -108,6 +108,105 @@ export type NewsTopic =
 
 export type SentimentLabel = 'positive' | 'neutral' | 'negative' | 'mixed'
 
+export type AnalyticsPeriod = 'daily' | 'weekly' | 'monthly'
+
+export type ImpactComponentType =
+  | 'news_signal'
+  | 'pricing_change'
+  | 'feature_release'
+  | 'funding_event'
+  | 'community_event'
+  | 'other'
+
+export type AnalyticsEntityType =
+  | 'company'
+  | 'news_item'
+  | 'change_event'
+  | 'pricing_snapshot'
+  | 'product'
+  | 'feature'
+  | 'team'
+  | 'metric'
+  | 'external'
+
+export type RelationshipType =
+  | 'causes'
+  | 'correlated_with'
+  | 'follows'
+  | 'amplifies'
+  | 'depends_on'
+
+export interface ImpactComponent {
+  id: string
+  component_type: ImpactComponentType
+  weight: number
+  score_contribution: number
+  metadata: Record<string, any>
+}
+
+export interface CompanyAnalyticsSnapshot {
+  id: string
+  company_id: string
+  period: AnalyticsPeriod
+  period_start: string
+  period_end: string
+  news_total: number
+  news_positive: number
+  news_negative: number
+  news_neutral: number
+  news_average_sentiment: number
+  news_average_priority: number
+  pricing_changes: number
+  feature_updates: number
+  funding_events: number
+  impact_score: number
+  innovation_velocity: number
+  trend_delta: number
+  metric_breakdown: Record<string, any>
+  components: ImpactComponent[]
+}
+
+export interface SnapshotSeries {
+  company_id: string
+  period: AnalyticsPeriod
+  snapshots: CompanyAnalyticsSnapshot[]
+}
+
+export interface KnowledgeGraphEdge {
+  id: string
+  company_id: string | null
+  source_entity_type: AnalyticsEntityType
+  source_entity_id: string
+  target_entity_type: AnalyticsEntityType
+  target_entity_id: string
+  relationship_type: RelationshipType
+  confidence: number
+  weight: number
+  metadata: Record<string, any>
+}
+
+export interface ReportPreset {
+  id: string
+  user_id: string
+  name: string
+  description: string | null
+  companies: string[]
+  filters: Record<string, any>
+  visualization_config: Record<string, any>
+  is_favorite: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface ReportPresetCreateRequest {
+  name: string
+  description?: string | null
+  companies?: string[]
+  filters?: Record<string, any>
+  visualization_config?: Record<string, any>
+  is_favorite?: boolean
+}
+
 export interface NewsCategoryInfo {
   value: NewsCategory
   description: string

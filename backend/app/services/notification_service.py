@@ -10,9 +10,15 @@ from loguru import logger
 import uuid
 
 from app.models import (
-    Notification, NotificationSettings, NotificationType, NotificationPriority,
-    NewsItem, UserPreferences, Company
+    Notification,
+    NotificationSettings,
+    NotificationType,
+    NotificationPriority,
+    NewsItem,
+    UserPreferences,
+    Company,
 )
+from app.services.notification_dispatcher import NotificationDispatcher
 
 
 class NotificationService:
@@ -70,6 +76,30 @@ class NotificationService:
             await self.db.refresh(notification)
             
             logger.info(f"Notification created: {notification_type} for user {user_id}")
+
+            try:
+                dispatcher = NotificationDispatcher(self.db)
+                dedup_key = None
+                if data:
+                    dedup_key = data.get("news_id") or data.get("company_id")
+                await dispatcher.queue_event(
+                    user_id=notification.user_id,
+                    notification_type=notification_type,
+                    priority=priority,
+                    payload={
+                        "title": title,
+                        "message": message,
+                        **(data or {}),
+                    },
+                    deduplication_key=dedup_key,
+                )
+            except Exception as dispatch_error:
+                logger.error(
+                    "Failed to queue multi-channel notification event: %s",
+                    dispatch_error,
+                    exc_info=True,
+                )
+
             return notification
             
         except Exception as e:

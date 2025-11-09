@@ -49,7 +49,7 @@ class Settings(BaseSettings):
                 return [host.strip() for host in v.split(',')]
         return v
     
-    @field_validator('SCRAPER_HEADLESS_ENABLED', 'SCRAPER_SNAPSHOTS_ENABLED', mode='before')
+    @field_validator('SCRAPER_HEADLESS_ENABLED', 'SCRAPER_SNAPSHOTS_ENABLED', 'ENABLE_ANALYTICS_V2', 'ENABLE_KNOWLEDGE_GRAPH', mode='before')
     @classmethod
     def validate_bool_flags(cls, v):
         """Allow boolean flags to be passed as strings"""
@@ -94,6 +94,10 @@ class Settings(BaseSettings):
     # Celery
     CELERY_BROKER_URL: str = Field(default="redis://localhost:6379/0", description="Celery broker URL")
     CELERY_RESULT_BACKEND: str = Field(default="redis://localhost:6379/0", description="Celery result backend URL")
+    
+    # Feature flags
+    ENABLE_ANALYTICS_V2: bool = Field(default=True, description="Expose API v2 analytics endpoints")
+    ENABLE_KNOWLEDGE_GRAPH: bool = Field(default=True, description="Enable analytics knowledge graph processing")
     
     # Scraping
     SCRAPER_USER_AGENT: str = Field(

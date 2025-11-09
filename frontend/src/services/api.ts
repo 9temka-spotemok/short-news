@@ -1,12 +1,17 @@
 import { useAuthStore } from '@/store/authStore'
 import type {
+  AnalyticsPeriod,
   ApiResponse,
   AuthResponse,
+  ChangeProcessingStatus,
   Company,
+  CompanyAnalyticsSnapshot,
   CompanyScanRequest,
   CompanyScanResult,
+  CompetitorChangeEvent,
   CreateCompanyRequest,
   CreateCompanyResponse,
+  KnowledgeGraphEdge,
   LoginRequest,
   NewsCategoryInfo,
   NewsFilter,
@@ -17,113 +22,120 @@ import type {
   RefreshTokenRequest,
   RefreshTokenResponse,
   RegisterRequest,
+  ReportPreset,
+  ReportPresetCreateRequest,
   SearchRequest,
+  SnapshotSeries,
   SourceTypeInfo,
-  User,
-  ChangeProcessingStatus,
-  CompetitorChangeEvent
+  User
 } from '@/types'
-import axios, { AxiosError, AxiosResponse } from 'axios'
+import axios, { AxiosError, AxiosInstance, AxiosResponse } from 'axios'
 import toast from 'react-hot-toast'
 
 const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000'
 
-// Create axios instance with enhanced configuration
+const attachInterceptors = (instance: AxiosInstance) => {
+  instance.interceptors.request.use(
+    (config) => {
+      const { accessToken } = useAuthStore.getState()
+      if (accessToken) {
+        config.headers.Authorization = `Bearer ${accessToken}`
+      }
+
+      if ((import.meta as any).env?.DEV) {
+        console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${config.url}`, config.params)
+      }
+
+      return config
+    },
+    (error) => {
+      console.error('Request interceptor error:', error)
+      return Promise.reject(error)
+    }
+  )
+
+  instance.interceptors.response.use(
+    (response: AxiosResponse) => {
+      if ((import.meta as any).env?.DEV) {
+        console.log(`✅ API Response: ${response.config.method?.toUpperCase()} ${response.config.url}`, response.data)
+      }
+      return response
+    },
+    async (error: AxiosError) => {
+      const { response, config } = error
+
+      if ((import.meta as any).env?.DEV) {
+        console.error(`❌ API Error: ${config?.method?.toUpperCase()} ${config?.url}`, error.response?.data)
+      }
+
+      switch (response?.status) {
+        case 401: {
+          const isLoginRequest = config?.url?.includes('/auth/login')
+          const isOnLoginPage = window.location.pathname === '/login'
+
+          if (isLoginRequest || isOnLoginPage) {
+            const errorData = response.data as ApiResponse<any>
+            toast.error(errorData?.message || 'Неверный email или пароль')
+          } else {
+            useAuthStore.getState().logout()
+            toast.error('Session expired. Please log in again.')
+            window.location.href = '/login'
+          }
+
+          break
+        }
+
+        case 403:
+          toast.error('Access denied. You don\'t have permission to perform this action.')
+          break
+
+        case 404:
+          toast.error('Resource not found.')
+          break
+
+        case 422: {
+          const validationError = response.data as ApiResponse<any>
+          toast.error(validationError.message || 'Validation failed. Please check your input.')
+          break
+        }
+
+        case 429:
+          toast.error('Too many requests. Please try again later.')
+          break
+
+        case 500:
+          toast.error('Server error. Please try again later.')
+          break
+
+        default: {
+          const errorData = response?.data as ApiResponse<any>
+          toast.error(errorData?.message || 'An unexpected error occurred.')
+        }
+      }
+
+      return Promise.reject(error)
+    }
+  )
+}
+
 export const api = axios.create({
   baseURL: `${API_BASE_URL}/api/v1`,
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 30000, // 30 seconds timeout
+  timeout: 30000,
 })
 
-// Request interceptor to add auth token and handle request logging
-api.interceptors.request.use(
-  (config) => {
-    const { accessToken } = useAuthStore.getState()
-    if (accessToken) {
-      config.headers.Authorization = `Bearer ${accessToken}`
-    }
-    
-    // Log requests in development
-    if ((import.meta as any).env?.DEV) {
-      console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${config.url}`, config.params)
-    }
-    
-    return config
+export const apiV2 = axios.create({
+  baseURL: `${API_BASE_URL}/api/v2`,
+  headers: {
+    'Content-Type': 'application/json',
   },
-  (error) => {
-    console.error('Request interceptor error:', error)
-    return Promise.reject(error)
-  }
-)
+  timeout: 30000,
+})
 
-// Enhanced response interceptor with better error handling
-api.interceptors.response.use(
-  (response: AxiosResponse) => {
-    // Log responses in development
-    if ((import.meta as any).env?.DEV) {
-      console.log(`✅ API Response: ${response.config.method?.toUpperCase()} ${response.config.url}`, response.data)
-    }
-    return response
-  },
-  async (error: AxiosError) => {
-    const { response, config } = error
-    
-    // Log errors in development
-    if ((import.meta as any).env?.DEV) {
-      console.error(`❌ API Error: ${config?.method?.toUpperCase()} ${config?.url}`, error.response?.data)
-    }
-    
-    // Handle different error status codes
-    switch (response?.status) {
-      case 401:
-        // Check if this is a login request - don't redirect if we're already on login page
-        const isLoginRequest = config?.url?.includes('/auth/login')
-        const isOnLoginPage = window.location.pathname === '/login'
-        
-        if (isLoginRequest || isOnLoginPage) {
-          // This is a login error or we're already on login page - just show error
-          const errorData = response.data as ApiResponse<any>
-          toast.error(errorData?.message || 'Неверный email или пароль')
-        } else {
-          // Token expired or invalid - redirect to login
-          useAuthStore.getState().logout()
-          toast.error('Session expired. Please log in again.')
-          window.location.href = '/login'
-        }
-        break
-        
-      case 403:
-        toast.error('Access denied. You don\'t have permission to perform this action.')
-        break
-        
-      case 404:
-        toast.error('Resource not found.')
-        break
-        
-      case 422:
-        // Validation error
-        const validationError = response.data as ApiResponse<any>
-        toast.error(validationError.message || 'Validation failed. Please check your input.')
-        break
-        
-      case 429:
-        toast.error('Too many requests. Please try again later.')
-        break
-        
-      case 500:
-        toast.error('Server error. Please try again later.')
-        break
-        
-      default:
-        const errorData = response?.data as ApiResponse<any>
-        toast.error(errorData?.message || 'An unexpected error occurred.')
-    }
-    
-    return Promise.reject(error)
-  }
-)
+attachInterceptors(api)
+attachInterceptors(apiV2)
 
 // Enhanced API service with typed methods
 export class ApiService {
@@ -516,6 +528,78 @@ export class ApiService {
     endpoints: Record<string, string>
   }> {
     const response = await api.get('/health')
+    return response.data
+  }
+
+  // Analytics v2 endpoints
+  static async getAnalyticsSnapshots(
+    companyId: string,
+    period: AnalyticsPeriod = 'daily',
+    limit = 60
+  ): Promise<SnapshotSeries> {
+    const response = await apiV2.get<SnapshotSeries>(`/analytics/companies/${companyId}/snapshots`, {
+      params: { period, limit }
+    })
+    return response.data
+  }
+
+  static async getLatestAnalyticsSnapshot(
+    companyId: string,
+    period: AnalyticsPeriod = 'daily'
+  ): Promise<CompanyAnalyticsSnapshot> {
+    const response = await apiV2.get<CompanyAnalyticsSnapshot>(`/analytics/companies/${companyId}/impact/latest`, {
+      params: { period }
+    })
+    return response.data
+  }
+
+  static async triggerAnalyticsRecompute(
+    companyId: string,
+    period: AnalyticsPeriod = 'daily',
+    lookback = 30
+  ): Promise<{ status: string; task_id: string }> {
+    const response = await apiV2.post<{ status: string; task_id: string }>(
+      `/analytics/companies/${companyId}/recompute`,
+      null,
+      { params: { period, lookback } }
+    )
+    return response.data
+  }
+
+  static async triggerKnowledgeGraphSync(
+    companyId: string,
+    periodStartIso: string,
+    period: AnalyticsPeriod = 'daily'
+  ): Promise<{ status: string; task_id: string }> {
+    const response = await apiV2.post<{ status: string; task_id: string }>(
+      `/analytics/companies/${companyId}/graph/sync`,
+      null,
+      { params: { period_start: periodStartIso, period } }
+    )
+    return response.data
+  }
+
+  static async getAnalyticsGraph(
+    companyId?: string,
+    relationship?: string,
+    limit = 100
+  ): Promise<KnowledgeGraphEdge[]> {
+    const params = new URLSearchParams()
+    if (companyId) params.append('company_id', companyId)
+    if (relationship) params.append('relationship', relationship)
+    if (limit) params.append('limit', limit.toString())
+
+    const response = await apiV2.get<KnowledgeGraphEdge[]>('/analytics/graph', { params })
+    return response.data
+  }
+
+  static async listReportPresets(): Promise<ReportPreset[]> {
+    const response = await apiV2.get<ReportPreset[]>('/analytics/reports/presets')
+    return response.data
+  }
+
+  static async createReportPreset(payload: ReportPresetCreateRequest): Promise<ReportPreset> {
+    const response = await apiV2.post<ReportPreset>('/analytics/reports/presets', payload)
     return response.data
   }
 

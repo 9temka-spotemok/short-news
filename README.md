@@ -91,6 +91,38 @@ shot-news/
 - Фронтенд `CompetitorAnalysisPage` дополнился секцией **Latest Changes** с кратким diff, статусом обработки и ссылками на сырые HTML-снапшоты.
 - Сырые страницы складываются в `storage/raw_snapshots/pricing/<company>/<source>.html`, что облегчает трассировку и аудит.
 
+### Итерация 3 (в прогрессе): Управление обходами и уведомлениями
+
+- [x] Адаптивные расписания обходов:
+  - `backend/app/models/crawl.py` — модели `CrawlSchedule`, `SourceProfile`, `CrawlRun` и перечисления `CrawlScope`, `CrawlMode`, `CrawlStatus`.
+  - `backend/app/services/crawl_schedule_service.py` — расчёт эффективной частоты, гидрация профилей, запись истории запусков.
+  - `backend/app/api/v1/endpoints/schedules.py` — REST-ручки `/api/v1/schedules/crawl*` для получения/обновления расписаний и триггера `hydrate`.
+  - `backend/app/celery_app.py` — загрузка динамического beat-расписания через `load_effective_celery_schedule`.
+- [x] Мультиканальные уведомления:
+  - `backend/app/models/notification_channels.py` — каналы, подписки, события и доставки с состояниями.
+  - `backend/app/services/notification_dispatcher.py` — очередь событий, дедупликация, формирование доставок.
+  - `backend/app/services/notification_delivery_executor.py` — отправка Telegram, webhook и email (SendGrid) с ретраями.
+  - `backend/app/tasks/notifications.py` — Celery-задача `dispatch_notification_deliveries` для обработки очереди доставок.
+- [x] Миграция `backend/alembic/versions/1f2a3b4c5d6e_add_crawl_and_notification_channels.py` создаёт новые таблицы и перечисления.
+- [ ] UI панель управления расписаниями и подписками на `CompetitorAnalysisPage`.
+- [ ] Интеграционные тесты обходов/уведомлений и e2e сценарии.
+
+### Итерация 4 (в прогрессе): Расширенная аналитика и экспорт
+
+- [x] Бэкенд-аналитика и impact score:
+  - `backend/app/models/analytics.py` — таблицы `company_analytics_snapshots`, `impact_components`, `analytics_graph_edges`, `user_report_presets` и перечисления `AnalyticsPeriod`, `ImpactComponentType`, `AnalyticsEntityType`, `RelationshipType`.
+  - `backend/app/services/analytics_service.py` — агрегирование сигналов, расчёт `impact_score`, трендового `trend_delta`, построение knowledge graph.
+  - `backend/app/tasks/analytics.py` — Celery-задачи пересчёта метрик и синхронизации графа (`recompute_company_analytics`, `recompute_all_analytics`, `sync_company_knowledge_graph`).
+  - `backend/alembic/versions/2b1c3d4e5f6g_add_analytics_models.py` — миграция новых сущностей.
+- [x] API `v2` и фича-флаги:
+  - `backend/app/api/v2/api.py`, `backend/app/api/v2/endpoints/analytics.py` — `/api/v2/analytics/*` (снапшоты, запуск пересчёта, knowledge graph, пресеты).
+  - `backend/app/schemas/analytics.py` — схемы ответов и запросов для расширенной аналитики.
+  - `backend/main.py`, `backend/app/core/config.py` — флаг `ENABLE_ANALYTICS_V2`, условное подключение роутеров.
+- [x] Планировщик фоновых задач:
+  - `backend/app/celery_app.py` — периодический таск `recompute_all_analytics` и очередь `analytics`.
+- [ ] UI вкладки «Постоянные метрики»/«Актуальные сигналы», графики и пресеты на `CompetitorAnalysisPage` (готовы Impact Score + knowledge graph превью, интерактивный график тренда на вкладке persistent metrics, вкладка current signals с топ‑новостями и change log, сохранение/применение пресетов; далее — A/B сценарии, комбинированные дашборды и расширенные визуализации).                                                
+- [ ] Обновления экспортов (JSON/PDF/CSV) и e2e/нагрузочные тесты.
+
 ### Roadmap
 - [ ] Telegram-бот
 - [ ] Аналитический модуль
@@ -162,6 +194,16 @@ npm run test:e2e
   - `backend/railway.env` — пример переменных для Railway (продакшен).
   - `backend/app/parsers/pricing.py` — нормализация HTML-снапшотов тарифов конкурентов.
   - `backend/app/services/competitor_change_service.py` — change detection, сохранение снапшотов и генерация событий.
+  - `backend/app/models/crawl.py` — сущности расписаний обходов и профилей источников.
+  - `backend/app/services/crawl_schedule_service.py` — управление частотой обходов и историями запусков.
+  - `backend/app/api/v1/endpoints/schedules.py` — REST-доступ к расписаниям и гидрации профилей.
+  - `backend/app/models/notification_channels.py` — каналы/подписки/события уведомлений.
+  - `backend/app/services/notification_dispatcher.py` — очередь событий и формирование доставок.
+  - `backend/app/services/notification_delivery_executor.py` — отправка уведомлений в Email, Telegram, webhook.
+  - `backend/app/models/analytics.py` — хранение метрик, компонентов impact score, knowledge graph, пресетов.
+  - `backend/app/services/analytics_service.py` — расчёт аналитики, формирование графа, управление снапшотами.
+  - `backend/app/api/v2/endpoints/analytics.py` — API `v2` для выдачи метрик, графа и пользовательских пресетов.
+  - `backend/app/tasks/analytics.py` — фоновые задачи пересчёта аналитики и синхронизации knowledge graph.
   - `backend/app/api/v1/endpoints/competitors.py` — REST-ручки `/competitors/changes/*`.
   - `frontend/src/services/api.ts` — методы `getCompetitorChangeEvents`, `recomputeCompetitorChangeEvent`.
   - `frontend/src/pages/CompetitorAnalysisPage.tsx` — UI-секция Latest Changes и действия по пересчёту diff.
