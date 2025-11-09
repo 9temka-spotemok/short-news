@@ -115,13 +115,20 @@ shot-news/
   - `backend/app/tasks/analytics.py` — Celery-задачи пересчёта метрик и синхронизации графа (`recompute_company_analytics`, `recompute_all_analytics`, `sync_company_knowledge_graph`).
   - `backend/alembic/versions/2b1c3d4e5f6g_add_analytics_models.py` — миграция новых сущностей.
 - [x] API `v2` и фича-флаги:
-  - `backend/app/api/v2/api.py`, `backend/app/api/v2/endpoints/analytics.py` — `/api/v2/analytics/*` (снапшоты, запуск пересчёта, knowledge graph, пресеты).
-  - `backend/app/schemas/analytics.py` — схемы ответов и запросов для расширенной аналитики.
+  - `backend/app/api/v2/api.py`, `backend/app/api/v2/endpoints/analytics.py` — `/api/v2/analytics/*` (снапшоты, запуск пересчёта, knowledge graph, пресеты, батч-компаратор `/comparisons`, экспорт `/export`).
+  - `backend/app/services/analytics_comparison_service.py` — сводные метрики, сравнение компаний/пресетов, подготовка payload для экспорта.
+  - `backend/app/schemas/analytics.py` — схемы `ComparisonRequest/Response`, `AnalyticsExportRequest/Response`, агрегаты для impact breakdown.
   - `backend/main.py`, `backend/app/core/config.py` — флаг `ENABLE_ANALYTICS_V2`, условное подключение роутеров.
 - [x] Планировщик фоновых задач:
   - `backend/app/celery_app.py` — периодический таск `recompute_all_analytics` и очередь `analytics`.
-- [ ] UI вкладки «Постоянные метрики»/«Актуальные сигналы», графики и пресеты на `CompetitorAnalysisPage` (готовы Impact Score + knowledge graph превью, интерактивный график тренда на вкладке persistent metrics, вкладка current signals с топ‑новостями и change log, сохранение/применение пресетов; далее — A/B сценарии, комбинированные дашборды и расширенные визуализации).                                                
-- [ ] Обновления экспортов (JSON/PDF/CSV) и e2e/нагрузочные тесты.
+- [x] UI комбинированных дашбордов на `frontend/src/pages/CompetitorAnalysisPage.tsx`:
+  - `frontend/src/components/MultiImpactTrendChart.tsx` — мультисерийный график impact score.
+  - Новые состояния сравнения (`comparisonSubjects`, `comparisonData`), комбинированная панель на вкладке **Persistent Metrics** (общий график и таблица метрик).
+  - A/B виджет на вкладке **Current Signals** (сравнение сигналов, knowledge graph и change log для компаний/пресетов, добавление пресетов в сравнение).
+- [x] Обновлённый экспорт (JSON/PDF/CSV):
+  - `backend/app/services/analytics_comparison_service.py.build_export_payload` — формирование payload версии 2.0 (метаданные, сравнительные серии, knowledge graph, change log, настройки уведомлений, список пресетов).
+  - `frontend/src/services/api.ts` — построение запроса `AnalyticsExportRequest`, переработанные генераторы `exportAnalysis` (PDF-шаблон, нормализованные CSV в zip, JSON).
+- [ ] E2E и нагрузочные тесты (Playwright/k6) + обновление CI гайдлайнов.
 
 ### Roadmap
 - [ ] Telegram-бот

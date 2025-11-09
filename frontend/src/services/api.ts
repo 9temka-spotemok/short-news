@@ -1,6 +1,8 @@
 import { useAuthStore } from '@/store/authStore'
 import type {
   AnalyticsPeriod,
+  AnalyticsExportRequestPayload,
+  AnalyticsExportResponse,
   ApiResponse,
   AuthResponse,
   ChangeProcessingStatus,
@@ -8,6 +10,8 @@ import type {
   CompanyAnalyticsSnapshot,
   CompanyScanRequest,
   CompanyScanResult,
+  ComparisonRequestPayload,
+  ComparisonResponse,
   CompetitorChangeEvent,
   CreateCompanyRequest,
   CreateCompanyResponse,
@@ -29,6 +33,7 @@ import type {
   SourceTypeInfo,
   User
 } from '@/types'
+import JSZip from 'jszip'
 import axios, { AxiosError, AxiosInstance, AxiosResponse } from 'axios'
 import toast from 'react-hot-toast'
 
@@ -603,39 +608,41 @@ export class ApiService {
     return response.data
   }
 
+  static async getAnalyticsComparison(payload: ComparisonRequestPayload): Promise<ComparisonResponse> {
+    const response = await apiV2.post<ComparisonResponse>('/analytics/comparisons', payload)
+    return response.data
+  }
+
+  static async buildAnalyticsExport(payload: AnalyticsExportRequestPayload): Promise<AnalyticsExportResponse> {
+    const response = await apiV2.post<AnalyticsExportResponse>('/analytics/export', payload)
+    return response.data
+  }
+
   // Export methods
   static async exportAnalysis(
-    analysisData: any,
+    exportData: AnalyticsExportResponse,
     format: 'json' | 'pdf' | 'csv'
   ): Promise<void> {
     switch (format) {
       case 'json':
-        this.exportAsJson(analysisData)
+        this.exportAsJson(exportData)
         break
       case 'pdf':
-        await this.exportAsPdf(analysisData)
+        await this.exportAsPdf(exportData)
         break
       case 'csv':
-        this.exportAsCsv(analysisData)
+        await this.exportAsCsv(exportData)
         break
     }
   }
 
-  private static exportAsJson(data: any): void {
+  private static exportAsJson(data: AnalyticsExportResponse): void {
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `competitor-analysis-${new Date().toISOString().split('T')[0]}.json`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
+    this.triggerDownload(blob, `analytics-export-${this.today()}.json`, 'application/json')
   }
 
-  private static async exportAsPdf(data: any): Promise<void> {
-    // Для PDF используем простой HTML-to-PDF подход
-    const html = this.generatePdfHtml(data)
+  private static async exportAsPdf(data: AnalyticsExportResponse): Promise<void> {
+    const html = this.generateAnalyticsPdfHtml(data)
     const printWindow = window.open('', '_blank')
     if (printWindow) {
       printWindow.document.write(html)
@@ -646,19 +653,19 @@ export class ApiService {
     }
   }
 
-  private static exportAsCsv(data: any): void {
-    const csvContent = this.generateCsvContent(data)
-    const blob = new Blob([csvContent], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `competitor-analysis-${new Date().toISOString().split('T')[0]}.csv`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
+  private static async exportAsCsv(data: AnalyticsExportResponse): Promise<void> {
+    const csvFiles = this.generateCsvFiles(data)
+    const zip = new JSZip()
+
+    Object.entries(csvFiles).forEach(([filename, content]) => {
+      zip.file(filename, content)
+    })
+
+    const blob = await zip.generateAsync({ type: 'blob' })
+    this.triggerDownload(blob, `analytics-export-${this.today()}.zip`, 'application/zip')
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   private static generatePdfHtml(data: any): string {
     const companies = data.companies || []
     const metrics = data.metrics || {}
@@ -816,6 +823,7 @@ export class ApiService {
     `
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   private static generateCsvContent(data: any): string {
     const companies = data.companies || []
     const metrics = data.metrics || {}
@@ -885,6 +893,517 @@ export class ApiService {
     })
     
     return csv
+  }
+
+  private static generateAnalyticsPdfHtml(data: AnalyticsExportResponse): string {
+    const { comparison, notification_settings: notifications, presets, timeframe } = data
+    const subjects = comparison.subjects
+    const knowledgeBySubject = comparison.knowledge_graph || {}
+    const changeLogBySubject = comparison.change_log || {}
+
+    const subjectRows = subjects
+      .map(subject => {
+        const companies = subject.companies.map(company => company.name).join(', ')
+        return `
+          <tr>
+            <td>${subject.label}</td>
+            <td>${subject.subject_type}</td>
+            <td>${companies || '—'}</td>
+            <td>${subject.filters.topics.join(', ') || '—'}</td>
+            <td>${subject.filters.sentiments.join(', ') || '—'}</td>
+            <td>${subject.filters.source_types.join(', ') || '—'}</td>
+            <td>${subject.filters.min_priority ?? ''}</td>
+          </tr>
+        `
+      })
+      .join('')
+
+    const metricRows = comparison.metrics
+      .map(metric => {
+        const subject = subjects.find(item => item.subject_key === metric.subject_key)
+        const snapshot = metric.snapshot
+        const knowledgeCount = knowledgeBySubject[metric.subject_key]?.length || 0
+        const changeCount = changeLogBySubject[metric.subject_key]?.length || 0
+        return `
+          <tr>
+            <td>${subject?.label || metric.subject_key}</td>
+            <td>${metric.impact_score.toFixed(2)}</td>
+            <td>${metric.trend_delta.toFixed(2)}%</td>
+            <td>${metric.news_volume}</td>
+            <td>${metric.activity_score.toFixed(2)}</td>
+            <td>${metric.avg_priority.toFixed(2)}</td>
+            <td>${metric.innovation_velocity.toFixed(2)}</td>
+            <td>${snapshot?.news_positive ?? 0}/${snapshot?.news_negative ?? 0}/${snapshot?.news_neutral ?? 0}</td>
+            <td>${knowledgeCount}</td>
+            <td>${changeCount}</td>
+          </tr>
+        `
+      })
+      .join('')
+
+    const componentsSections = comparison.metrics
+      .map(metric => {
+        if (!metric.impact_components.length) return ''
+        const subject = subjects.find(item => item.subject_key === metric.subject_key)
+        const rows = metric.impact_components
+          .map(component => `
+            <tr>
+              <td>${component.component_type}</td>
+              <td>${component.score_contribution.toFixed(2)}</td>
+              <td>${component.weight.toFixed(2)}</td>
+            </tr>
+          `)
+          .join('')
+        return `
+          <div class="section">
+            <h3>${subject?.label || metric.subject_key}: Impact Components</h3>
+            <table>
+              <tr><th>Component</th><th>Score Contribution</th><th>Avg Weight</th></tr>
+              ${rows}
+            </table>
+          </div>
+        `
+      })
+      .join('')
+
+    const knowledgeSections = Object.entries(knowledgeBySubject)
+      .map(([subjectKey, edges]) => {
+        if (!edges.length) return ''
+        const subject = subjects.find(item => item.subject_key === subjectKey)
+        const rows = edges
+          .map(edge => `
+            <tr>
+              <td>${edge.relationship_type}</td>
+              <td>${edge.source_entity_type}</td>
+              <td>${edge.target_entity_type}</td>
+              <td>${(edge.confidence * 100).toFixed(0)}%</td>
+              <td>${edge.metadata?.category || '—'}</td>
+              <td>${edge.metadata?.change_detected_at ? new Date(edge.metadata.change_detected_at).toLocaleDateString() : '—'}</td>
+            </tr>
+          `)
+          .join('')
+        return `
+          <div class="section">
+            <h3>${subject?.label || subjectKey}: Knowledge Graph Highlights</h3>
+            <table>
+              <tr><th>Relationship</th><th>Source</th><th>Target</th><th>Confidence</th><th>Category</th><th>Detected</th></tr>
+              ${rows}
+            </table>
+          </div>
+        `
+      })
+      .join('')
+
+    const changeLogSections = Object.entries(changeLogBySubject)
+      .map(([subjectKey, events]) => {
+        if (!events.length) return ''
+        const subject = subjects.find(item => item.subject_key === subjectKey)
+        const rows = events
+          .map(event => `
+            <tr>
+              <td>${new Date(event.detected_at).toLocaleString()}</td>
+              <td>${event.source_type}</td>
+              <td>${event.change_summary}</td>
+              <td>${event.changed_fields?.map(field => field.type || 'field').join(', ') || '—'}</td>
+              <td>${event.processing_status}</td>
+            </tr>
+          `)
+          .join('')
+        return `
+          <div class="section">
+            <h3>${subject?.label || subjectKey}: Change Log</h3>
+            <table>
+              <tr><th>Detected At</th><th>Source</th><th>Summary</th><th>Changed Fields</th><th>Status</th></tr>
+              ${rows}
+            </table>
+          </div>
+        `
+      })
+      .join('')
+
+    const presetsSection = presets.length
+      ? `
+        <div class="section">
+          <h2>User Presets</h2>
+          <table>
+            <tr><th>Name</th><th>Description</th><th>Companies</th><th>Created</th><th>Updated</th></tr>
+            ${presets
+              .map(preset => `
+                <tr>
+                  <td>${preset.name}</td>
+                  <td>${preset.description || '—'}</td>
+                  <td>${(preset.companies || []).length}</td>
+                  <td>${new Date(preset.created_at).toLocaleDateString()}</td>
+                  <td>${new Date(preset.updated_at).toLocaleDateString()}</td>
+                </tr>
+              `)
+              .join('')}
+          </table>
+        </div>
+      `
+      : ''
+
+    const notificationsSection = notifications
+      ? `
+        <div class="section">
+          <h2>Notification Settings</h2>
+          <p><strong>Frequency:</strong> ${notifications.notification_frequency || '—'}</p>
+          <p><strong>Digest Enabled:</strong> ${notifications.digest_enabled ? 'Yes' : 'No'}</p>
+          <p><strong>Digest Frequency:</strong> ${notifications.digest_frequency || '—'}</p>
+          <p><strong>Digest Format:</strong> ${notifications.digest_format || '—'}</p>
+          <p><strong>Subscribed Companies:</strong> ${(notifications.subscribed_companies || []).length}</p>
+          <p><strong>Interested Categories:</strong> ${(notifications.interested_categories || []).join(', ') || '—'}</p>
+          <p><strong>Keywords:</strong> ${(notifications.keywords || []).join(', ') || '—'}</p>
+          <p><strong>Telegram Enabled:</strong> ${notifications.telegram_enabled ? 'Yes' : 'No'}</p>
+        </div>
+      `
+      : ''
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Analytics Comparison Report</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; }
+          h1 { color: #2563eb; border-bottom: 2px solid #2563eb; padding-bottom: 10px; }
+          h2 { color: #374151; margin-top: 30px; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px; }
+          h3 { color: #6b7280; margin-top: 20px; }
+          table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+          th { background-color: #f3f4f6; font-weight: bold; }
+          .section { margin: 25px 0; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; }
+          .highlight { background-color: #fef3c7; padding: 10px; border-radius: 5px; margin: 10px 0; }
+        </style>
+      </head>
+      <body>
+        <h1>Analytics Comparison Report</h1>
+        <div class="highlight">
+          <p><strong>Generated:</strong> ${new Date(data.generated_at).toLocaleString()}</p>
+          <p><strong>Timeframe:</strong> ${new Date(timeframe.date_from).toLocaleDateString()} — ${new Date(timeframe.date_to).toLocaleDateString()} (${timeframe.period})</p>
+          <p><strong>Subjects Compared:</strong> ${subjects.length}</p>
+        </div>
+        
+        <div class="section">
+          <h2>Subjects</h2>
+          <table>
+            <tr><th>Label</th><th>Type</th><th>Companies</th><th>Topics</th><th>Sentiments</th><th>Sources</th><th>Min Priority</th></tr>
+            ${subjectRows}
+          </table>
+        </div>
+        
+        <div class="section">
+          <h2>Metric Summary</h2>
+          <table>
+            <tr>
+              <th>Subject</th>
+              <th>Impact Score</th>
+              <th>Trend Δ</th>
+              <th>News Volume</th>
+              <th>Activity Score</th>
+              <th>Avg Priority</th>
+              <th>Innovation Velocity</th>
+              <th>Positive/Negative/Neutral</th>
+              <th>Knowledge Links</th>
+              <th>Change Events</th>
+            </tr>
+            ${metricRows}
+          </table>
+        </div>
+        
+        ${componentsSections}
+        ${knowledgeSections}
+        ${changeLogSections}
+        ${notificationsSection}
+        ${presetsSection}
+        
+        <div class="section">
+          <p style="text-align: center; color: #9ca3af; font-size: 12px;">
+            Generated by Shot News Analytics Platform
+          </p>
+        </div>
+      </body>
+      </html>
+    `
+  }
+
+  private static generateCsvFiles(data: AnalyticsExportResponse): Record<string, string> {
+    const files: Record<string, string> = {}
+    const { comparison, notification_settings: notifications } = data
+
+    const subjectHeaders = [
+      'subject_key',
+      'label',
+      'subject_type',
+      'company_ids',
+      'preset_id',
+      'filters_topics',
+      'filters_sentiments',
+      'filters_source_types',
+      'filters_min_priority'
+    ]
+    const subjectRows = comparison.subjects.map(subject => [
+      subject.subject_key,
+      subject.label,
+      subject.subject_type,
+      subject.company_ids.join('|'),
+      subject.preset_id || '',
+      subject.filters.topics.join('|'),
+      subject.filters.sentiments.join('|'),
+      subject.filters.source_types.join('|'),
+      subject.filters.min_priority ?? ''
+    ])
+    files['subjects.csv'] = this.toCsv(subjectHeaders, subjectRows)
+
+    const metricHeaders = [
+      'subject_key',
+      'impact_score',
+      'trend_delta',
+      'news_volume',
+      'activity_score',
+      'avg_priority',
+      'innovation_velocity',
+      'news_positive',
+      'news_negative',
+      'news_neutral',
+      'knowledge_links',
+      'change_events'
+    ]
+    const knowledgeBySubject = comparison.knowledge_graph || {}
+    const changeLogBySubject = comparison.change_log || {}
+    const metricRows = comparison.metrics.map(metric => {
+      const snapshot = metric.snapshot
+      const knowledgeCount = knowledgeBySubject[metric.subject_key]?.length || 0
+      const changeCount = changeLogBySubject[metric.subject_key]?.length || 0
+      return [
+        metric.subject_key,
+        metric.impact_score.toFixed(2),
+        metric.trend_delta.toFixed(2),
+        metric.news_volume,
+        metric.activity_score.toFixed(2),
+        metric.avg_priority.toFixed(2),
+        metric.innovation_velocity.toFixed(2),
+        snapshot?.news_positive ?? 0,
+        snapshot?.news_negative ?? 0,
+        snapshot?.news_neutral ?? 0,
+        knowledgeCount,
+        changeCount
+      ]
+    })
+    files['metrics.csv'] = this.toCsv(metricHeaders, metricRows)
+
+    const componentHeaders = ['subject_key', 'component_type', 'score_contribution', 'weight']
+    const componentRows: Array<(string | number)>[] = []
+    comparison.metrics.forEach(metric => {
+      metric.impact_components.forEach(component => {
+        componentRows.push([
+          metric.subject_key,
+          component.component_type,
+          component.score_contribution.toFixed(2),
+          component.weight.toFixed(2)
+        ])
+      })
+    })
+    files['impact_components.csv'] = this.toCsv(componentHeaders, componentRows)
+
+    const seriesHeaders = [
+      'subject_key',
+      'period_start',
+      'impact_score',
+      'innovation_velocity',
+      'trend_delta',
+      'news_total',
+      'news_positive',
+      'news_negative',
+      'news_neutral',
+      'pricing_changes',
+      'feature_updates',
+      'funding_events'
+    ]
+    const seriesRows: Array<(string | number)>[] = []
+    comparison.series.forEach(series => {
+      series.snapshots.forEach(snapshot => {
+        seriesRows.push([
+          series.subject_key,
+          snapshot.period_start,
+          snapshot.impact_score.toFixed(2),
+          snapshot.innovation_velocity.toFixed(2),
+          snapshot.trend_delta?.toFixed(2) ?? '',
+          snapshot.news_total,
+          snapshot.news_positive,
+          snapshot.news_negative,
+          snapshot.news_neutral,
+          snapshot.pricing_changes,
+          snapshot.feature_updates,
+          snapshot.funding_events
+        ])
+      })
+    })
+    files['series.csv'] = this.toCsv(seriesHeaders, seriesRows)
+
+    const topNewsHeaders = [
+      'subject_key',
+      'news_id',
+      'title',
+      'category',
+      'topic',
+      'sentiment',
+      'source_type',
+      'priority_score',
+      'published_at',
+      'source_url'
+    ]
+    const topNewsRows: Array<(string | number)>[] = []
+    comparison.metrics.forEach(metric => {
+      metric.top_news.forEach(news => {
+        topNewsRows.push([
+          metric.subject_key,
+          news.id,
+          news.title,
+          news.category || '',
+          news.topic || '',
+          news.sentiment || '',
+          news.source_type || '',
+          news.priority_score.toFixed(2),
+          news.published_at,
+          news.source_url
+        ])
+      })
+    })
+    files['top_news.csv'] = this.toCsv(topNewsHeaders, topNewsRows)
+
+    const kgHeaders = [
+      'subject_key',
+      'edge_id',
+      'relationship_type',
+      'source_entity_type',
+      'target_entity_type',
+      'confidence',
+      'category',
+      'detected_at'
+    ]
+    const kgRows: Array<(string | number)>[] = []
+    Object.entries(knowledgeBySubject).forEach(([subjectKey, edges]) => {
+      edges.forEach(edge => {
+        kgRows.push([
+          subjectKey,
+          edge.id,
+          edge.relationship_type,
+          edge.source_entity_type,
+          edge.target_entity_type,
+          (edge.confidence * 100).toFixed(2),
+          edge.metadata?.category || '',
+          edge.metadata?.change_detected_at || ''
+        ])
+      })
+    })
+    files['knowledge_graph.csv'] = this.toCsv(kgHeaders, kgRows)
+
+    const changeHeaders = [
+      'subject_key',
+      'event_id',
+      'detected_at',
+      'source_type',
+      'processing_status',
+      'notification_status',
+      'change_summary'
+    ]
+    const changeRows: Array<(string | number)>[] = []
+    Object.entries(changeLogBySubject).forEach(([subjectKey, events]) => {
+      events.forEach(event => {
+        changeRows.push([
+          subjectKey,
+          event.id,
+          event.detected_at,
+          event.source_type,
+          event.processing_status,
+          event.notification_status,
+          event.change_summary
+        ])
+      })
+    })
+    files['change_log.csv'] = this.toCsv(changeHeaders, changeRows)
+
+    if (notifications) {
+      const notificationHeaders = [
+        'notification_frequency',
+        'digest_enabled',
+        'digest_frequency',
+        'digest_format',
+        'subscribed_companies',
+        'interested_categories',
+        'keywords',
+        'telegram_enabled',
+        'telegram_chat_id',
+        'telegram_digest_mode',
+        'timezone',
+        'week_start_day'
+      ]
+      const notificationRow = [[
+        notifications.notification_frequency,
+        notifications.digest_enabled ? 'true' : 'false',
+        notifications.digest_frequency,
+        notifications.digest_format,
+        notifications.subscribed_companies.join('|'),
+        notifications.interested_categories.join('|'),
+        notifications.keywords.join('|'),
+        notifications.telegram_enabled ? 'true' : 'false',
+        notifications.telegram_chat_id || '',
+        notifications.telegram_digest_mode,
+        notifications.timezone || '',
+        notifications.week_start_day ?? ''
+      ]]
+      files['notification_settings.csv'] = this.toCsv(notificationHeaders, notificationRow)
+    }
+
+    if (data.presets?.length) {
+      const presetHeaders = ['preset_id', 'name', 'description', 'companies', 'is_favorite', 'created_at', 'updated_at']
+      const presetRows = data.presets.map(preset => [
+        preset.id,
+        preset.name,
+        preset.description || '',
+        (preset.companies || []).join('|'),
+        preset.is_favorite ? 'true' : 'false',
+        preset.created_at,
+        preset.updated_at
+      ])
+      files['presets.csv'] = this.toCsv(presetHeaders, presetRows)
+    }
+
+    return files
+  }
+
+  private static toCsv(headers: (string | number)[], rows: Array<Array<string | number>>): string {
+    const headerRow = headers.map(this.escapeCsv).join(',')
+    const dataRows = rows.map(row => row.map(this.escapeCsv).join(','))
+    return [headerRow, ...dataRows].join('\n')
+  }
+
+  private static escapeCsv(value: string | number | undefined | null): string {
+    if (value === null || value === undefined) {
+      return ''
+    }
+    const stringValue = String(value)
+    if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+      return `"${stringValue.replace(/"/g, '""')}"`
+    }
+    return stringValue
+  }
+
+  private static triggerDownload(blob: Blob, filename: string, mime: string): void {
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = filename
+    link.type = mime
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
+
+  private static today(): string {
+    return new Date().toISOString().split('T')[0]
   }
 }
 

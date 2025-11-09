@@ -62,45 +62,22 @@ class CompetitorAnalysisService:
         
         for company_id in company_ids:
             company_uuid = uuid.UUID(company_id)
-            
-            # News volume
-            metrics["news_volume"][company_id] = await self.get_news_volume(
-                company_uuid, date_from, date_to, filters
-            )
-            
-            # Category distribution
-            metrics["category_distribution"][company_id] = await self.get_category_distribution(
-                company_uuid, date_from, date_to, filters
+            company_metrics = await self.build_company_metrics(
+                company_uuid,
+                date_from,
+                date_to,
+                filters=filters,
+                top_news_limit=5,
             )
 
-            # Topic distribution
-            metrics["topic_distribution"][company_id] = await self.get_topic_distribution(
-                company_uuid, date_from, date_to, filters
-            )
-
-            # Sentiment distribution
-            metrics["sentiment_distribution"][company_id] = await self.get_sentiment_distribution(
-                company_uuid, date_from, date_to, filters
-            )
-            
-            # Activity score
-            metrics["activity_score"][company_id] = await self.get_activity_score(
-                company_uuid, date_from, date_to, filters
-            )
-
-            metrics["avg_priority"][company_id] = await self.get_average_priority(
-                company_uuid, date_from, date_to, filters
-            )
-            
-            # Daily activity
-            metrics["daily_activity"][company_id] = await self.get_daily_activity(
-                company_uuid, date_from, date_to, filters
-            )
-            
-            # Top news
-            metrics["top_news"][company_id] = await self.get_top_news(
-                company_uuid, date_from, date_to, limit=5, filters=filters
-            )
+            metrics["news_volume"][company_id] = company_metrics["news_volume"]
+            metrics["category_distribution"][company_id] = company_metrics["category_distribution"]
+            metrics["topic_distribution"][company_id] = company_metrics["topic_distribution"]
+            metrics["sentiment_distribution"][company_id] = company_metrics["sentiment_distribution"]
+            metrics["activity_score"][company_id] = company_metrics["activity_score"]
+            metrics["avg_priority"][company_id] = company_metrics["avg_priority"]
+            metrics["daily_activity"][company_id] = company_metrics["daily_activity"]
+            metrics["top_news"][company_id] = company_metrics["top_news"]
         
         comparison_data = {
             "companies": [
@@ -350,7 +327,7 @@ class CompetitorAnalysisService:
             {
                 "id": str(item.id),
                 "title": item.title,
-                "category": item.category,
+                "category": item.category.value if hasattr(item.category, "value") else item.category,
                 "topic": item.topic.value if hasattr(item.topic, "value") else item.topic,
                 "sentiment": item.sentiment.value if hasattr(item.sentiment, "value") else item.sentiment,
                 "source_type": item.source_type.value if hasattr(item.source_type, "value") else item.source_type,
@@ -360,6 +337,45 @@ class CompetitorAnalysisService:
             }
             for item in news_items
         ]
+    
+    async def build_company_metrics(
+        self,
+        company_id: uuid.UUID,
+        date_from: datetime,
+        date_to: datetime,
+        *,
+        filters: Optional[Dict[str, Any]] = None,
+        top_news_limit: int = 5,
+    ) -> Dict[str, Any]:
+        """
+        Build the complete metrics bundle for a single company within the requested window.
+        The method is shared across comparison endpoints to avoid duplicated aggregation logic.
+        """
+        news_volume = await self.get_news_volume(company_id, date_from, date_to, filters)
+        category_distribution = await self.get_category_distribution(company_id, date_from, date_to, filters)
+        topic_distribution = await self.get_topic_distribution(company_id, date_from, date_to, filters)
+        sentiment_distribution = await self.get_sentiment_distribution(company_id, date_from, date_to, filters)
+        activity_score = await self.get_activity_score(company_id, date_from, date_to, filters)
+        avg_priority = await self.get_average_priority(company_id, date_from, date_to, filters)
+        daily_activity = await self.get_daily_activity(company_id, date_from, date_to, filters)
+        top_news = await self.get_top_news(
+            company_id,
+            date_from,
+            date_to,
+            limit=top_news_limit,
+            filters=filters,
+        )
+
+        return {
+            "news_volume": news_volume,
+            "category_distribution": category_distribution,
+            "topic_distribution": topic_distribution,
+            "sentiment_distribution": sentiment_distribution,
+            "activity_score": activity_score,
+            "avg_priority": avg_priority,
+            "daily_activity": daily_activity,
+            "top_news": top_news,
+        }
     
     def _get_mock_companies(self, company_ids: List[str]) -> List[Company]:
         """Get mock company objects when DB is unavailable"""

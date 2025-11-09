@@ -198,6 +198,178 @@ export interface ReportPreset {
   updated_at: string
 }
 
+export interface ComparisonFilters {
+  topics: string[]
+  sentiments: string[]
+  source_types: string[]
+  min_priority?: number | null
+}
+
+export interface ComparisonSubjectRequest {
+  subject_type: 'company' | 'preset'
+  reference_id: string
+  label?: string
+  color?: string
+}
+
+export interface ComparisonCompanySummary {
+  id: string
+  name: string
+  category?: string | null
+  logo_url?: string | null
+}
+
+export interface AggregatedImpactComponent {
+  component_type: string
+  score_contribution: number
+  weight: number
+}
+
+export interface CompanyAnalyticsSnapshotSummary {
+  period_start: string
+  impact_score: number
+  innovation_velocity: number
+  trend_delta?: number | null
+  news_total: number
+  news_positive: number
+  news_negative: number
+  news_neutral: number
+  pricing_changes: number
+  feature_updates: number
+  funding_events: number
+  components: AggregatedImpactComponent[]
+}
+
+export interface ComparisonSubjectSummary {
+  subject_key: string
+  subject_id: string
+  subject_type: 'company' | 'preset'
+  label: string
+  company_ids: string[]
+  preset_id?: string | null
+  color?: string | null
+  companies: ComparisonCompanySummary[]
+  filters: ComparisonFilters
+}
+
+export interface ComparisonSeriesPoint {
+  period_start: string
+  impact_score: number
+  innovation_velocity: number
+  trend_delta?: number | null
+  news_total: number
+  news_positive: number
+  news_negative: number
+  news_neutral: number
+  pricing_changes: number
+  feature_updates: number
+  funding_events: number
+}
+
+export interface ComparisonSeries {
+  subject_key: string
+  subject_id: string
+  snapshots: ComparisonSeriesPoint[]
+}
+
+export interface ComparisonMetricSummary {
+  subject_key: string
+  subject_id: string
+  news_volume: number
+  activity_score: number
+  avg_priority: number
+  impact_score: number
+  trend_delta: number
+  innovation_velocity: number
+  sentiment_distribution: Record<string, number>
+  category_distribution: Record<string, number>
+  topic_distribution: Record<string, number>
+  daily_activity: Record<string, number>
+  top_news: Array<{
+    id: string
+    title: string
+    category: string | null
+    topic: string | null
+    sentiment: string | null
+    source_type: string | null
+    published_at: string
+    source_url: string
+    priority_score: number
+  }>
+  impact_components: AggregatedImpactComponent[]
+  snapshot: CompanyAnalyticsSnapshotSummary | null
+}
+
+export interface ComparisonResponse {
+  generated_at: string
+  period: AnalyticsPeriod
+  lookback: number
+  date_from: string
+  date_to: string
+  subjects: ComparisonSubjectSummary[]
+  metrics: ComparisonMetricSummary[]
+  series: ComparisonSeries[]
+  change_log: Record<string, CompetitorChangeEvent[]>
+  knowledge_graph: Record<string, KnowledgeGraphEdge[]>
+}
+
+export interface ComparisonRequestPayload {
+  subjects: ComparisonSubjectRequest[]
+  period?: AnalyticsPeriod
+  lookback?: number
+  date_from?: string
+  date_to?: string
+  filters?: ComparisonFilters
+  include_series?: boolean
+  include_components?: boolean
+  include_change_log?: boolean
+  include_knowledge_graph?: boolean
+  change_log_limit?: number
+  knowledge_graph_limit?: number
+  top_news_limit?: number
+}
+
+export interface ExportIncludeOptions {
+  include_notifications: boolean
+  include_presets: boolean
+}
+
+export interface AnalyticsExportRequestPayload extends ComparisonRequestPayload {
+  export_format?: 'json' | 'pdf' | 'csv'
+  include?: ExportIncludeOptions
+}
+
+export interface NotificationSettingsSummary {
+  notification_frequency: string
+  digest_enabled: boolean
+  digest_frequency: string
+  digest_format: string
+  digest_custom_schedule: Record<string, any>
+  subscribed_companies: string[]
+  interested_categories: string[]
+  keywords: string[]
+  telegram_enabled: boolean
+  telegram_chat_id?: string | null
+  telegram_digest_mode: string
+  timezone?: string | null
+  week_start_day?: number | null
+}
+
+export interface AnalyticsExportResponse {
+  version: string
+  generated_at: string
+  export_format?: string | null
+  timeframe: {
+    period: AnalyticsPeriod
+    lookback: number
+    date_from: string
+    date_to: string
+  }
+  comparison: ComparisonResponse
+  notification_settings?: NotificationSettingsSummary | null
+  presets: ReportPreset[]
+}
+
 export interface ReportPresetCreateRequest {
   name: string
   description?: string | null

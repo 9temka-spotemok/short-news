@@ -23,7 +23,11 @@ from app.models import (
     UserReportPreset,
 )
 from app.schemas.analytics import (
+    AnalyticsExportRequest,
+    AnalyticsExportResponse,
     CompanyAnalyticsSnapshotResponse,
+    ComparisonRequest,
+    ComparisonResponse,
     ImpactComponentResponse,
     KnowledgeGraphEdgeResponse,
     ReportPresetCreateRequest,
@@ -31,6 +35,7 @@ from app.schemas.analytics import (
     SnapshotSeriesResponse,
 )
 from app.services.analytics_service import AnalyticsService
+from app.services.analytics_comparison_service import AnalyticsComparisonService
 from app.tasks.analytics import (
     recompute_company_analytics,
     sync_company_knowledge_graph,
@@ -190,6 +195,34 @@ async def create_report_preset(
     await db.commit()
     await db.refresh(preset)
     return ReportPresetResponse.model_validate(preset, from_attributes=True)
+
+
+@router.post(
+    "/comparisons",
+    response_model=ComparisonResponse,
+    summary="Build analytics comparison overview",
+)
+async def build_comparison_overview(
+    payload: ComparisonRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ComparisonResponse:
+    service = AnalyticsComparisonService(db)
+    return await service.build_comparison(payload, user=current_user)
+
+
+@router.post(
+    "/export",
+    response_model=AnalyticsExportResponse,
+    summary="Build analytics export payload",
+)
+async def build_export_payload(
+    payload: AnalyticsExportRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> AnalyticsExportResponse:
+    service = AnalyticsComparisonService(db)
+    return await service.build_export_payload(payload, user=current_user)
 
 
 def _ensure_timezone(value: datetime) -> datetime:

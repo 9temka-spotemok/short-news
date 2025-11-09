@@ -1,5 +1,5 @@
-import { Activity, ArrowLeft, ArrowRight, BarChart3, Building2, Clock, Download, Filter, Gauge, History, LineChart, Newspaper, PieChart, RefreshCw, Smile, Sparkles, TrendingUp, Users } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
+import { Activity, ArrowLeft, ArrowRight, BarChart3, Building2, Clock, Filter, Gauge, History, LineChart, Newspaper, PieChart, RefreshCw, Smile, Sparkles, TrendingUp, Users } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import BrandPreview from '../components/BrandPreview'
 import { BusinessIntelligence } from '../components/BusinessIntelligence'
@@ -9,11 +9,28 @@ import { ExportMenu } from '../components/ExportMenu'
 import ImpactTrendChart from '../components/ImpactTrendChart'
 import { InnovationMetrics } from '../components/InnovationMetrics'
 import { MarketPosition } from '../components/MarketPosition'
+import MultiImpactTrendChart, { MultiImpactSeriesDescriptor } from '../components/MultiImpactTrendChart'
 import ProgressSteps from '../components/ProgressSteps'
 import { TeamInsights } from '../components/TeamInsights'
 import ThemeAnalysis from '../components/ThemeAnalysis'
 import { ApiService } from '../services/api'
-import { ChangeProcessingStatus, Company, CompanyAnalyticsSnapshot, CompetitorChangeEvent, KnowledgeGraphEdge, NewsItem, ReportPreset, SnapshotSeries } from '../types'
+import {
+  AnalyticsExportRequestPayload,
+  AnalyticsPeriod,
+  ChangeProcessingStatus,
+  Company,
+  CompanyAnalyticsSnapshot,
+  ComparisonMetricSummary,
+  ComparisonRequestPayload,
+  ComparisonResponse,
+  ComparisonSubjectRequest,
+  ComparisonSubjectSummary,
+  CompetitorChangeEvent,
+  KnowledgeGraphEdge,
+  NewsItem,
+  ReportPreset,
+  SnapshotSeries
+} from '../types'
 
 type AnalysisMode = 'company' | 'custom'
 type Step = 'select' | 'suggest' | 'analyze'
@@ -97,6 +114,29 @@ export default function CompetitorAnalysisPage() {
   const [presetApplyingId, setPresetApplyingId] = useState<string | null>(null)
   const [metricsTab, setMetricsTab] = useState<'persistent' | 'signals'>('persistent')
   const [focusedImpactPoint, setFocusedImpactPoint] = useState<CompanyAnalyticsSnapshot | null>(null)
+  const [comparisonData, setComparisonData] = useState<ComparisonResponse | null>(null)
+  const [comparisonLoading, setComparisonLoading] = useState(false)
+  const [comparisonError, setComparisonError] = useState<string | null>(null)
+  const [comparisonSubjects, setComparisonSubjects] = useState<ComparisonSubjectRequest[]>([])
+  const [comparisonPeriod, setComparisonPeriod] = useState<AnalyticsPeriod>('daily')
+  const [comparisonLookback, setComparisonLookback] = useState(30)
+  const [abSelection, setAbSelection] = useState<{ left: string | null; right: string | null }>({ left: null, right: null })
+  const [pendingPresetId, setPendingPresetId] = useState('')
+  const [analysisRange, setAnalysisRange] = useState<{ from: string; to: string } | null>(null)
+
+  const SUBJECT_COLORS = ['#2563eb', '#0ea5e9', '#10b981', '#f97316', '#8b5cf6', '#f43f5e', '#14b8a6', '#d946ef']
+
+  const subjectColorMap = useMemo(() => {
+    if (!comparisonData) {
+      return new Map<string, string>()
+    }
+    const map = new Map<string, string>()
+    comparisonData.subjects.forEach((subject, index) => {
+      const color = subject.color || SUBJECT_COLORS[index % SUBJECT_COLORS.length]
+      map.set(subject.subject_key, color)
+    })
+    return map
+  }, [comparisonData])
 
   // Очищаем данные анализа при смене компании в режиме Company Analysis
   useEffect(() => {
@@ -175,6 +215,43 @@ export default function CompetitorAnalysisPage() {
       nextPayload.min_priority = Number(minPriority.toFixed(2))
     }
     return nextPayload
+  }
+
+  const buildComparisonPayload = (
+    subjects: ComparisonSubjectRequest[],
+    period: AnalyticsPeriod,
+    lookback: number,
+    range: { from: string; to: string } | null
+  ): ComparisonRequestPayload => {
+    const payload: ComparisonRequestPayload = {
+      subjects,
+      period,
+      lookback,
+      include_series: true,
+      include_components: true,
+      include_change_log: true,
+      include_knowledge_graph: true,
+      change_log_limit: 8,
+      knowledge_graph_limit: 20,
+      top_news_limit: 6
+    }
+
+    if (range) {
+      payload.date_from = range.from
+      payload.date_to = range.to
+    }
+
+    const filtersPayload = applyFiltersToPayload({}, {})
+    if (filtersPayload.source_types || filtersPayload.topics || filtersPayload.sentiments || filtersPayload.min_priority !== undefined) {
+      payload.filters = {
+        topics: filtersPayload.topics ?? [],
+        sentiments: filtersPayload.sentiments ?? [],
+        source_types: filtersPayload.source_types ?? [],
+        min_priority: filtersPayload.min_priority
+      }
+    }
+
+    return payload
   }
 
   const renderFilterControls = () => (
@@ -687,6 +764,121 @@ export default function CompetitorAnalysisPage() {
     }
   }
 
+  const fetchComparisonData = useCallback(
+    async (
+      subjects: ComparisonSubjectRequest[],
+      overrides: {
+        period?: AnalyticsPeriod
+        lookback?: number
+        range?: { from: string; to: string } | null
+      } = {}
+    ) => {
+      if (!subjects.length) {
+        return
+      }
+
+      const nextPeriod = overrides.period ?? comparisonPeriod
+      const nextLookback = overrides.lookback ?? comparisonLookback
+      const range = overrides.range ?? analysisRange
+
+      setComparisonLoading(true)
+      setComparisonError(null)
+
+      try {
+        const payload = buildComparisonPayload(subjects, nextPeriod, nextLookback, range)
+        const response = await ApiService.getAnalyticsComparison(payload)
+
+        setComparisonData(response)
+        setComparisonSubjects(subjects)
+        setComparisonPeriod(nextPeriod)
+        setComparisonLookback(nextLookback)
+        if (range) {
+          setAnalysisRange(range)
+        } else if (payload.date_from && payload.date_to) {
+          setAnalysisRange({ from: payload.date_from, to: payload.date_to })
+        }
+
+        const subjectKeys = response.subjects.map(
+          (subject: ComparisonSubjectSummary) => subject.subject_key
+        )
+        setAbSelection(prev => ({
+          left: prev.left && subjectKeys.includes(prev.left) ? prev.left : subjectKeys[0] || null,
+          right:
+            prev.right && subjectKeys.includes(prev.right)
+              ? prev.right
+              : subjectKeys[1] || subjectKeys[0] || null
+        }))
+      } catch (err: any) {
+        console.error('Failed to load comparison data:', err)
+        setComparisonError(err?.response?.data?.detail || 'Failed to load comparison data')
+      } finally {
+        setComparisonLoading(false)
+      }
+    },
+    [
+      analysisRange,
+      comparisonLookback,
+      comparisonPeriod,
+      minPriorityFilter,
+      sentimentFilters,
+      sourceTypeFilters,
+      topicFilters
+    ]
+  )
+
+  const handleComparisonPeriodChange = (period: AnalyticsPeriod) => {
+    if (period === comparisonPeriod) return
+    setComparisonPeriod(period)
+    if (comparisonSubjects.length) {
+      fetchComparisonData(comparisonSubjects, { period })
+    }
+  }
+
+  const handleComparisonLookbackChange = (lookback: number) => {
+    if (lookback === comparisonLookback) return
+    setComparisonLookback(lookback)
+    if (comparisonSubjects.length) {
+      fetchComparisonData(comparisonSubjects, { lookback })
+    }
+  }
+
+  const handleAbSelectionChange = (position: 'left' | 'right', subjectKey: string) => {
+    setAbSelection(prev => ({
+      ...prev,
+      [position]: subjectKey
+    }))
+  }
+
+  const handleAddPresetToComparison = async (presetId: string) => {
+    if (!presetId) return
+    const preset = reportPresets.find(item => item.id === presetId)
+    if (!preset) {
+      toast.error('Preset not found')
+      return
+    }
+    if (
+      comparisonSubjects.some(
+        subject => subject.subject_type === 'preset' && subject.reference_id === presetId
+      )
+    ) {
+      toast.error('Preset already added to comparison')
+      setPendingPresetId('')
+      return
+    }
+
+    const nextSubjects: ComparisonSubjectRequest[] = [
+      ...comparisonSubjects,
+      {
+        subject_type: 'preset',
+        reference_id: preset.id,
+        label: preset.name
+      }
+    ]
+
+    await fetchComparisonData(nextSubjects)
+    setPendingPresetId('')
+  }
+
   useEffect(() => {
     loadReportPresets()
   }, [])
@@ -889,10 +1081,146 @@ export default function CompetitorAnalysisPage() {
     const highlightDateLabel = highlightImpact
       ? new Date(highlightImpact.period_start).toLocaleDateString()
       : '—'
+    const subjectSummariesByKey = comparisonData
+      ? new Map<string, ComparisonSubjectSummary>(
+          comparisonData.subjects.map(subject => [subject.subject_key, subject])
+        )
+      : new Map<string, ComparisonSubjectSummary>()
+    const seriesForChart: MultiImpactSeriesDescriptor[] = comparisonData
+      ? comparisonData.series
+          .filter(entry => entry.snapshots.length > 0)
+          .map(entry => ({
+            subjectKey: entry.subject_key,
+            label:
+              (subjectSummariesByKey.get(entry.subject_key) as { label?: string } | undefined)?.label ||
+              entry.subject_key,
+            color: subjectColorMap.get(entry.subject_key) || SUBJECT_COLORS[0],
+            points: entry.snapshots
+          }))
+      : []
 
     return (
       <>
         {renderActiveFiltersSummary(analysisData.filters)}
+
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-6">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Comparison dashboard</h3>
+              <p className="text-sm text-gray-500">
+                Aggregated metrics for selected companies and presets
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-2 text-sm text-gray-600">
+                Period
+                <select
+                  value={comparisonPeriod}
+                  onChange={event => handleComparisonPeriodChange(event.target.value as AnalyticsPeriod)}
+                  className="rounded-md border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                >
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                </select>
+              </label>
+              <label className="flex items-center gap-2 text-sm text-gray-600">
+                Lookback
+                <select
+                  value={comparisonLookback}
+                  onChange={event => handleComparisonLookbackChange(Number(event.target.value))}
+                  className="rounded-md border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                >
+                  <option value={30}>30 days</option>
+                  <option value={60}>60 days</option>
+                  <option value={90}>90 days</option>
+                </select>
+              </label>
+            </div>
+          </div>
+
+          {comparisonError && (
+            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {comparisonError}
+            </div>
+          )}
+
+          {comparisonLoading ? (
+            <div className="py-10 text-center text-sm text-gray-500">
+              <div className="mx-auto mb-3 h-6 w-6 animate-spin rounded-full border-2 border-blue-200 border-t-blue-600" />
+              Loading comparison data…
+            </div>
+          ) : comparisonData ? (
+            <div className="space-y-6">
+              {seriesForChart.length > 0 ? (
+                <MultiImpactTrendChart series={seriesForChart} />
+              ) : (
+                <p className="text-sm text-gray-500">
+                  Not enough snapshot data yet to render combined trend. Run analysis to build history.
+                </p>
+              )}
+
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200 text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-2 text-left font-semibold text-gray-700">Subject</th>
+                      <th className="px-4 py-2 text-left font-semibold text-gray-700">Impact</th>
+                      <th className="px-4 py-2 text-left font-semibold text-gray-700">Trend Δ</th>
+                      <th className="px-4 py-2 text-left font-semibold text-gray-700">News</th>
+                      <th className="px-4 py-2 text-left font-semibold text-gray-700">Activity</th>
+                      <th className="px-4 py-2 text-left font-semibold text-gray-700">Priority</th>
+                      <th className="px-4 py-2 text-left font-semibold text-gray-700">Innovation</th>
+                      <th className="px-4 py-2 text-left font-semibold text-gray-700">Positive</th>
+                      <th className="px-4 py-2 text-left font-semibold text-gray-700">Negative</th>
+                      <th className="px-4 py-2 text-left font-semibold text-gray-700">Knowledge</th>
+                      <th className="px-4 py-2 text-left font-semibold text-gray-700">Changes</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {comparisonData.metrics.map(metric => {
+                      const subject = subjectSummariesByKey.get(metric.subject_key)
+                      const snapshot = metric.snapshot
+                      const knowledgeCount = comparisonData.knowledge_graph?.[metric.subject_key]?.length ?? 0
+                      const changeCount = comparisonData.change_log?.[metric.subject_key]?.length ?? 0
+                      const trendDelta = metric.trend_delta ?? 0
+                      return (
+                        <tr key={metric.subject_key} className="hover:bg-gray-50">
+                          <td className="whitespace-nowrap px-4 py-2 font-medium text-gray-900">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className="inline-block h-2 w-2 rounded-sm"
+                                style={{ backgroundColor: subjectColorMap.get(metric.subject_key) || SUBJECT_COLORS[0] }}
+                              />
+                              {subject?.label || metric.subject_key}
+                            </div>
+                          </td>
+                          <td className="px-4 py-2">{metric.impact_score.toFixed(2)}</td>
+                          <td className="px-4 py-2">
+                            {trendDelta >= 0 ? '+' : ''}
+                            {trendDelta.toFixed(2)}%
+                          </td>
+                          <td className="px-4 py-2">{metric.news_volume}</td>
+                          <td className="px-4 py-2">{metric.activity_score.toFixed(2)}</td>
+                          <td className="px-4 py-2">{metric.avg_priority.toFixed(2)}</td>
+                          <td className="px-4 py-2">{metric.innovation_velocity.toFixed(2)}</td>
+                          <td className="px-4 py-2">{snapshot?.news_positive ?? 0}</td>
+                          <td className="px-4 py-2">{snapshot?.news_negative ?? 0}</td>
+                          <td className="px-4 py-2">{knowledgeCount}</td>
+                          <td className="px-4 py-2">{changeCount}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500">
+              Run analysis or add presets to build comparison dashboards.
+            </p>
+          )}
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="p-4 rounded-lg border border-blue-100 bg-blue-50">
@@ -1142,9 +1470,209 @@ export default function CompetitorAnalysisPage() {
     const components = (impactSnapshot?.components ?? []).slice(0, 4)
     const highConfidenceEdges = analyticsEdges.slice(0, 5)
     const trendPercent = typeof impactSnapshot?.trend_delta === 'number' ? impactSnapshot.trend_delta * 100 : null
+    const comparisonSubjectsAvailable = comparisonData?.subjects ?? []
+    const subjectSummariesByKey = comparisonData
+      ? new Map<string, ComparisonSubjectSummary>(
+          comparisonData.subjects.map(subject => [subject.subject_key, subject])
+        )
+      : new Map<string, ComparisonSubjectSummary>()
+    const metricsMap = comparisonData
+      ? new Map<string, ComparisonMetricSummary>(
+          comparisonData.metrics.map(metric => [metric.subject_key, metric])
+        )
+      : new Map<string, ComparisonMetricSummary>()
+    const knowledgeMap = comparisonData?.knowledge_graph ?? {}
+    const changeLogMap = comparisonData?.change_log ?? {}
+    const availablePresetOptions = reportPresets.filter(
+      preset =>
+        !comparisonSubjects.some(
+          subject => subject.subject_type === 'preset' && subject.reference_id === preset.id
+        )
+    )
+    const resolvedLeft = (() => {
+      if (!comparisonData) return null
+      if (abSelection.left && metricsMap.has(abSelection.left)) {
+        return abSelection.left
+      }
+      return comparisonSubjectsAvailable[0]?.subject_key ?? null
+    })()
+    const resolvedRight = (() => {
+      if (!comparisonData) return null
+      if (abSelection.right && metricsMap.has(abSelection.right)) {
+        return abSelection.right
+      }
+      if (comparisonSubjectsAvailable.length > 1) {
+        return comparisonSubjectsAvailable[1]?.subject_key ?? comparisonSubjectsAvailable[0]?.subject_key ?? null
+      }
+      return comparisonSubjectsAvailable[0]?.subject_key ?? null
+    })()
+
+    const renderAbCard = (subjectKey: string | null, title: string) => {
+      if (!subjectKey || !comparisonData) {
+        return (
+          <div className="flex-1 rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-500">
+            Select a subject to compare.
+          </div>
+        )
+      }
+      const subject = subjectSummariesByKey.get(subjectKey)
+      const metric = metricsMap.get(subjectKey)
+      const knowledgeCount = knowledgeMap[subjectKey]?.length ?? 0
+      const changeEvents = (changeLogMap[subjectKey] ?? []).slice(0, 3)
+      const topSignals = (metric?.top_news ?? []).slice(0, 3)
+      const trendDelta = metric?.trend_delta ?? null
+      return (
+        <div className="flex-1 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs uppercase text-gray-500">{title}</p>
+              <h4 className="text-base font-semibold text-gray-900">{subject?.label || subjectKey}</h4>
+            </div>
+            <span
+              className="inline-block h-2 w-2 rounded-sm"
+              style={{ backgroundColor: subjectColorMap.get(subjectKey) || SUBJECT_COLORS[0] }}
+              aria-hidden="true"
+            />
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <p className="text-xs text-gray-500">Impact Score</p>
+              <p className="text-lg font-semibold text-gray-900">
+                {metric ? metric.impact_score.toFixed(2) : '—'}
+              </p>
+              <p className={`text-xs ${trendDelta !== null && trendDelta >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                {trendDelta !== null ? `${trendDelta >= 0 ? '+' : ''}${trendDelta.toFixed(2)}%` : '—'}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Signals</p>
+              <p className="text-lg font-semibold text-gray-900">{knowledgeCount}</p>
+              <p className="text-xs text-gray-500">Knowledge graph edges</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">News Volume</p>
+              <p className="text-lg font-semibold text-gray-900">{metric?.news_volume ?? '—'}</p>
+              <p className="text-xs text-gray-500">Activity: {metric?.activity_score?.toFixed(2) ?? '—'}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Change Log</p>
+              <p className="text-lg font-semibold text-gray-900">{changeEvents.length}</p>
+              <p className="text-xs text-gray-500">Recent events tracked</p>
+            </div>
+          </div>
+          <div className="mt-4 space-y-3">
+            <div>
+              <p className="text-xs font-semibold uppercase text-gray-500 mb-1">Top signals</p>
+              <div className="space-y-2">
+                {topSignals.length ? (
+                  topSignals.map(news => (
+                    <div key={news.id} className="rounded border border-gray-200 px-3 py-2 text-xs text-gray-600">
+                      <p className="font-semibold text-gray-800">{news.title}</p>
+                      <div className="mt-1 flex flex-wrap gap-2">
+                        {news.category && <span className="rounded bg-blue-50 px-2 py-0.5 text-blue-600">{formatLabel(news.category)}</span>}
+                        {news.sentiment && <span className="rounded bg-emerald-50 px-2 py-0.5 text-emerald-600">{formatLabel(news.sentiment)}</span>}
+                        <span>{new Date(news.published_at).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-gray-500">No top signals yet.</p>
+                )}
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase text-gray-500 mb-1">Recent changes</p>
+              <div className="space-y-2">
+                {changeEvents.length ? (
+                  changeEvents.map(event => (
+                    <div key={event.id} className="rounded border border-gray-200 px-3 py-2 text-xs text-gray-600">
+                      <p className="font-semibold text-gray-800">{event.change_summary}</p>
+                      <p className="mt-1 text-gray-500">{new Date(event.detected_at).toLocaleString()}</p>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-gray-500">No change events collected.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )
+    }
 
     return (
       <div className="space-y-6">
+        {comparisonData && comparisonSubjectsAvailable.length > 0 && (
+          <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm space-y-4">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Signals A/B comparison</h3>
+                <p className="text-sm text-gray-500">
+                  Compare live signals, knowledge graph edges, and change log across selected subjects.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <select
+                  value={resolvedLeft ?? ''}
+                  onChange={event => handleAbSelectionChange('left', event.target.value)}
+                  className="rounded-md border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                >
+                  {comparisonSubjectsAvailable.map(subject => (
+                    <option key={subject.subject_key} value={subject.subject_key}>
+                      {subject.label}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={resolvedRight ?? ''}
+                  onChange={event => handleAbSelectionChange('right', event.target.value)}
+                  className="rounded-md border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                >
+                  {comparisonSubjectsAvailable.map(subject => (
+                    <option key={subject.subject_key} value={subject.subject_key}>
+                      {subject.label}
+                    </option>
+                  ))}
+                </select>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={pendingPresetId}
+                    onChange={event => setPendingPresetId(event.target.value)}
+                    className="rounded-md border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  >
+                    <option value="">Add preset…</option>
+                    {availablePresetOptions.map(preset => (
+                      <option key={preset.id} value={preset.id}>
+                        {preset.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => handleAddPresetToComparison(pendingPresetId)}
+                    className="rounded-md border border-primary-200 px-3 py-1 text-xs font-medium text-primary-600 transition-colors hover:bg-primary-50 disabled:opacity-50"
+                    disabled={!pendingPresetId}
+                  >
+                    Add
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {comparisonLoading ? (
+              <div className="py-6 text-center text-sm text-gray-500">
+                <div className="mx-auto mb-3 h-5 w-5 animate-spin rounded-full border-2 border-blue-200 border-t-blue-600" />
+                Updating A/B metrics…
+              </div>
+            ) : (
+              <div className="flex flex-col gap-4 md:flex-row">
+                {renderAbCard(resolvedLeft, 'Variant A')}
+                {renderAbCard(resolvedRight, 'Variant B')}
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className={`p-4 rounded-lg border ${trendPercent !== null && trendPercent < 0 ? 'border-rose-100 bg-rose-50' : 'border-emerald-100 bg-emerald-50'}`}>
             <div className="flex items-center justify-between">
@@ -1621,72 +2149,40 @@ export default function CompetitorAnalysisPage() {
 
   const handleExport = async (format: 'json' | 'pdf' | 'csv') => {
     if (!analysisData || !selectedCompany) return
-    
+
     try {
-      // Собираем все данные для экспорта
-      const exportData = {
-        // Основные данные анализа
-        ...analysisData,
-        
-        // Дополнительные данные для полного отчета
-        report: {
-          company: selectedCompany,
-          analysisDate: new Date().toISOString(),
-          analysisMode: analysisMode,
-          
-          // Business Intelligence данные
-          businessIntelligence: {
-            metrics: analysisData.metrics.category_distribution[selectedCompany.id] || {},
-            activityScore: analysisData.metrics.activity_score[selectedCompany.id] || 0,
-            competitorCount: suggestedCompetitors.length,
-            totalActivity: Object.values(analysisData.metrics.category_distribution[selectedCompany.id] || {}).reduce((sum: number, v: unknown) => sum + Number(v), 0)
-          },
-          
-          // Innovation & Technology данные
-          innovationTechnology: {
-            metrics: analysisData.metrics.category_distribution[selectedCompany.id] || {},
-            totalNews: analysisData.metrics.news_volume[selectedCompany.id] || 0,
-            technicalActivity: Object.entries(analysisData.metrics.category_distribution[selectedCompany.id] || {})
-              .filter(([key]) => ['technical_update', 'api_update', 'research_paper', 'model_release', 'performance_improvement', 'security_update'].includes(key))
-              .reduce((sum, [, count]) => sum + Number(count), 0)
-          },
-          
-          // Team & Culture данные
-          teamCulture: {
-            metrics: analysisData.metrics.category_distribution[selectedCompany.id] || {},
-            totalNews: analysisData.metrics.news_volume[selectedCompany.id] || 0,
-            activityScore: analysisData.metrics.activity_score[selectedCompany.id] || 0,
-            teamActivity: Object.entries(analysisData.metrics.category_distribution[selectedCompany.id] || {})
-              .filter(([key]) => ['community_event', 'strategic_announcement', 'research_paper'].includes(key))
-              .reduce((sum, [, count]) => sum + Number(count), 0)
-          },
-          
-          // Market Position данные
-          marketPosition: {
-            company: selectedCompany,
-            metrics: {
-              news_volume: analysisData.metrics.news_volume[selectedCompany.id] || 0,
-              activity_score: analysisData.metrics.activity_score[selectedCompany.id] || 0,
-              category_distribution: analysisData.metrics.category_distribution[selectedCompany.id] || {}
-            },
-            competitors: suggestedCompetitors,
-            totalNews: Object.values(analysisData.metrics.news_volume).reduce((sum: number, v: unknown) => sum + Number(v), 0)
-          },
-          
-          // News Volume Comparison данные
-          newsVolumeComparison: {
-            companies: analysisData.companies,
-            metrics: analysisData.metrics.news_volume,
-            dateFrom: analysisData.date_from,
-            dateTo: analysisData.date_to
-          }
+      const fallbackSubjects: ComparisonSubjectRequest[] = (analysisData.companies || []).map((company: Company) => ({
+        subject_type: 'company',
+        reference_id: company.id,
+        label: company.name
+      }))
+      const subjects = comparisonSubjects.length ? comparisonSubjects : fallbackSubjects
+
+      if (!subjects.length) {
+        toast.error('No comparison subjects available for export')
+        return
+      }
+
+      const range = analysisRange ?? {
+        from: new Date(Date.now() - comparisonLookback * 24 * 60 * 60 * 1000).toISOString(),
+        to: new Date().toISOString()
+      }
+
+      const payload: AnalyticsExportRequestPayload = {
+        ...buildComparisonPayload(subjects, comparisonPeriod, comparisonLookback, range),
+        export_format: format,
+        include: {
+          include_notifications: true,
+          include_presets: true
         }
       }
-      
-      await ApiService.exportAnalysis(exportData, format)
-    } catch (err) {
+
+      const exportResponse = await ApiService.buildAnalyticsExport(payload)
+      await ApiService.exportAnalysis(exportResponse, format)
+      toast.success(`Exported analysis as ${format.toUpperCase()}`)
+    } catch (err: any) {
       console.error('Export failed:', err)
-      setError('Export failed. Please try again.')
+      toast.error(err.response?.data?.detail || 'Export failed. Please try again.')
     }
   }
 
@@ -2166,13 +2662,7 @@ export default function CompetitorAnalysisPage() {
             <ArrowLeft className="w-4 h-4 mr-1" />
             Back
           </button>
-          <button
-            onClick={exportResults}
-            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center"
-          >
-            <Download className="w-4 h-4 mr-2" />
-            Export
-          </button>
+          <ExportMenu onExport={handleExport} />
         </div>
       </div>
       
@@ -2247,6 +2737,10 @@ export default function CompetitorAnalysisPage() {
     setAnalyticsError(null)
     setAnalysisData(null)
     setThemesData(null)
+    setComparisonData(null)
+    setComparisonError(null)
+    setComparisonSubjects([])
+    setAbSelection({ left: null, right: null })
     setStep('analyze')
     
     setLoading(true)
@@ -2256,6 +2750,7 @@ export default function CompetitorAnalysisPage() {
       const allCompanyIds = [primaryCompany.id, ...competitorIds].map(id => String(id))
       const dateFrom = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
       const dateTo = new Date().toISOString()
+      setAnalysisRange({ from: dateFrom, to: dateTo })
       
       const comparisonPayload = applyFiltersToPayload({
         company_ids: allCompanyIds,
@@ -2276,6 +2771,17 @@ export default function CompetitorAnalysisPage() {
         date_to: dateTo
       })
       setThemesData(themesResponse)
+
+      const subjects: ComparisonSubjectRequest[] = response.companies.map((company: Company) => ({
+        subject_type: 'company',
+        reference_id: company.id,
+        label: company.name
+      }))
+      await fetchComparisonData(subjects, {
+        period: comparisonPeriod,
+        lookback: comparisonLookback,
+        range: { from: dateFrom, to: dateTo }
+      })
       
       await loadAnalyticsInsights(primaryCompany.id)
       await loadReportPresets()
@@ -2287,28 +2793,6 @@ export default function CompetitorAnalysisPage() {
     } finally {
       setLoading(false)
     }
-  }
-  
-  const exportResults = () => {
-    if (!analysisData) return
-    
-    const exportData = {
-      company: selectedCompany,
-      competitors: analysisData.companies.filter((c: Company) => c.id !== selectedCompany?.id),
-      analysis: analysisData,
-      themes: themesData,
-      generated_at: new Date().toISOString()
-    }
-    
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `competitor-analysis-${selectedCompany?.name}-${new Date().toISOString().split('T')[0]}.json`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
   }
   
   return (
