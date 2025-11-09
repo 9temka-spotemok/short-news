@@ -7,7 +7,7 @@ from datetime import datetime
 from sqlalchemy import String, Text, Float, DateTime, ForeignKey, Index, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID, TSVECTOR, ENUM
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from pydantic import Field, AnyUrl, HttpUrl, validator
+from pydantic import Field, AnyUrl, validator
 import enum
 
 from .base import BaseModel, BaseSchema, BaseResponseSchema
@@ -295,7 +295,7 @@ class NewsBaseSchema(BaseSchema):
     title: str = Field(..., max_length=500, description="News item title")
     content: Optional[str] = Field(None, description="Full content of the news item")
     summary: Optional[str] = Field(None, description="AI-generated summary")
-    source_url: HttpUrl = Field(..., description="Original URL of the news item")
+    source_url: AnyUrl = Field(..., description="Original URL of the news item")
     source_type: SourceType = Field(..., description="Type of the news source")
     company_id: Optional[str] = Field(None, description="Associated company ID")
     category: Optional[NewsCategory] = Field(None, description="News category")

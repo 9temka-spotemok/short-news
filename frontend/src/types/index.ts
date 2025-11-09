@@ -348,6 +348,32 @@ export interface ComparisonMetrics {
   avg_priority?: Record<string, number>
 }
 
+export type ChangeProcessingStatus = 'success' | 'skipped' | 'error'
+export type ChangeNotificationStatus = 'pending' | 'sent' | 'failed' | 'skipped'
+
+export interface CompetitorSnapshotReference {
+  id: string | null
+  parser_version: string | null
+  raw_snapshot_url: string | null
+  extraction_metadata: Record<string, any>
+  warnings: string[]
+  processing_status: ChangeProcessingStatus
+}
+
+export interface CompetitorChangeEvent {
+  id: string
+  company_id: string
+  source_type: SourceType
+  change_summary: string
+  changed_fields: Array<Record<string, any>>
+  raw_diff: Record<string, any>
+  detected_at: string
+  processing_status: ChangeProcessingStatus
+  notification_status: ChangeNotificationStatus
+  current_snapshot: CompetitorSnapshotReference | null
+  previous_snapshot: CompetitorSnapshotReference | null
+}
+
 export interface CompareRequest {
   company_ids: string[]
   date_from?: string

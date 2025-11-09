@@ -11,8 +11,16 @@ from loguru import logger
 
 from app.core.database import get_db
 from app.api.dependencies import get_current_user
-from app.models import User, NewsTopic, SentimentLabel, SourceType
+from app.models import (
+    User,
+    NewsTopic,
+    SentimentLabel,
+    SourceType,
+    ChangeProcessingStatus,
+)
 from app.services.competitor_service import CompetitorAnalysisService
+from app.services.competitor_change_service import CompetitorChangeService
+from app.schemas.competitor_events import CompetitorChangeEventSchema
 
 router = APIRouter()
 
@@ -23,6 +31,34 @@ class CompareRequest(BaseModel):
     date_from: Optional[str] = None
     date_to: Optional[str] = None
     name: Optional[str] = None
+
+
+def _serialize_change_event(event) -> dict:
+    def snapshot_dict(snapshot):
+        if not snapshot:
+            return None
+        return {
+            "id": snapshot.id,
+            "parser_version": snapshot.parser_version,
+            "raw_snapshot_url": snapshot.raw_snapshot_url,
+            "extraction_metadata": snapshot.extraction_metadata or {},
+            "warnings": snapshot.warnings or [],
+            "processing_status": snapshot.processing_status,
+        }
+
+    return {
+        "id": event.id,
+        "company_id": event.company_id,
+        "source_type": event.source_type,
+        "change_summary": event.change_summary,
+        "changed_fields": event.changed_fields or [],
+        "raw_diff": event.raw_diff or {},
+        "detected_at": event.detected_at,
+        "processing_status": event.processing_status,
+        "notification_status": event.notification_status,
+        "current_snapshot": snapshot_dict(event.current_snapshot),
+        "previous_snapshot": snapshot_dict(event.previous_snapshot),
+    }
 
 
 @router.post("/compare")
@@ -377,3 +413,67 @@ async def analyze_themes(
     except Exception as e:
         logger.error(f"Error analyzing themes: {e}")
         raise HTTPException(status_code=500, detail="Failed to analyze themes")
+
+
+@router.get("/changes/{company_id}")
+async def list_change_events(
+    company_id: str,
+    limit: int = 20,
+    status: Optional[str] = None,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        import uuid as uuid_lib
+
+        company_uuid = uuid_lib.UUID(company_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid company ID")
+
+    status_filter: Optional[ChangeProcessingStatus] = None
+    if status:
+        try:
+            status_filter = ChangeProcessingStatus(status)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid status filter")
+
+    change_service = CompetitorChangeService(db)
+    events = await change_service.list_change_events(
+        company_uuid,
+        limit=max(1, min(limit, 100)),
+        status=status_filter,
+    )
+
+    payload = [
+        CompetitorChangeEventSchema.model_validate(
+            _serialize_change_event(event)
+        ).model_dump()
+        for event in events
+    ]
+
+    return {"events": payload, "total": len(payload)}
+
+
+@router.post("/changes/{event_id}/recompute")
+async def recompute_change_event(
+    event_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        import uuid as uuid_lib
+
+        event_uuid = uuid_lib.UUID(event_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid event ID")
+
+    change_service = CompetitorChangeService(db)
+    event = await change_service.recompute_diff(event_uuid)
+
+    if not event:
+        raise HTTPException(status_code=404, detail="Change event not found")
+
+    schema = CompetitorChangeEventSchema.model_validate(
+        _serialize_change_event(event)
+    )
+    return schema.model_dump()

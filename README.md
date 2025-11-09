@@ -82,6 +82,15 @@ shot-news/
 
 **TODO:** Добавить асинхронное сканирование для больших сайтов (>50 статей) с использованием Celery задач
 
+### История изменений конкурентов
+
+- Снимки тарифных планов и функциональности сохраняются в таблицу `competitor_pricing_snapshots` (файл `backend/app/models/competitor.py`).
+- Модуль `backend/app/parsers/pricing.py` нормализует цены, валюты, биллинг и блоки функций из произвольной вёрстки (таблицы, карточки, списки).
+- `backend/app/services/competitor_change_service.py` сравнивает свежий снапшот с предыдущим, высчитывает diff и создаёт события `competitor_change_events`.
+- API `/api/v1/competitors/changes/{company_id}` и `/api/v1/competitors/changes/{event_id}/recompute` отдают историю изменений и позволяют пересчитать diff.
+- Фронтенд `CompetitorAnalysisPage` дополнился секцией **Latest Changes** с кратким diff, статусом обработки и ссылками на сырые HTML-снапшоты.
+- Сырые страницы складываются в `storage/raw_snapshots/pricing/<company>/<source>.html`, что облегчает трассировку и аудит.
+
 ### Roadmap
 - [ ] Telegram-бот
 - [ ] Аналитический модуль
@@ -151,6 +160,11 @@ npm run test:e2e
   - `backend/app/core/config.py` — описание настроек и парсинг переменных окружения.
   - `backend/main.py` — подключение CORS middleware c `allow_origins` и `allow_origin_regex`.
   - `backend/railway.env` — пример переменных для Railway (продакшен).
+  - `backend/app/parsers/pricing.py` — нормализация HTML-снапшотов тарифов конкурентов.
+  - `backend/app/services/competitor_change_service.py` — change detection, сохранение снапшотов и генерация событий.
+  - `backend/app/api/v1/endpoints/competitors.py` — REST-ручки `/competitors/changes/*`.
+  - `frontend/src/services/api.ts` — методы `getCompetitorChangeEvents`, `recomputeCompetitorChangeEvent`.
+  - `frontend/src/pages/CompetitorAnalysisPage.tsx` — UI-секция Latest Changes и действия по пересчёту diff.
 
 ## 🐛 Исправленные проблемы
 

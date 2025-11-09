@@ -243,6 +243,14 @@ Higher score = More active and diverse company activity
 - Side-by-side comparison of all metrics
 - Easy to spot leaders and laggards
 
+### Latest Changes (NEW)
+
+- Секция **Latest Changes** на странице Competitor Analysis отображает последние тарифные/функциональные обновления конкурентов.
+- Каждый элемент показывает источник (blog / press release и т.д.), краткий diff (изменение цены, биллинга, добавленные/удалённые фичи) и статус обработки (`success`, `skipped`, `error`).
+- Есть быстрые ссылки на сырые HTML-снапшоты («View current snapshot», «View previous snapshot») для аудита и подтверждения изменений.
+- Кнопка **Recompute diff** обращается к `/api/v1/competitors/changes/{event_id}/recompute`, позволяя пересчитать различия после корректировки парсера или ручной проверки.
+- Источник данных — API `/api/v1/competitors/changes/{company_id}`, который возвращает список событий, статус уведомлений и метаданные парсинга.
+
 ### Use Cases
 
 **Product Manager:**

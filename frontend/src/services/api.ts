@@ -19,7 +19,9 @@ import type {
   RegisterRequest,
   SearchRequest,
   SourceTypeInfo,
-  User
+  User,
+  ChangeProcessingStatus,
+  CompetitorChangeEvent
 } from '@/types'
 import axios, { AxiosError, AxiosResponse } from 'axios'
 import toast from 'react-hot-toast'
@@ -462,6 +464,25 @@ export class ApiService {
     console.log('API Service - company_ids is array:', Array.isArray(request.company_ids))
     
     const response = await api.post('/competitors/compare', request)
+    return response.data
+  }
+
+  static async getCompetitorChangeEvents(
+    companyId: string,
+    params: {
+      limit?: number
+      status?: ChangeProcessingStatus
+    } = {}
+  ): Promise<{
+    events: CompetitorChangeEvent[]
+    total: number
+  }> {
+    const response = await api.get(`/competitors/changes/${companyId}`, { params })
+    return response.data
+  }
+
+  static async recomputeCompetitorChangeEvent(eventId: string): Promise<CompetitorChangeEvent> {
+    const response = await api.post(`/competitors/changes/${eventId}/recompute`)
     return response.data
   }
 

@@ -17,29 +17,35 @@ branch_labels = None
 depends_on = None
 
 
-newsnlpstage_enum = postgresql.ENUM(
-    "classification",
-    "sentiment",
-    "priority",
-    "summary",
-    "keywords",
-    name="newsnlpstage",
-)
-
-newsnlpstage_enum_existing = postgresql.ENUM(
-    "classification",
-    "sentiment",
-    "priority",
-    "summary",
-    "keywords",
-    name="newsnlpstage",
-    create_type=False,
-)
-
-
 def upgrade() -> None:
-    bind = op.get_bind()
-    newsnlpstage_enum.create(bind, checkfirst=True)
+    op.execute(
+        """
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM pg_type WHERE typname = 'newsnlpstage'
+            ) THEN
+                CREATE TYPE newsnlpstage AS ENUM (
+                    'classification',
+                    'sentiment',
+                    'priority',
+                    'summary',
+                    'keywords'
+                );
+            END IF;
+        END $$;
+        """
+    )
+
+    newsnlpstage_enum_existing = postgresql.ENUM(
+        "classification",
+        "sentiment",
+        "priority",
+        "summary",
+        "keywords",
+        name="newsnlpstage",
+        create_type=False,
+    )
 
     op.create_table(
         "news_nlp_logs",
@@ -81,5 +87,25 @@ def downgrade() -> None:
     op.drop_index("ix_news_nlp_logs_news_id", table_name="news_nlp_logs")
     op.drop_table("news_nlp_logs")
 
-    bind = op.get_bind()
-    newsnlpstage_enum.drop(bind, checkfirst=True)
+    op.execute(
+        """
+        DO $$
+        BEGIN
+            IF EXISTS (
+                SELECT 1 FROM pg_type WHERE typname = 'newsnlpstage'
+            ) THEN
+                DROP TYPE newsnlpstage;
+            END IF;
+        END $$;
+        """
+    )
+
+    newsnlpstage_enum_existing = postgresql.ENUM(
+        "classification",
+        "sentiment",
+        "priority",
+        "summary",
+        "keywords",
+        name="newsnlpstage",
+        create_type=False,
+    )

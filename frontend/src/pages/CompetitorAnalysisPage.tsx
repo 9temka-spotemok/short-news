@@ -1,5 +1,5 @@
-import { ArrowLeft, ArrowRight, BarChart3, Building2, Download, Users, Filter, PieChart, Gauge, Smile } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { ArrowLeft, ArrowRight, BarChart3, Building2, Clock, Download, Filter, Gauge, History, PieChart, RefreshCw, Smile, Users } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
 import BrandPreview from '../components/BrandPreview'
 import { BusinessIntelligence } from '../components/BusinessIntelligence'
 import CompanySelector from '../components/CompanySelector'
@@ -11,7 +11,7 @@ import ProgressSteps from '../components/ProgressSteps'
 import { TeamInsights } from '../components/TeamInsights'
 import ThemeAnalysis from '../components/ThemeAnalysis'
 import { ApiService } from '../services/api'
-import { Company } from '../types'
+import { ChangeProcessingStatus, Company, CompetitorChangeEvent } from '../types'
 
 type AnalysisMode = 'company' | 'custom'
 type Step = 'select' | 'suggest' | 'analyze'
@@ -51,6 +51,18 @@ const formatLabel = (value: string) =>
     .replace(/_/g, ' ')
     .replace(/\b\w/g, letter => letter.toUpperCase())
 
+const formatPriceDisplay = (amount: number | null | undefined, currency?: string | null) => {
+  if (amount === null || amount === undefined) {
+    return currency ?? 'n/a'
+  }
+  const formatter = new Intl.NumberFormat(undefined, {
+    minimumFractionDigits: amount % 1 === 0 ? 0 : 2,
+    maximumFractionDigits: 2
+  })
+  const formatted = formatter.format(amount)
+  return currency ? `${currency} ${formatted}` : formatted
+}
+
 export default function CompetitorAnalysisPage() {
   const [analysisMode, setAnalysisMode] = useState<AnalysisMode | null>(null)
   const [step, setStep] = useState<Step>('select')
@@ -66,6 +78,10 @@ export default function CompetitorAnalysisPage() {
   const [topicFilters, setTopicFilters] = useState<string[]>([])
   const [sentimentFilters, setSentimentFilters] = useState<string[]>([])
   const [minPriorityFilter, setMinPriorityFilter] = useState<number | null>(null)
+  const [changeEvents, setChangeEvents] = useState<CompetitorChangeEvent[]>([])
+  const [changeEventsLoading, setChangeEventsLoading] = useState(false)
+  const [changeEventsError, setChangeEventsError] = useState<string | null>(null)
+  const [recomputingEventId, setRecomputingEventId] = useState<string | null>(null)
 
   // Очищаем данные анализа при смене компании в режиме Company Analysis
   useEffect(() => {
@@ -100,8 +116,15 @@ export default function CompetitorAnalysisPage() {
     setMinPriorityFilter(null)
   }
 
-  const applyFiltersToPayload = (payload: Record<string, any>) => {
-    const nextPayload = { ...payload }
+  type FilteredPayload<T> = T & {
+    source_types?: string[]
+    topics?: string[]
+    sentiments?: string[]
+    min_priority?: number
+  }
+
+  const applyFiltersToPayload = <T extends Record<string, unknown>>(payload: T): FilteredPayload<T> => {
+    const nextPayload: FilteredPayload<T> = { ...payload }
     if (sourceTypeFilters.length) {
       nextPayload.source_types = sourceTypeFilters
     }
@@ -228,6 +251,12 @@ export default function CompetitorAnalysisPage() {
     neutral: 'bg-gray-400',
     negative: 'bg-red-500',
     mixed: 'bg-purple-500'
+  }
+
+  const statusBadgeStyles: Record<ChangeProcessingStatus, string> = {
+    success: 'bg-green-100 text-green-700',
+    skipped: 'bg-gray-100 text-gray-600',
+    error: 'bg-red-100 text-red-600'
   }
 
   const renderTopicDistributionCard = (companyId: string) => {
@@ -383,6 +412,198 @@ export default function CompetitorAnalysisPage() {
             )}
           </div>
         </div>
+      </div>
+    )
+  }
+
+  const loadChangeEvents = useCallback(async (companyId: string) => {
+    setChangeEventsLoading(true)
+    setChangeEventsError(null)
+    try {
+      const response = await ApiService.getCompetitorChangeEvents(companyId, { limit: 10 })
+      setChangeEvents(response.events)
+    } catch (err: any) {
+      console.error('Error loading change history:', err)
+      setChangeEventsError(err.response?.data?.detail || 'Failed to load change history')
+    } finally {
+      setChangeEventsLoading(false)
+    }
+  }, [])
+
+  const handleRecomputeChange = useCallback(async (eventId: string) => {
+    setRecomputingEventId(eventId)
+    try {
+      const updatedEvent = await ApiService.recomputeCompetitorChangeEvent(eventId)
+      setChangeEvents(prev =>
+        prev.map(event => (event.id === updatedEvent.id ? updatedEvent : event))
+      )
+      setChangeEventsError(null)
+    } catch (err: any) {
+      console.error('Error recomputing change event:', err)
+      setChangeEventsError(err.response?.data?.detail || 'Unable to recompute diff')
+    } finally {
+      setRecomputingEventId(null)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!selectedCompany) {
+      setChangeEvents([])
+      setChangeEventsError(null)
+      return
+    }
+    loadChangeEvents(selectedCompany.id)
+  }, [selectedCompany?.id, loadChangeEvents])
+
+  const renderChangeFieldSummary = (change: Record<string, any>) => {
+    if (change.field === 'price') {
+      return `${formatPriceDisplay(change.previous ?? null, change.previous_currency)} → ${formatPriceDisplay(change.current ?? null, change.current_currency)}`
+    }
+    if (change.field === 'billing_cycle') {
+      const previous = change.previous ? formatLabel(change.previous) : 'n/a'
+      const current = change.current ? formatLabel(change.current) : 'n/a'
+      return `${previous} → ${current}`
+    }
+    if (change.field === 'features') {
+      const parts: string[] = []
+      if (change.added?.length) {
+        const preview = change.added.slice(0, 3).join(', ')
+        parts.push(`Added: ${preview}${change.added.length > 3 ? '…' : ''}`)
+      }
+      if (change.removed?.length) {
+        const preview = change.removed.slice(0, 3).join(', ')
+        parts.push(`Removed: ${preview}${change.removed.length > 3 ? '…' : ''}`)
+      }
+      return parts.length ? parts.join(' · ') : 'Feature list updated'
+    }
+    if (change.change === 'added') {
+      return 'Plan added'
+    }
+    if (change.change === 'removed') {
+      return 'Plan removed'
+    }
+    return JSON.stringify(change)
+  }
+
+  const renderChangeEventsSection = () => {
+    if (!selectedCompany) return null
+
+    return (
+      <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <div className="flex items-center space-x-2">
+              <History className="w-5 h-5 text-blue-600" />
+              <h3 className="text-lg font-semibold text-gray-900">Latest Changes</h3>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              Pricing and feature updates detected for {selectedCompany.name}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => loadChangeEvents(selectedCompany.id)}
+            disabled={changeEventsLoading}
+            className="flex items-center text-sm text-blue-600 hover:text-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <RefreshCw className={`w-4 h-4 mr-1 ${changeEventsLoading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+        </div>
+
+        {changeEventsError && (
+          <div className="mb-3 p-3 rounded-md border border-red-200 bg-red-50 text-xs text-red-700">
+            {changeEventsError}
+          </div>
+        )}
+
+        {changeEventsLoading ? (
+          <div className="py-6 text-center">
+            <div className="mx-auto h-6 w-6 border-2 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
+            <p className="text-sm text-gray-500 mt-3">Loading change history...</p>
+          </div>
+        ) : changeEvents.length === 0 ? (
+          <p className="text-sm text-gray-500">
+            No changes detected yet. We will surface pricing and feature updates here as soon as they are captured.
+          </p>
+        ) : (
+          <div className="space-y-4">
+            {changeEvents.map(event => (
+              <div key={event.id} className="border border-gray-200 rounded-lg p-4">
+                <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm font-semibold text-gray-900">
+                        {formatLabel(event.source_type)}
+                      </span>
+                      <span
+                        className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusBadgeStyles[event.processing_status]}`}
+                      >
+                        {formatLabel(event.processing_status)}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-700 mt-2">
+                      {event.change_summary}
+                    </p>
+                  </div>
+                  <div className="flex flex-col items-end space-y-2">
+                    <div className="flex items-center text-xs text-gray-500">
+                      <Clock className="w-3 h-3 mr-1" />
+                      {new Date(event.detected_at).toLocaleString()}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleRecomputeChange(event.id)}
+                      disabled={recomputingEventId === event.id}
+                      className="text-xs text-blue-600 hover:text-blue-700 flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <History className={`w-3 h-3 mr-1 ${recomputingEventId === event.id ? 'animate-spin' : ''}`} />
+                      Recompute diff
+                    </button>
+                  </div>
+                </div>
+
+                {event.changed_fields.length > 0 && (
+                  <div className="mt-3 space-y-2 text-xs text-gray-600">
+                    {event.changed_fields.map((change, index) => (
+                      <div key={`${event.id}-${index}`} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                        <span className="font-medium text-gray-700">
+                          {change.plan ? `${change.plan} · ${formatLabel(change.field || 'update')}` : formatLabel(change.field || 'update')}
+                        </span>
+                        <span>{renderChangeFieldSummary(change)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {(event.current_snapshot?.raw_snapshot_url || event.previous_snapshot?.raw_snapshot_url) && (
+                  <div className="mt-3 flex flex-wrap gap-3 text-xs text-blue-600">
+                    {event.current_snapshot?.raw_snapshot_url && (
+                      <a
+                        href={event.current_snapshot.raw_snapshot_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hover:underline"
+                      >
+                        View current snapshot
+                      </a>
+                    )}
+                    {event.previous_snapshot?.raw_snapshot_url && (
+                      <a
+                        href={event.previous_snapshot.raw_snapshot_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hover:underline"
+                      >
+                        View previous snapshot
+                      </a>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     )
   }
@@ -680,6 +901,8 @@ export default function CompetitorAnalysisPage() {
             {renderSentimentDistributionCard(selectedCompany.id)}
             {renderPriorityCard(selectedCompany.id)}
           </div>
+
+          {renderChangeEventsSection()}
           
           {/* News Volume Comparison */}
           <div className="bg-white rounded-lg shadow-md p-6">
@@ -976,6 +1199,8 @@ export default function CompetitorAnalysisPage() {
             {renderSentimentDistributionCard(selectedCompany!.id)}
             {renderPriorityCard(selectedCompany!.id)}
           </div>
+
+          {renderChangeEventsSection()}
  
           {/* News Volume Comparison */}
           <div className="bg-white rounded-lg shadow-md p-6">

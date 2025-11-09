@@ -20,3 +20,11 @@
 - Набор автотестов покрывает парсеры, diff и эндпоинты истории.
 - Документация актуальна и содержит инструкции по работе с событиями изменений.
 
+
+### Статус на 2025‑11‑09
+- ✅ Добавлены таблицы `competitor_pricing_snapshots` и `competitor_change_events` (Alembic миграция `1b2c3d4e5f67_add_competitor_change_events.py`) с хранением хеша данных, ссылок на сырые HTML и статусами обработок/уведомлений.
+- ✅ Модуль `backend/app/parsers/pricing.py` покрывает карточки, таблицы и списки тарифов; валидирует валюты и биллинг, нормализует фичи.
+- ✅ `backend/app/services/competitor_change_service.py` сравнивает снапшоты, фильтрует шум, строит diff, сохраняет события и умеет пересчитывать diff по ручному запросу.
+- ✅ REST-ручки `/api/v1/competitors/changes/{company_id}` и `/api/v1/competitors/changes/{event_id}/recompute` выдают историю изменений для фронтенда и аналитиков.
+- ✅ Фронтенд `CompetitorAnalysisPage` отображает секцию **Latest Changes** с кратким diff, статусом обработки, ссылками на снапшоты и кнопкой пересчёта.
+- ✅ Добавлены unit-тесты для парсера и diff (`backend/tests/test_pricing_parser.py`), обновлена документация и README с описанием новых модулей.

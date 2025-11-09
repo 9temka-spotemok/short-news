@@ -12,7 +12,13 @@ from .preferences import UserPreferences, NotificationFrequency, DigestFrequency
 from .activity import UserActivity, ActivityType
 from .scraper import ScraperState
 from .notifications import Notification, NotificationSettings, NotificationType, NotificationPriority
-from .competitor import CompetitorComparison
+from .competitor import (
+    ChangeNotificationStatus,
+    ChangeProcessingStatus,
+    CompetitorChangeEvent,
+    CompetitorComparison,
+    CompetitorPricingSnapshot,
+)
 
 __all__ = [
     "Base",
@@ -37,6 +43,10 @@ __all__ = [
     "NotificationType",
     "NotificationPriority",
     "CompetitorComparison",
+    "CompetitorPricingSnapshot",
+    "CompetitorChangeEvent",
+    "ChangeProcessingStatus",
+    "ChangeNotificationStatus",
     "NewsNLPLog",
     "NLPStage",
     "NLPProvider",
