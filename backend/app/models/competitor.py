@@ -44,12 +44,16 @@ class ChangeNotificationStatus(str, enum.Enum):
 processing_status_enum = Enum(
     ChangeProcessingStatus,
     name="competitorprocessingstatus",
+    values_callable=lambda enum_cls: [member.value for member in enum_cls],
+    native_enum=True,
     create_type=False,
 )
 
 notification_status_enum = Enum(
     ChangeNotificationStatus,
     name="competitornotificationstatus",
+    values_callable=lambda enum_cls: [member.value for member in enum_cls],
+    native_enum=True,
     create_type=False,
 )
 
@@ -131,7 +135,7 @@ class CompetitorPricingSnapshot(BaseModel):
     )
     warnings: Mapped[List[str]] = mapped_column(JSON, default=list)
     processing_status: Mapped[ChangeProcessingStatus] = mapped_column(
-        processing_status_enum,
+        processing_status_enum.copy(),
         default=ChangeProcessingStatus.SUCCESS,
         nullable=False,
     )
@@ -196,12 +200,12 @@ class CompetitorChangeEvent(BaseModel):
         nullable=True,
     )
     processing_status: Mapped[ChangeProcessingStatus] = mapped_column(
-        processing_status_enum,
+        processing_status_enum.copy(),
         default=ChangeProcessingStatus.SUCCESS,
         nullable=False,
     )
     notification_status: Mapped[ChangeNotificationStatus] = mapped_column(
-        notification_status_enum,
+        notification_status_enum.copy(),
         default=ChangeNotificationStatus.PENDING,
         nullable=False,
     )

@@ -229,7 +229,8 @@ class AnalyticsComparisonService:
         if date_from >= date_to:
             raise ValueError("date_from must be earlier than date_to")
 
-        return date_from, date_to
+        # Normalize to naive UTC timestamps to match DB columns (timestamp without tz)
+        return date_from.replace(tzinfo=None), date_to.replace(tzinfo=None)
 
     async def _resolve_subjects(
         self,

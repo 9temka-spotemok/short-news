@@ -13,6 +13,9 @@ from loguru import logger
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from kombu.exceptions import OperationalError as KombuOperationalError
+from redis import exceptions as redis_exceptions
+
 from app.api.dependencies import get_current_user
 from app.core.database import get_db
 from app.models import (
@@ -100,7 +103,18 @@ async def trigger_recompute(
     current_user: User = Depends(get_current_user),
 ) -> dict:
     logger.info("User %s triggered analytics recompute for company %s", current_user.id, company_id)
-    task = recompute_company_analytics.delay(str(company_id), period.value, lookback)
+    try:
+        task = recompute_company_analytics.delay(str(company_id), period.value, lookback)
+    except (KombuOperationalError, redis_exceptions.RedisError) as exc:
+        logger.error(
+            "Failed to enqueue analytics recompute for company %s: %s",
+            company_id,
+            exc,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Analytics queue is unavailable. Please ensure Celery worker and Redis are running.",
+        ) from exc
     return {"status": "queued", "task_id": task.id}
 
 

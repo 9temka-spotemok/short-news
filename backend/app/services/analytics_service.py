@@ -10,7 +10,7 @@ from typing import Dict, Iterable, List, Optional, Tuple
 from uuid import UUID
 
 from loguru import logger
-from sqlalchemy import case, func, select, and_, or_
+from sqlalchemy import case, func, select, and_, or_, cast, String, bindparam
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
@@ -55,17 +55,41 @@ class AnalyticsService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
+    @staticmethod
+    def _coerce_period(period: AnalyticsPeriod | str) -> AnalyticsPeriod:
+        if isinstance(period, AnalyticsPeriod):
+            return period
+        if isinstance(period, str):
+            try:
+                return AnalyticsPeriod(period)
+            except ValueError:
+                return AnalyticsPeriod(period.lower())
+        raise ValueError(f"Unsupported period value: {period!r}")
+
+    @staticmethod
+    def _period_value(period: AnalyticsPeriod | str) -> str:
+        if isinstance(period, AnalyticsPeriod):
+            return period.value
+        if isinstance(period, str):
+            return period.lower()
+        raise ValueError(f"Unsupported period value: {period!r}")
+
+    def _period_filter(self, column, period: AnalyticsPeriod | str):
+        period_enum = self._coerce_period(period)
+        period_value = self._period_value(period_enum)
+        return cast(column, String) == period_value
+
     async def get_snapshots(
         self,
         company_id: UUID,
-        period: AnalyticsPeriod,
+        period: AnalyticsPeriod | str,
         limit: int = 30,
     ) -> List[CompanyAnalyticsSnapshot]:
         stmt = (
             select(CompanyAnalyticsSnapshot)
             .where(
                 CompanyAnalyticsSnapshot.company_id == company_id,
-                CompanyAnalyticsSnapshot.period == period,
+                self._period_filter(CompanyAnalyticsSnapshot.period, period),
             )
             .order_by(CompanyAnalyticsSnapshot.period_start.desc())
             .options(selectinload(CompanyAnalyticsSnapshot.components))
@@ -77,13 +101,15 @@ class AnalyticsService:
         return snapshots
 
     async def get_latest_snapshot(
-        self, company_id: UUID, period: AnalyticsPeriod = AnalyticsPeriod.DAILY
+        self,
+        company_id: UUID,
+        period: AnalyticsPeriod | str = AnalyticsPeriod.DAILY,
     ) -> Optional[CompanyAnalyticsSnapshot]:
         stmt = (
             select(CompanyAnalyticsSnapshot)
             .where(
                 CompanyAnalyticsSnapshot.company_id == company_id,
-                CompanyAnalyticsSnapshot.period == period,
+                self._period_filter(CompanyAnalyticsSnapshot.period, period),
             )
             .order_by(CompanyAnalyticsSnapshot.period_start.desc())
             .options(selectinload(CompanyAnalyticsSnapshot.components))
@@ -96,11 +122,12 @@ class AnalyticsService:
         self,
         company_id: UUID,
         period_start: datetime,
-        period: AnalyticsPeriod = AnalyticsPeriod.DAILY,
+        period: AnalyticsPeriod | str = AnalyticsPeriod.DAILY,
     ) -> CompanyAnalyticsSnapshot:
         """Calculate analytics snapshot for provided time bounds."""
         period_start = self._ensure_timezone(period_start)
-        period_duration = self.PERIOD_LOOKUPS[period]
+        period_enum = self._coerce_period(period)
+        period_duration = self.PERIOD_LOOKUPS[period_enum]
         period_end = period_start + period_duration
 
         news_stats = await self._aggregate_news(company_id, period_start, period_end)
@@ -109,16 +136,16 @@ class AnalyticsService:
         pricing_changes, feature_updates = self._summarise_change_events(changes)
         funding_events = news_stats.get("funding_events", 0)
 
-        innovation_velocity = self._calculate_velocity(period, pricing_changes, feature_updates)
+        innovation_velocity = self._calculate_velocity(period_enum, pricing_changes, feature_updates)
         components = self._build_components(news_stats, pricing_changes, feature_updates, funding_events, innovation_velocity)
         impact_score = sum(component["score"] for component in components)
 
-        previous_snapshot = await self._get_previous_snapshot(company_id, period, period_start)
+        previous_snapshot = await self._get_previous_snapshot(company_id, period_enum, period_start)
         trend_delta = self._compute_trend_delta(previous_snapshot, impact_score)
 
         snapshot = await self._upsert_snapshot(
             company_id=company_id,
-            period=period,
+            period=period_enum,
             period_start=period_start,
             period_end=period_end,
             news_stats=news_stats,
@@ -139,17 +166,18 @@ class AnalyticsService:
     async def refresh_company_snapshots(
         self,
         company_id: UUID,
-        period: AnalyticsPeriod = AnalyticsPeriod.DAILY,
+        period: AnalyticsPeriod | str = AnalyticsPeriod.DAILY,
         lookback: int = 30,
     ) -> List[CompanyAnalyticsSnapshot]:
         """Recompute snapshots across lookback window."""
         snapshots: List[CompanyAnalyticsSnapshot] = []
-        period_duration = self.PERIOD_LOOKUPS[period]
+        period_enum = self._coerce_period(period)
+        period_duration = self.PERIOD_LOOKUPS[period_enum]
         anchor = datetime.now(tz=timezone.utc).replace(minute=0, second=0, microsecond=0)
 
         for offset in range(lookback):
             period_start = anchor - period_duration * (offset + 1)
-            snapshot = await self.compute_snapshot_for_period(company_id, period_start, period)
+            snapshot = await self.compute_snapshot_for_period(company_id, period_start, period_enum)
             snapshots.append(snapshot)
 
         return list(reversed(snapshots))
@@ -158,11 +186,12 @@ class AnalyticsService:
         self,
         company_id: UUID,
         period_start: datetime,
-        period: AnalyticsPeriod = AnalyticsPeriod.DAILY,
+        period: AnalyticsPeriod | str = AnalyticsPeriod.DAILY,
     ) -> int:
         """Detect and persist knowledge graph edges for the period."""
         period_start = self._ensure_timezone(period_start)
-        period_end = period_start + self.PERIOD_LOOKUPS[period]
+        period_enum = self._coerce_period(period)
+        period_end = period_start + self.PERIOD_LOOKUPS[period_enum]
 
         news_items = await self._load_news_items(company_id, period_start, period_end)
         change_events = await self._load_change_events(company_id, period_start, period_end)
@@ -199,6 +228,9 @@ class AnalyticsService:
         period_start: datetime,
         period_end: datetime,
     ) -> Dict[str, float]:
+        start_utc = self._to_naive_utc(period_start)
+        end_utc = self._to_naive_utc(period_end)
+
         stmt = (
             select(
                 func.count(NewsItem.id).label("total"),
@@ -230,8 +262,8 @@ class AnalyticsService:
             )
             .where(
                 NewsItem.company_id == company_id,
-                NewsItem.published_at >= period_start,
-                NewsItem.published_at < period_end,
+                NewsItem.published_at >= start_utc,
+                NewsItem.published_at < end_utc,
             )
         )
 
@@ -261,13 +293,21 @@ class AnalyticsService:
         period_start: datetime,
         period_end: datetime,
     ) -> List[CompetitorChangeEvent]:
+        start_utc = self._to_naive_utc(period_start)
+        end_utc = self._to_naive_utc(period_end)
+        status_bind = bindparam(
+            "change_status_success",
+            ChangeProcessingStatus.SUCCESS.value,
+            type_=String,
+        )
+
         stmt = (
             select(CompetitorChangeEvent)
             .where(
                 CompetitorChangeEvent.company_id == company_id,
-                CompetitorChangeEvent.detected_at >= period_start,
-                CompetitorChangeEvent.detected_at < period_end,
-                CompetitorChangeEvent.processing_status == ChangeProcessingStatus.SUCCESS,
+                CompetitorChangeEvent.detected_at >= start_utc,
+                CompetitorChangeEvent.detected_at < end_utc,
+                cast(CompetitorChangeEvent.processing_status, String) == status_bind,
             )
             .order_by(CompetitorChangeEvent.detected_at.asc())
         )
@@ -375,11 +415,13 @@ class AnalyticsService:
         impact_score: float,
         trend_delta: float,
     ) -> CompanyAnalyticsSnapshot:
+        period_db_value = self._period_value(period)
+
         stmt = (
             select(CompanyAnalyticsSnapshot)
             .where(
                 CompanyAnalyticsSnapshot.company_id == company_id,
-                CompanyAnalyticsSnapshot.period == period,
+                self._period_filter(CompanyAnalyticsSnapshot.period, period),
                 CompanyAnalyticsSnapshot.period_start == period_start,
             )
             .limit(1)
@@ -394,10 +436,12 @@ class AnalyticsService:
             "funding_events": funding_events,
         }
 
+        now = datetime.now(timezone.utc)
+
         if snapshot is None:
             snapshot = CompanyAnalyticsSnapshot(
                 company_id=company_id,
-                period=period,
+                period=period_db_value,
                 period_start=period_start,
                 period_end=period_end,
                 news_total=news_stats["total_news"],
@@ -415,7 +459,10 @@ class AnalyticsService:
                 metric_breakdown=metrics_breakdown,
             )
             self.db.add(snapshot)
+            snapshot.created_at = now
+            snapshot.updated_at = now
         else:
+            snapshot.period = period_db_value
             snapshot.period_end = period_end
             snapshot.news_total = news_stats["total_news"]
             snapshot.news_positive = news_stats["positive_news"]
@@ -430,6 +477,7 @@ class AnalyticsService:
             snapshot.innovation_velocity = innovation_velocity
             snapshot.trend_delta = trend_delta
             snapshot.metric_breakdown = metrics_breakdown
+            snapshot.updated_at = now
 
         return snapshot
 
@@ -464,7 +512,7 @@ class AnalyticsService:
             select(CompanyAnalyticsSnapshot)
             .where(
                 CompanyAnalyticsSnapshot.company_id == company_id,
-                CompanyAnalyticsSnapshot.period == period,
+                self._period_filter(CompanyAnalyticsSnapshot.period, period),
                 CompanyAnalyticsSnapshot.period_start < period_start,
             )
             .order_by(CompanyAnalyticsSnapshot.period_start.desc())
@@ -489,12 +537,15 @@ class AnalyticsService:
         period_start: datetime,
         period_end: datetime,
     ) -> List[NewsItem]:
+        start_utc = self._to_naive_utc(period_start)
+        end_utc = self._to_naive_utc(period_end)
+
         stmt = (
             select(NewsItem)
             .where(
                 NewsItem.company_id == company_id,
-                NewsItem.published_at >= period_start,
-                NewsItem.published_at < period_end,
+                NewsItem.published_at >= start_utc,
+                NewsItem.published_at < end_utc,
             )
             .order_by(NewsItem.published_at.asc())
         )
@@ -564,5 +615,9 @@ class AnalyticsService:
         if value.tzinfo:
             return value
         return value.replace(tzinfo=timezone.utc)
+
+    def _to_naive_utc(self, value: datetime) -> datetime:
+        value = self._ensure_timezone(value)
+        return value.astimezone(timezone.utc).replace(tzinfo=None)
 
 

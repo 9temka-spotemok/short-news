@@ -70,6 +70,39 @@ class RelationshipType(str, enum.Enum):
     DEPENDS_ON = "depends_on"
 
 
+analytics_period_enum = Enum(
+    AnalyticsPeriod,
+    name="analyticsperiod",
+    values_callable=lambda enum_cls: [member.value for member in enum_cls],
+    native_enum=True,
+    create_type=False,
+)
+
+impact_component_type_enum = Enum(
+    ImpactComponentType,
+    name="impactcomponenttype",
+    values_callable=lambda enum_cls: [member.value for member in enum_cls],
+    native_enum=True,
+    create_type=False,
+)
+
+analytics_entity_type_enum = Enum(
+    AnalyticsEntityType,
+    name="analyticsentitytype",
+    values_callable=lambda enum_cls: [member.value for member in enum_cls],
+    native_enum=True,
+    create_type=False,
+)
+
+relationship_type_enum = Enum(
+    RelationshipType,
+    name="relationshiptype",
+    values_callable=lambda enum_cls: [member.value for member in enum_cls],
+    native_enum=True,
+    create_type=False,
+)
+
+
 class CompanyAnalyticsSnapshot(BaseModel):
     """Aggregated metrics for a company within a period."""
 
@@ -83,7 +116,7 @@ class CompanyAnalyticsSnapshot(BaseModel):
     )
     period_start = Column(DateTime(timezone=True), nullable=False, index=True)
     period_end = Column(DateTime(timezone=True), nullable=False)
-    period = Column(Enum(AnalyticsPeriod), nullable=False, default=AnalyticsPeriod.DAILY)
+    period = Column(analytics_period_enum.copy(), nullable=False, default=AnalyticsPeriod.DAILY)
 
     news_total = Column(Integer, nullable=False, default=0)
     news_positive = Column(Integer, nullable=False, default=0)
@@ -138,11 +171,11 @@ class ImpactComponent(BaseModel):
         nullable=False,
         index=True,
     )
-    component_type = Column(Enum(ImpactComponentType), nullable=False)
+    component_type = Column(impact_component_type_enum.copy(), nullable=False)
     weight = Column(Float, nullable=False, default=0.0)
     score_contribution = Column(Float, nullable=False, default=0.0)
 
-    source_entity_type = Column(Enum(AnalyticsEntityType), nullable=True)
+    source_entity_type = Column(analytics_entity_type_enum.copy(), nullable=True)
     source_entity_id = Column(PGUUID(as_uuid=True), nullable=True)
     metadata_json = Column("metadata", JSON, default=dict)
 
@@ -161,11 +194,11 @@ class AnalyticsGraphEdge(BaseModel):
         nullable=True,
         index=True,
     )
-    source_entity_type = Column(Enum(AnalyticsEntityType), nullable=False)
+    source_entity_type = Column(analytics_entity_type_enum.copy(), nullable=False)
     source_entity_id = Column(PGUUID(as_uuid=True), nullable=False, index=True)
-    target_entity_type = Column(Enum(AnalyticsEntityType), nullable=False)
+    target_entity_type = Column(analytics_entity_type_enum.copy(), nullable=False)
     target_entity_id = Column(PGUUID(as_uuid=True), nullable=False, index=True)
-    relationship_type = Column(Enum(RelationshipType), nullable=False)
+    relationship_type = Column(relationship_type_enum.copy(), nullable=False)
     confidence = Column(Float, nullable=False, default=0.5)
     weight = Column(Float, nullable=False, default=1.0)
     metadata_json = Column("metadata", JSON, default=dict)
