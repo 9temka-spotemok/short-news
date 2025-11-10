@@ -1,3 +1,4 @@
+import axios from 'axios'
 import { Activity, ArrowLeft, ArrowRight, BarChart3, Building2, Clock, Filter, Gauge, History, LineChart, Newspaper, PieChart, RefreshCw, Smile, Sparkles, TrendingUp, Users } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
@@ -731,19 +732,64 @@ export default function CompetitorAnalysisPage() {
     setAnalyticsError(null)
     setFocusedImpactPoint(null)
     try {
-      const [latestSnapshot, snapshotSeries, edges] = await Promise.all([
+      const [snapshotResult, seriesResult, edgesResult] = await Promise.allSettled([
         ApiService.getLatestAnalyticsSnapshot(companyId),
         ApiService.getAnalyticsSnapshots(companyId, 'daily', 60),
         ApiService.getAnalyticsGraph(companyId, undefined, 25)
       ])
-      setImpactSnapshot(latestSnapshot)
-      setImpactSeries(snapshotSeries)
-      setAnalyticsEdges(edges)
-      setFocusedImpactPoint(latestSnapshot)
+
+      let resolvedSnapshot: CompanyAnalyticsSnapshot | null = null
+      let resolvedSeries: SnapshotSeries | null = null
+      let resolvedEdges: KnowledgeGraphEdge[] = []
+      let errorMessage: string | null = null
+
+      if (snapshotResult.status === 'fulfilled') {
+        resolvedSnapshot = snapshotResult.value
+      } else {
+        const reason = snapshotResult.reason
+        if (axios.isAxiosError(reason) && reason.response?.status === 404) {
+          resolvedSnapshot = null
+          errorMessage = 'Аналитика ещё не построена. Запустите пересчёт, чтобы получить метрики.'
+        } else {
+          console.error('Failed to load latest analytics snapshot:', reason)
+          errorMessage = reason?.response?.data?.detail || reason?.message || 'Failed to load analytics insights'
+        }
+      }
+
+      if (seriesResult.status === 'fulfilled') {
+        resolvedSeries = seriesResult.value
+      } else {
+        const reason = seriesResult.reason
+        if (!(axios.isAxiosError(reason) && reason.response?.status === 404)) {
+          console.error('Failed to load analytics snapshot series:', reason)
+          const fallbackMessage = reason?.response?.data?.detail || reason?.message || 'Failed to load analytics insights'
+          errorMessage = errorMessage ?? fallbackMessage
+        }
+      }
+
+      if (edgesResult.status === 'fulfilled') {
+        resolvedEdges = edgesResult.value
+      } else {
+        const reason = edgesResult.reason
+        if (!(axios.isAxiosError(reason) && reason.response?.status === 404)) {
+          console.error('Failed to load analytics edges:', reason)
+          const fallbackMessage = reason?.response?.data?.detail || reason?.message || 'Failed to load analytics insights'
+          errorMessage = errorMessage ?? fallbackMessage
+        }
+      }
+
+      setImpactSnapshot(resolvedSnapshot)
+      setImpactSeries(resolvedSeries)
+      setAnalyticsEdges(resolvedEdges)
+      setFocusedImpactPoint(resolvedSnapshot)
+      setAnalyticsError(errorMessage)
     } catch (error: any) {
       console.error('Failed to load analytics insights:', error)
       const message = error?.response?.data?.detail || error?.message || 'Failed to load analytics insights'
       setAnalyticsError(message)
+      setImpactSnapshot(null)
+      setImpactSeries(null)
+      setAnalyticsEdges([])
     } finally {
       setAnalyticsLoading(false)
     }
