@@ -3,19 +3,209 @@ Enhanced News endpoints with improved error handling and validation
 """
 
 from typing import Optional, List, Dict, Any
-from fastapi import APIRouter, Depends, Query, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, Query, HTTPException, status, Response
 from loguru import logger
 
-from app.core.database import get_db
-from app.services.news_service import NewsService
+from app.api.dependencies import get_news_facade
+from app.domains.news import NewsFacade
 from app.models.news import (
-    NewsCategory, SourceType, 
-    NewsResponseSchema, NewsSearchSchema, NewsStatsSchema
+    NewsCategory,
+    SourceType,
+    NewsItem,
+    NewsSearchSchema,
+    NewsStatsSchema,
+    NewsCreateSchema,
+    NewsUpdateSchema,
 )
-from app.core.exceptions import NotFoundError, ValidationError
+from app.core.exceptions import ValidationError
 
 router = APIRouter(prefix="/news", tags=["news"])
+
+
+def serialize_news_item(
+    item: NewsItem,
+    *,
+    include_company: bool = True,
+    include_keywords: bool = True,
+    include_activities: bool = False,
+) -> Dict[str, Any]:
+    title = item.title or ""
+    title_truncated = title[:100] + "..." if len(title) > 100 else title
+
+    def serialize_company() -> Optional[Dict[str, Any]]:
+        company = getattr(item, "company", None)
+        if not include_company or not company:
+            return None
+        return {
+            "id": str(company.id) if company.id else None,
+            "name": company.name or "",
+            "website": company.website or "",
+            "description": company.description or "",
+            "category": company.category or "",
+            "logo_url": getattr(company, "logo_url", None),
+        }
+
+    def serialize_keywords() -> List[Dict[str, Any]]:
+        if not include_keywords:
+            return []
+        keywords = getattr(item, "keywords", None)
+        if not keywords:
+            return []
+        return [
+            {
+                "keyword": kw.keyword or "",
+                "relevance": float(kw.relevance_score) if kw.relevance_score else 0.0,
+            }
+            for kw in keywords
+        ]
+
+    def serialize_activities() -> List[Dict[str, Any]]:
+        if not include_activities:
+            return []
+        activities = getattr(item, "activities", None)
+        if not activities:
+            return []
+        return [
+            {
+                "id": str(activity.id),
+                "user_id": str(activity.user_id),
+                "activity_type": activity.activity_type,
+                "created_at": activity.created_at.isoformat()
+                if activity.created_at
+                else None,
+            }
+            for activity in activities
+        ]
+
+    def enum_value(value: Any) -> Optional[str]:
+        if value is None:
+            return None
+        return value.value if hasattr(value, "value") else str(value)
+
+    return {
+        "id": str(item.id),
+        "title": item.title or "",
+        "title_truncated": title_truncated,
+        "summary": item.summary or "",
+        "content": item.content or "",
+        "source_url": item.source_url,
+        "source_type": enum_value(item.source_type),
+        "category": enum_value(item.category),
+        "topic": enum_value(item.topic),
+        "sentiment": enum_value(item.sentiment),
+        "raw_snapshot_url": item.raw_snapshot_url,
+        "priority_score": float(item.priority_score)
+        if item.priority_score is not None
+        else 0.0,
+        "priority_level": getattr(item, "priority_level", None),
+        "published_at": item.published_at.isoformat() if item.published_at else None,
+        "created_at": item.created_at.isoformat() if item.created_at else None,
+        "updated_at": item.updated_at.isoformat() if item.updated_at else None,
+        "is_recent": getattr(item, "is_recent", False),
+        "company": serialize_company(),
+        "keywords": serialize_keywords(),
+        "activities": serialize_activities(),
+    }
+
+
+@router.post(
+    "/",
+    response_model=Dict[str, Any],
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_news(
+    payload: NewsCreateSchema,
+    facade: NewsFacade = Depends(get_news_facade),
+):
+    logger.info("Create news request")
+    try:
+        news_item = await facade.create_news(payload.model_dump())
+        return serialize_news_item(news_item, include_activities=True)
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid payload: {exc.message}",
+        )
+    except Exception as exc:
+        logger.error(f"Failed to create news: {exc}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create news item",
+        )
+
+
+@router.put(
+    "/{news_id}",
+    response_model=Dict[str, Any],
+)
+async def update_news(
+    news_id: str,
+    payload: NewsUpdateSchema,
+    facade: NewsFacade = Depends(get_news_facade),
+):
+    logger.info(f"Update news request: {news_id}")
+    try:
+        UUID(news_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid news ID format")
+
+    update_data = payload.model_dump(exclude_unset=True)
+    if not update_data:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No fields provided for update",
+        )
+
+    try:
+        news_item = await facade.update_news(news_id, update_data)
+        if not news_item:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"News item with ID {news_id} not found",
+            )
+        return serialize_news_item(news_item, include_activities=True)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error(f"Failed to update news {news_id}: {exc}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update news item",
+        )
+
+
+@router.delete(
+    "/{news_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_news(
+    news_id: str,
+    facade: NewsFacade = Depends(get_news_facade),
+):
+    logger.info(f"Delete news request: {news_id}")
+    try:
+        UUID(news_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid news ID format")
+
+    try:
+        success = await facade.delete_news(news_id)
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"News item with ID {news_id} not found",
+            )
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error(f"Failed to delete news {news_id}: {exc}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete news item",
+        )
 
 
 @router.get("/", response_model=Dict[str, Any])
@@ -28,7 +218,7 @@ async def get_news(
     min_priority: Optional[float] = Query(None, ge=0.0, le=1.0, description="Minimum priority score"),
     limit: int = Query(20, ge=1, le=100, description="Number of news items to return"),
     offset: int = Query(0, ge=0, description="Number of news items to skip"),
-    db: AsyncSession = Depends(get_db)
+    facade: NewsFacade = Depends(get_news_facade),
 ):
     """
     Get news items with enhanced filtering and search capabilities
@@ -37,7 +227,6 @@ async def get_news(
     """
     logger.info(f"News request: category={category}, company_id={company_id}, source_type={source_type}, limit={limit}, offset={offset}")
     
-    news_service = NewsService(db)
     try:
         # Parse company IDs if provided
         parsed_company_ids = None
@@ -47,7 +236,7 @@ async def get_news(
             parsed_company_ids = [company_id]
         
         # Get news items with enhanced filtering
-        news_items, total_count = await news_service.get_news_items(
+        news_items, total_count = await facade.list_news(
             category=category,
             company_id=company_id,
             company_ids=parsed_company_ids,
@@ -59,58 +248,10 @@ async def get_news(
         )
         
         # Convert to response format with enhanced data
-        items = []
-        for item in news_items:
-            # Build company info
-            company_info = None
-            if item.company:
-                company_info = {
-                    "id": str(item.company.id) if item.company.id else None,
-                    "name": item.company.name if item.company.name else "",
-                    "website": item.company.website if item.company.website else "",
-                    "description": item.company.description if item.company.description else "",
-                    "category": item.company.category if item.company.category else ""
-                }
-            
-            # Build keywords
-            keywords = []
-            if item.keywords:
-                keywords = [{
-                    "keyword": kw.keyword if kw.keyword else "",
-                    "relevance": float(kw.relevance_score) if kw.relevance_score else 0.0
-                } for kw in item.keywords]
-            
-            # Safely extract and serialize values
-            title = item.title if item.title else ""
-            title_truncated = title[:100] + "..." if len(title) > 100 else title
-            
-            # Handle enum serialization
-            source_type_val = item.source_type.value if hasattr(item.source_type, 'value') else str(item.source_type) if item.source_type else None
-            category_val = item.category.value if hasattr(item.category, 'value') else str(item.category) if item.category else None
-            topic_val = item.topic.value if hasattr(item.topic, 'value') else str(item.topic) if item.topic else None
-            sentiment_val = item.sentiment.value if hasattr(item.sentiment, 'value') else str(item.sentiment) if item.sentiment else None
-            
-            items.append({
-                "id": str(item.id),
-                "title": item.title,
-                "title_truncated": title_truncated,
-                "summary": item.summary if item.summary else "",
-                "content": item.content if item.content else "",
-                "source_url": item.source_url,
-                "source_type": source_type_val,
-                "category": category_val,
-                "topic": topic_val,
-                "sentiment": sentiment_val,
-                "raw_snapshot_url": item.raw_snapshot_url,
-                "priority_score": float(item.priority_score) if item.priority_score else 0.0,
-                "priority_level": item.priority_level,
-                "published_at": item.published_at.isoformat() if item.published_at else None,
-                "created_at": item.created_at.isoformat() if item.created_at else None,
-                "updated_at": item.updated_at.isoformat() if item.updated_at else None,
-                "is_recent": item.is_recent,
-                "company": company_info,
-                "keywords": keywords
-            })
+        items = [
+            serialize_news_item(item, include_activities=False)
+            for item in news_items
+        ]
         
         return {
             "items": items,
@@ -143,7 +284,7 @@ async def get_news(
 
 @router.get("/stats", response_model=NewsStatsSchema)
 async def get_news_statistics(
-    db: AsyncSession = Depends(get_db)
+    facade: NewsFacade = Depends(get_news_facade),
 ):
     """
     Get comprehensive news statistics
@@ -153,9 +294,8 @@ async def get_news_statistics(
     """
     logger.info("News statistics request")
     
-    news_service = NewsService(db)
     try:
-        stats = await news_service.get_news_statistics()
+        stats = await facade.get_statistics()
         return stats
         
     except Exception as e:
@@ -169,7 +309,7 @@ async def get_news_statistics(
 @router.get("/stats/by-companies", response_model=NewsStatsSchema)
 async def get_news_statistics_by_companies(
     company_ids: str = Query(..., description="Comma-separated company IDs"),
-    db: AsyncSession = Depends(get_db)
+    facade: NewsFacade = Depends(get_news_facade),
 ):
     """
     Get comprehensive news statistics filtered by company IDs
@@ -179,7 +319,6 @@ async def get_news_statistics_by_companies(
     """
     logger.info(f"News statistics by companies request: {company_ids}")
     
-    news_service = NewsService(db)
     try:
         # Parse company IDs
         parsed_company_ids = [cid.strip() for cid in company_ids.split(',') if cid.strip()]
@@ -190,7 +329,7 @@ async def get_news_statistics_by_companies(
                 detail="At least one company ID is required"
             )
         
-        stats = await news_service.get_news_statistics_by_companies(parsed_company_ids)
+        stats = await facade.get_statistics_for_companies(parsed_company_ids)
         return stats
         
     except HTTPException:
@@ -206,7 +345,7 @@ async def get_news_statistics_by_companies(
 @router.get("/{news_id}", response_model=Dict[str, Any])
 async def get_news_item(
     news_id: str,
-    db: AsyncSession = Depends(get_db)
+    facade: NewsFacade = Depends(get_news_facade),
 ):
     """
     Get specific news item by ID with full details
@@ -216,12 +355,22 @@ async def get_news_item(
     """
     logger.info(f"News item request: {news_id}")
     
-    news_service = NewsService(db)
     try:
-        news_item = await news_service.get_news_item_by_id(news_id)
+        try:
+            UUID(news_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid news ID format",
+            )
+
+        news_item = await facade.get_news_item(news_id, include_relations=True)
         
         if not news_item:
-            raise NotFoundError(f"News item with ID {news_id} not found", resource_type="news_item")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"News item with ID {news_id} not found",
+            )
         
         # Build comprehensive response
         company_info = None
@@ -259,37 +408,13 @@ async def get_news_item(
                 for activity in news_item.activities
             ]
         
-        return {
-            "id": str(news_item.id),
-            "title": news_item.title,
-            "title_truncated": news_item.title[:100] + "..." if news_item.title and len(news_item.title) > 100 else news_item.title,
-            "summary": news_item.summary,
-            "content": news_item.content,
-            "source_url": news_item.source_url,
-            "source_type": news_item.source_type.value if hasattr(news_item.source_type, 'value') else str(news_item.source_type) if news_item.source_type else None,
-            "category": news_item.category.value if hasattr(news_item.category, 'value') else str(news_item.category) if news_item.category else None,
-            "topic": news_item.topic.value if hasattr(news_item.topic, 'value') else str(news_item.topic) if news_item.topic else None,
-            "sentiment": news_item.sentiment.value if hasattr(news_item.sentiment, 'value') else str(news_item.sentiment) if news_item.sentiment else None,
-            "raw_snapshot_url": news_item.raw_snapshot_url,
-            "priority_score": news_item.priority_score,
-            "priority_level": news_item.priority_level,
-            "published_at": news_item.published_at.isoformat() if news_item.published_at else None,
-            "created_at": news_item.created_at.isoformat() if news_item.created_at else None,
-            "updated_at": news_item.updated_at.isoformat() if news_item.updated_at else None,
-            "is_recent": news_item.is_recent,
-            "company": company_info,
-            "keywords": keywords,
-            "activities": activities
-        }
-        
-    except NotFoundError:
-        raise
-    except ValidationError as e:
-        logger.warning(f"Validation error in news item request: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid news ID format: {e.message}"
+        return serialize_news_item(
+            news_item,
+            include_activities=True,
         )
+        
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to get news item {news_id}: {e}")
         raise HTTPException(
@@ -306,7 +431,7 @@ async def search_news(
     company_id: Optional[str] = Query(None, description="Filter by company ID"),
     limit: int = Query(20, ge=1, le=100, description="Number of results to return"),
     offset: int = Query(0, ge=0, description="Number of results to skip"),
-    db: AsyncSession = Depends(get_db)
+    facade: NewsFacade = Depends(get_news_facade),
 ):
     """
     Search news items with advanced filtering
@@ -316,7 +441,6 @@ async def search_news(
     """
     logger.info(f"News search: query='{q}', category={category}, limit={limit}, offset={offset}")
     
-    news_service = NewsService(db)
     try:
         # Create search parameters
         search_params = NewsSearchSchema(
@@ -329,46 +453,13 @@ async def search_news(
         )
         
         # Perform search
-        news_items, total_count = await news_service.search_news(search_params)
+        news_items, total_count = await facade.search_news(search_params)
         
         # Convert to response format
-        items = []
-        for item in news_items:
-            company_info = None
-            if item.company:
-                company_info = {
-                    "id": str(item.company.id),
-                    "name": item.company.name,
-                    "website": item.company.website
-                }
-            
-            # Safely extract values
-            title = item.title if item.title else ""
-            title_truncated = title[:100] + "..." if len(title) > 100 else title
-            
-            # Handle enum serialization
-            source_type_val = item.source_type.value if hasattr(item.source_type, 'value') else str(item.source_type) if item.source_type else None
-            category_val = item.category.value if hasattr(item.category, 'value') else str(item.category) if item.category else None
-            topic_val = item.topic.value if hasattr(item.topic, 'value') else str(item.topic) if item.topic else None
-            sentiment_val = item.sentiment.value if hasattr(item.sentiment, 'value') else str(item.sentiment) if item.sentiment else None
-            
-            items.append({
-                "id": str(item.id),
-                "title": item.title,
-                "title_truncated": title_truncated,
-                "summary": item.summary if item.summary else "",
-                "source_url": item.source_url,
-                "source_type": source_type_val,
-                "category": category_val,
-                "topic": topic_val,
-                "sentiment": sentiment_val,
-                "raw_snapshot_url": item.raw_snapshot_url,
-                "priority_score": float(item.priority_score) if item.priority_score else 0.0,
-                "priority_level": item.priority_level,
-                "published_at": item.published_at.isoformat() if item.published_at else None,
-                "is_recent": item.is_recent,
-                "company": company_info
-            })
+        items = [
+            serialize_news_item(item, include_activities=False)
+            for item in news_items
+        ]
         
         return {
             "query": q,
@@ -408,7 +499,7 @@ async def get_news_by_category(
     source_type: Optional[SourceType] = Query(None, description="Filter by source type"),
     limit: int = Query(20, ge=1, le=100, description="Number of news items to return"),
     offset: int = Query(0, ge=0, description="Number of news items to skip"),
-    db: AsyncSession = Depends(get_db)
+    facade: NewsFacade = Depends(get_news_facade),
 ):
     """
     Get news items by category with statistics
@@ -418,7 +509,6 @@ async def get_news_by_category(
     """
     logger.info(f"News by category request: category={category_name}, company_id={company_id}, source_type={source_type}, limit={limit}, offset={offset}")
     
-    news_service = NewsService(db)
     try:
         # Validate category name
         valid_categories = [cat.value for cat in NewsCategory]
@@ -439,7 +529,7 @@ async def get_news_by_category(
             parsed_company_ids = [company_id]
         
         # Get news items
-        news_items, total_count = await news_service.get_news_items(
+        news_items, total_count = await facade.list_news(
             category=category_enum,
             company_id=company_id,
             company_ids=parsed_company_ids,
@@ -449,52 +539,13 @@ async def get_news_by_category(
         )
         
         # Convert to response format
-        items = []
-        for item in news_items:
-            company_info = None
-            if item.company:
-                company_info = {
-                    "id": str(item.company.id),
-                    "name": item.company.name,
-                    "website": item.company.website,
-                    "description": item.company.description,
-                    "category": item.company.category
-                }
-            
-            keywords = [{"keyword": kw.keyword, "relevance": kw.relevance_score} for kw in item.keywords] if item.keywords else []
-            
-            # Safely extract and serialize values for category endpoint
-            title = item.title if item.title else ""
-            title_truncated = title[:100] + "..." if len(title) > 100 else title
-            source_type_val = item.source_type.value if hasattr(item.source_type, 'value') else str(item.source_type) if item.source_type else None
-            category_val = item.category.value if hasattr(item.category, 'value') else str(item.category) if item.category else None
-            topic_val = item.topic.value if hasattr(item.topic, 'value') else str(item.topic) if item.topic else None
-            sentiment_val = item.sentiment.value if hasattr(item.sentiment, 'value') else str(item.sentiment) if item.sentiment else None
-
-            items.append({
-                "id": str(item.id),
-                "title": item.title,
-                "title_truncated": title_truncated,
-                "summary": item.summary if item.summary else "",
-                "content": item.content if item.content else "",
-                "source_url": item.source_url,
-                "source_type": source_type_val,
-                "category": category_val,
-                "topic": topic_val,
-                "sentiment": sentiment_val,
-                "raw_snapshot_url": item.raw_snapshot_url,
-                "priority_score": float(item.priority_score) if item.priority_score else 0.0,
-                "priority_level": item.priority_level,
-                "published_at": item.published_at.isoformat() if item.published_at else None,
-                "created_at": item.created_at.isoformat() if item.created_at else None,
-                "updated_at": item.updated_at.isoformat() if item.updated_at else None,
-                "is_recent": item.is_recent,
-                "company": company_info,
-                "keywords": keywords
-            })
+        items = [
+            serialize_news_item(item, include_activities=False)
+            for item in news_items
+        ]
         
         # Get statistics for this category
-        category_stats = await news_service.get_category_statistics(category_enum, parsed_company_ids)
+        category_stats = await facade.get_category_statistics(category_enum, parsed_company_ids)
         
         return {
             "category": category_name,
@@ -564,48 +615,12 @@ async def get_news_categories():
 
 
 @router.post("/{news_id}/mark-read")
-async def mark_news_read(
-    news_id: str,
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    Mark news item as read for the current user
-    
-    Creates a user activity record to track that the news item has been read.
-    """
-    logger.info(f"Mark news as read: {news_id}")
-    
-    # TODO: Implement mark as read functionality
-    # This would require user authentication and user activity tracking
-    # For now, return a placeholder response
-    
-    return {
-        "message": "News item marked as read",
-        "news_id": news_id,
-        "status": "read",
-        "timestamp": "2024-01-01T00:00:00Z"
-    }
+async def mark_news_read(news_id: str):
+    logger.info(f"Mark news as read (stub): {news_id}")
+    return {"message": "Not implemented", "news_id": news_id}
 
 
 @router.post("/{news_id}/favorite")
-async def favorite_news(
-    news_id: str,
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    Add news item to favorites for the current user
-    
-    Creates a user activity record to track that the news item has been favorited.
-    """
-    logger.info(f"Favorite news: {news_id}")
-    
-    # TODO: Implement favorite functionality
-    # This would require user authentication and user activity tracking
-    # For now, return a placeholder response
-    
-    return {
-        "message": "News item added to favorites",
-        "news_id": news_id,
-        "status": "favorited",
-        "timestamp": "2024-01-01T00:00:00Z"
-    }
+async def favorite_news(news_id: str):
+    logger.info(f"Favorite news (stub): {news_id}")
+    return {"message": "Not implemented", "news_id": news_id}

@@ -13,6 +13,7 @@ import uuid
 import math
 
 from app.models import NewsItem, Company, CompetitorComparison, NewsTopic, SentimentLabel, SourceType
+from app.domains.competitors.repositories import CompetitorRepository
 
 
 class CompetitorAnalysisService:
@@ -20,6 +21,7 @@ class CompetitorAnalysisService:
     
     def __init__(self, db: AsyncSession):
         self.db = db
+        self._competitor_repo = CompetitorRepository(db)
     
     async def compare_companies(
         self,
@@ -419,28 +421,7 @@ class CompetitorAnalysisService:
     async def _get_companies(self, company_ids: List[str]) -> List[Company]:
         """Get company objects"""
         try:
-            uuids = []
-            for cid in company_ids:
-                try:
-                    uuids.append(uuid.UUID(cid))
-                except ValueError:
-                    logger.error(f"Invalid UUID format: {cid}")
-                    raise ValueError(f"Invalid company ID format: {cid}")
-            
-            result = await self.db.execute(
-                select(Company).where(Company.id.in_(uuids))
-            )
-            companies = list(result.scalars().all())
-            
-            # Check if all companies were found
-            found_ids = {str(c.id) for c in companies}
-            missing_ids = set(company_ids) - found_ids
-            
-            if missing_ids:
-                logger.warning(f"Companies not found: {missing_ids}")
-                # Continue with found companies instead of raising error
-            
-            return companies
+            return await self._competitor_repo.fetch_companies(company_ids)
         except Exception as e:
             logger.error(f"Error getting companies: {e}")
             raise
@@ -456,25 +437,17 @@ class CompetitorAnalysisService:
     ) -> CompetitorComparison:
         """Save comparison to database"""
         try:
-            comparison = CompetitorComparison(
-                id=uuid.uuid4(),
-                user_id=uuid.UUID(user_id),
-                company_ids=[uuid.UUID(cid) for cid in company_ids],
+            comparison = await self._competitor_repo.save_comparison(
+                user_id=user_id,
+                company_ids=company_ids,
                 date_from=date_from,
                 date_to=date_to,
-                name=name or f"Comparison {datetime.now(timezone.utc).strftime('%Y-%m-%d')}",
+                name=name,
                 metrics=metrics,
-                created_at=datetime.now(timezone.utc).replace(tzinfo=None),
-                updated_at=datetime.now(timezone.utc).replace(tzinfo=None)
             )
-            
-            self.db.add(comparison)
-            await self.db.commit()
-            await self.db.refresh(comparison)
-            
+
             logger.info(f"Comparison saved: {comparison.id}")
             return comparison
-            
         except Exception as e:
             logger.error(f"Error saving comparison: {e}")
             await self.db.rollback()
@@ -482,40 +455,11 @@ class CompetitorAnalysisService:
     
     async def get_user_comparisons(self, user_id: str, limit: int = 10) -> List[Dict[str, Any]]:
         """Get user's saved comparisons"""
-        result = await self.db.execute(
-            select(CompetitorComparison)
-            .where(CompetitorComparison.user_id == uuid.UUID(user_id))
-            .order_by(desc(CompetitorComparison.created_at))
-            .limit(limit)
-        )
-        
-        comparisons = result.scalars().all()
-        
-        return [
-            {
-                "id": str(c.id),
-                "name": c.name,
-                "company_ids": [str(cid) for cid in c.company_ids],
-                "date_from": c.date_from.isoformat(),
-                "date_to": c.date_to.isoformat(),
-                "created_at": c.created_at.isoformat()
-            }
-            for c in comparisons
-        ]
+        return await self._competitor_repo.list_user_comparisons(user_id, limit)
     
     async def get_comparison(self, comparison_id: str, user_id: str) -> Optional[Dict[str, Any]]:
         """Get specific comparison"""
-        result = await self.db.execute(
-            select(CompetitorComparison)
-            .where(
-                and_(
-                    CompetitorComparison.id == uuid.UUID(comparison_id),
-                    CompetitorComparison.user_id == uuid.UUID(user_id)
-                )
-            )
-        )
-        
-        comparison = result.scalar_one_or_none()
+        comparison = await self._competitor_repo.get_comparison(comparison_id, user_id)
         if not comparison:
             return None
         
@@ -542,24 +486,7 @@ class CompetitorAnalysisService:
     async def delete_comparison(self, comparison_id: str, user_id: str) -> bool:
         """Delete comparison"""
         try:
-            result = await self.db.execute(
-                select(CompetitorComparison)
-                .where(
-                    and_(
-                        CompetitorComparison.id == uuid.UUID(comparison_id),
-                        CompetitorComparison.user_id == uuid.UUID(user_id)
-                    )
-                )
-            )
-            
-            comparison = result.scalar_one_or_none()
-            if comparison:
-                await self.db.delete(comparison)
-                await self.db.commit()
-                return True
-            
-            return False
-            
+            return await self._competitor_repo.delete_comparison(comparison_id, user_id)
         except Exception as e:
             logger.error(f"Error deleting comparison: {e}")
             await self.db.rollback()

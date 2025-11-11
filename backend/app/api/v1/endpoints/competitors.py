@@ -5,12 +5,10 @@ Competitor analysis endpoints
 from typing import List, Optional
 from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, Body
-from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 from loguru import logger
 
-from app.core.database import get_db
-from app.api.dependencies import get_current_user
+from app.api.dependencies import get_current_user, get_competitor_facade
 from app.models import (
     User,
     NewsTopic,
@@ -18,8 +16,7 @@ from app.models import (
     SourceType,
     ChangeProcessingStatus,
 )
-from app.services.competitor_service import CompetitorAnalysisService
-from app.services.competitor_change_service import CompetitorChangeService
+from app.domains.competitors import CompetitorFacade
 from app.schemas.competitor_events import CompetitorChangeEventSchema
 
 router = APIRouter()
@@ -65,7 +62,7 @@ def _serialize_change_event(event) -> dict:
 async def compare_companies(
     request_data: dict = Body(...),
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    facade: CompetitorFacade = Depends(get_competitor_facade),
 ):
     """
     Compare multiple companies
@@ -161,8 +158,7 @@ async def compare_companies(
             }
  
         # Perform comparison
-        competitor_service = CompetitorAnalysisService(db)
-        comparison_data = await competitor_service.compare_companies(
+        comparison_data = await facade.compare_companies(
             company_ids=company_ids,
             date_from=date_from,
             date_to=date_to,
@@ -184,7 +180,7 @@ async def compare_companies(
 async def get_user_comparisons(
     limit: int = 10,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    facade: CompetitorFacade = Depends(get_competitor_facade),
 ):
     """
     Get user's saved comparisons
@@ -192,8 +188,7 @@ async def get_user_comparisons(
     logger.info(f"Get comparisons for user {current_user.id}")
     
     try:
-        competitor_service = CompetitorAnalysisService(db)
-        comparisons = await competitor_service.get_user_comparisons(str(current_user.id), limit)
+        comparisons = await facade.get_user_comparisons(str(current_user.id), limit)
         
         return {
             "comparisons": comparisons,
@@ -209,7 +204,7 @@ async def get_user_comparisons(
 async def get_comparison(
     comparison_id: str,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    facade: CompetitorFacade = Depends(get_competitor_facade),
 ):
     """
     Get specific comparison details
@@ -217,8 +212,7 @@ async def get_comparison(
     logger.info(f"Get comparison {comparison_id} for user {current_user.id}")
     
     try:
-        competitor_service = CompetitorAnalysisService(db)
-        comparison = await competitor_service.get_comparison(comparison_id, str(current_user.id))
+        comparison = await facade.get_comparison(comparison_id, str(current_user.id))
         
         if not comparison:
             raise HTTPException(status_code=404, detail="Comparison not found")
@@ -236,7 +230,7 @@ async def get_comparison(
 async def delete_comparison(
     comparison_id: str,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    facade: CompetitorFacade = Depends(get_competitor_facade),
 ):
     """
     Delete a comparison
@@ -244,8 +238,7 @@ async def delete_comparison(
     logger.info(f"Delete comparison {comparison_id} for user {current_user.id}")
     
     try:
-        competitor_service = CompetitorAnalysisService(db)
-        success = await competitor_service.delete_comparison(comparison_id, str(current_user.id))
+        success = await facade.delete_comparison(comparison_id, str(current_user.id))
         
         if not success:
             raise HTTPException(status_code=404, detail="Comparison not found")
@@ -264,7 +257,7 @@ async def get_company_activity(
     company_id: str,
     days: int = 30,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    facade: CompetitorFacade = Depends(get_competitor_facade),
 ):
     """
     Get activity metrics for a specific company
@@ -277,15 +270,14 @@ async def get_company_activity(
         date_from = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)
         date_to = datetime.now(timezone.utc).replace(tzinfo=None)
         
-        competitor_service = CompetitorAnalysisService(db)
         company_uuid = uuid_lib.UUID(company_id)
         
-        # Get metrics
-        news_volume = await competitor_service.get_news_volume(company_uuid, date_from, date_to)
-        category_distribution = await competitor_service.get_category_distribution(company_uuid, date_from, date_to)
-        activity_score = await competitor_service.get_activity_score(company_uuid, date_from, date_to)
-        daily_activity = await competitor_service.get_daily_activity(company_uuid, date_from, date_to)
-        top_news = await competitor_service.get_top_news(company_uuid, date_from, date_to, limit=10)
+        metrics = await facade.build_company_activity(
+            company_uuid,
+            date_from=date_from,
+            date_to=date_to,
+            top_news_limit=10,
+        )
         
         return {
             "company_id": company_id,
@@ -293,11 +285,11 @@ async def get_company_activity(
             "date_from": date_from.isoformat(),
             "date_to": date_to.isoformat(),
             "metrics": {
-                "news_volume": news_volume,
-                "category_distribution": category_distribution,
-                "activity_score": activity_score,
-                "daily_activity": daily_activity,
-                "top_news": top_news
+                "news_volume": metrics["news_volume"],
+                "category_distribution": metrics["category_distribution"],
+                "activity_score": metrics["activity_score"],
+                "daily_activity": metrics["daily_activity"],
+                "top_news": metrics["top_news"],
             }
         }
         
@@ -314,7 +306,7 @@ async def suggest_competitors(
     limit: int = 5,
     days: int = 30,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    facade: CompetitorFacade = Depends(get_competitor_facade),
 ):
     """
     Автоматически подобрать конкурентов
@@ -331,8 +323,7 @@ async def suggest_competitors(
         date_from = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)
         date_to = datetime.now(timezone.utc).replace(tzinfo=None)
         
-        competitor_service = CompetitorAnalysisService(db)
-        suggestions = await competitor_service.suggest_competitors(
+        suggestions = await facade.suggest_competitors(
             company_id=company_uuid,
             limit=min(limit, 10),
             date_from=date_from,
@@ -356,7 +347,7 @@ async def suggest_competitors(
 async def analyze_themes(
     request_data: dict = Body(...),
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    facade: CompetitorFacade = Depends(get_competitor_facade),
 ):
     """
     Анализ новостных тем для списка компаний
@@ -399,8 +390,7 @@ async def analyze_themes(
             date_to_dt = datetime.now(timezone.utc).replace(tzinfo=None)
         
         # Анализ тем
-        competitor_service = CompetitorAnalysisService(db)
-        themes_data = await competitor_service.analyze_news_themes(
+        themes_data = await facade.analyze_news_themes(
             company_ids=company_uuids,
             date_from=date_from_dt,
             date_to=date_to_dt
@@ -421,7 +411,7 @@ async def list_change_events(
     limit: int = 20,
     status: Optional[str] = None,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    facade: CompetitorFacade = Depends(get_competitor_facade),
 ):
     try:
         import uuid as uuid_lib
@@ -437,8 +427,7 @@ async def list_change_events(
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid status filter")
 
-    change_service = CompetitorChangeService(db)
-    events = await change_service.list_change_events(
+    events = await facade.list_change_events(
         company_uuid,
         limit=max(1, min(limit, 100)),
         status=status_filter,
@@ -458,7 +447,7 @@ async def list_change_events(
 async def recompute_change_event(
     event_id: str,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    facade: CompetitorFacade = Depends(get_competitor_facade),
 ):
     try:
         import uuid as uuid_lib
@@ -467,8 +456,7 @@ async def recompute_change_event(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid event ID")
 
-    change_service = CompetitorChangeService(db)
-    event = await change_service.recompute_diff(event_uuid)
+    event = await facade.recompute_change_event(event_uuid)
 
     if not event:
         raise HTTPException(status_code=404, detail="Change event not found")

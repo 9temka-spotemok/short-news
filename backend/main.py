@@ -15,8 +15,10 @@ from app.api.v1.api import api_router
 from app.api.v2.api import api_v2_router
 from app.core.exceptions import setup_exception_handlers
 import asyncio
-import subprocess
 import os
+import subprocess
+import sys
+from pathlib import Path
 from sqlalchemy import text
 
 
@@ -41,37 +43,53 @@ async def wait_for_database(max_retries: int = 30, retry_delay: int = 2):
     return False
 
 
-async def apply_migrations():
+def _should_skip_migrations() -> bool:
+    """Check the RUN_MIGRATIONS flag to determine if migrations should be skipped."""
+    value = os.getenv("RUN_MIGRATIONS", "true").strip().lower()
+    return value in {"0", "false", "off", "no"}
+
+
+def _get_alembic_cwd() -> Path:
+    """Resolve working directory for Alembic commands."""
+    if os.path.exists("/.dockerenv"):
+        return Path("/app")
+    return Path(__file__).resolve().parent
+
+
+async def apply_migrations() -> bool:
     """Apply database migrations"""
-    logger.info("Applying database migrations...")
-    
-    try:
-        # Temporarily skip migrations to avoid issues
-        # The database is already properly set up
-        logger.info("Skipping migrations - database is already set up")
+    if _should_skip_migrations():
+        logger.warning("RUN_MIGRATIONS flag disabled — skipping alembic upgrade.")
         return True
-        
-        # Original migration code (commented out)
-        """
+
+    logger.info("Applying database migrations...")
+
+    try:
         result = subprocess.run(
-            ["python", "-m", "alembic", "upgrade", "head"],
+            [sys.executable, "-m", "alembic", "upgrade", "head"],
             capture_output=True,
             text=True,
-            cwd="/app" if os.path.exists("/.dockerenv") else "."
+            cwd=str(_get_alembic_cwd()),
+            check=False,
         )
-        
+
         if result.returncode == 0:
-            logger.info("Migrations applied successfully!")
-            if result.stdout:
-                logger.info(f"Migration output: {result.stdout}")
+            if result.stdout.strip():
+                logger.info(f"Alembic output:\n{result.stdout.strip()}")
+            logger.info("Database migrations applied successfully.")
             return True
-        else:
-            logger.error(f"Migration failed: {result.stderr}")
-            return False
-        """
-            
-    except Exception as e:
-        logger.error(f"Error applying migrations: {e}")
+
+        logger.error(f"Alembic upgrade failed with return code {result.returncode}")
+        if result.stdout.strip():
+            logger.error(f"Alembic stdout:\n{result.stdout.strip()}")
+        if result.stderr.strip():
+            logger.error(f"Alembic stderr:\n{result.stderr.strip()}")
+        return False
+    except FileNotFoundError as exc:
+        logger.error(f"Alembic command not found: {exc}")
+        return False
+    except Exception as exc:
+        logger.exception(f"Unexpected error applying migrations: {exc}")
         return False
 
 
@@ -121,9 +139,16 @@ async def startup_event():
     logger.info("Starting AI Competitor Insight Hub API...")
     
     # Wait for database and apply migrations
-    await wait_for_database()
-    await apply_migrations()
-    
+    db_ready = await wait_for_database()
+    if not db_ready:
+        logger.error("Database is not ready; aborting startup.")
+        raise RuntimeError("Database connection failed during startup")
+
+    migrations_ok = await apply_migrations()
+    if not migrations_ok:
+        logger.error("Database migrations failed; aborting startup.")
+        raise RuntimeError("Database migrations failed during startup")
+
     # Initialize database
     await init_db()
     

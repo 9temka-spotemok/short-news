@@ -19,6 +19,7 @@ celery_app = Celery(
         "app.tasks.digest",
         "app.tasks.notifications",
         "app.tasks.analytics",
+        "app.tasks.competitors",
     ]
 )
 

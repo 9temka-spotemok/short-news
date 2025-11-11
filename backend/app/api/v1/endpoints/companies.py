@@ -19,10 +19,10 @@ from app.models.news import (
     NewsTopic,
     SentimentLabel,
 )
-from app.scrapers.universal_scraper import UniversalBlogScraper
 from app.services.company_info_extractor import extract_company_info
 from app.api.dependencies import get_current_user
 from app.models import User
+from app.domains.news.scrapers import CompanyContext, NewsScraperRegistry
 
 router = APIRouter()
 
@@ -179,7 +179,8 @@ async def scan_company(
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid URL: {str(e)}")
     
-    scraper = UniversalBlogScraper()
+    registry = NewsScraperRegistry()
+    provider = None
     try:
         # Extract company name from URL as fallback
         parsed = urlparse(website_url)
@@ -193,13 +194,31 @@ async def scan_company(
         # Scrape news with optional manual news page URL
         logger.info(f"Scraping news for {company_name}, news_page_url: {news_page_url}")
         source_overrides = request.get("sources")
-        news_items = await scraper.scrape_company_blog(
-            company_name=company_name,
+
+        context = CompanyContext(
+            id=None,
+            name=company_name,
             website=website_url,
             news_page_url=news_page_url,
-            max_articles=50,  # Limit for quick preview
-            source_overrides=source_overrides if isinstance(source_overrides, list) else None,
         )
+        provider = registry.get_provider(context)
+        scraped_items = await provider.scrape_company(
+            context,
+            max_articles=50,
+        )
+        news_items = [
+            {
+                "title": item.title,
+                "summary": item.summary,
+                "content": item.content,
+                "source_url": item.source_url,
+                "source_type": item.source_type,
+                "category": item.category,
+                "published_at": item.published_at.isoformat() if item.published_at else None,
+                "company_name": company_name,
+            }
+            for item in scraped_items
+        ]
         
         # Analyze results
         categories = {}
@@ -231,7 +250,8 @@ async def scan_company(
         logger.error(f"Failed to scan company: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to scan company: {str(e)}")
     finally:
-        await scraper.close()
+        if provider:
+            await provider.close()
 
 
 @router.post("/")

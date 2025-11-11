@@ -54,6 +54,18 @@ shot-news/
 └── README.md
 ```
 
+## 📑 API контракт (OpenAPI)
+
+- `openapi.json` — актуальный снимок публичного API, лежит в корне репозитория и используется как единый источник правды для клиентов и проверок в CI.
+- `backend/scripts/generate_openapi.py` — скрипт генерации. Он поднимает приложение с минимальными переменными окружения, подключает in-memory SQLite (через `aiosqlite`) и защищает FastAPI от побочных эффектов, поэтому не требует запущенных внешних сервисов.
+- Команда обновления:
+  ```bash
+  cd backend
+  poetry run python scripts/generate_openapi.py
+  ```
+  (при необходимости можно использовать `python scripts/generate_openapi.py`, если Poetry недоступен; скрипт сам добавит `backend` в `PYTHONPATH`).
+- GitHub Actions (`.github/workflows/ci.yml`) автоматически регенерирует схему и проверяет, что `openapi.json` не расходится с репозиторием. Если файл устарел, сборка зафейлится с подсказкой сгенерировать и закоммитить новый снапшот.
+
 ## 📋 Функциональность
 
 ### MVP (v0.1.0)
@@ -90,8 +102,12 @@ shot-news/
 - Модуль `backend/app/parsers/pricing.py` нормализует цены, валюты, биллинг и блоки функций из произвольной вёрстки (таблицы, карточки, списки).
 - `backend/app/services/competitor_change_service.py` сравнивает свежий снапшот с предыдущим, высчитывает diff и создаёт события `competitor_change_events`.
 - API `/api/v1/competitors/changes/{company_id}` и `/api/v1/competitors/changes/{event_id}/recompute` отдают историю изменений и позволяют пересчитать diff.
+- Celery задачи для Competitor Intelligence живут в `backend/app/tasks/competitors.py` и используют фасад через `backend/app/domains/competitors/tasks.py` (ingest pricing, recompute/list change events).
+- Diff/summary логика ценовых изменений реализована в `backend/app/domains/competitors/services/diff_engine.py`, сервисы `competitor_change_service.py` выступают тонкой обёрткой для обратной совместимости.
 - Фронтенд `CompetitorAnalysisPage` дополнился секцией **Latest Changes** с кратким diff, статусом обработки и ссылками на сырые HTML-снапшоты.
 - Сырые страницы складываются в `storage/raw_snapshots/pricing/<company>/<source>.html`, что облегчает трассировку и аудит.
+- `backend/app/domains/competitors/services/notification_service.py` — доменный сервис уведомлений: собирает подписчиков из `UserPreferences`, проверяет `NotificationSettings`, формирует payload и ставит событие в очередь через `NotificationDispatcher`, обновляя `notification_status` у `CompetitorChangeEvent`.
+- `backend/tests/unit/domains/competitors/test_notification_service.py` — покрытие сценариев рассылки (`dispatch_change_event`) и graceful skip, когда подписчиков нет.
 
 ### Итерация 3 (в прогрессе): Управление обходами и уведомлениями
 
@@ -196,6 +212,9 @@ shot-news/
 # Backend tests
 cd backend && poetry run pytest
 
+# Проверка на отсутствие raw SQL в runtime-коде
+cd backend && poetry run python scripts/check_no_raw_sql.py
+
 # Точечные unit-тесты (NLP и конкурентная аналитика)
 cd backend && poetry run pytest tests/test_nlp_service.py tests/test_competitor_service.py
 
@@ -211,6 +230,22 @@ cd backend && TEST_DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/sh
 # Нагрузочные тесты (k6)
 k6 run tests/performance/analytics-load.test.js
 ```
+
+- Репозитории и сервисы news-домена: `poetry run pytest tests/unit/domains/news/`.
+- Celery задачи news-домена (scraping + NLP): `poetry run pytest tests/integration/tasks/test_scraping_task.py tests/integration/tasks/test_nlp_tasks.py`.
+- API `/api/v1/news`: `poetry run pytest tests/integration/api/test_news_endpoints.py`.
+- Фасад Competitor Intelligence: `poetry run pytest tests/integration/api/test_competitor_change_endpoints.py`.
+- Юнит-тесты аналитики: `poetry run pytest tests/unit/services/test_analytics_service.py`.
+- Celery задачи аналитики: `poetry run pytest tests/integration/tasks/test_analytics_tasks.py`.
+- API сравнения/экспорта аналитики: `poetry run pytest tests/integration/api/test_analytics_comparison_endpoints.py`.
+- Доп. сценарии аналитики (API/Celery) — см. план `docs/REFACTORING/tests/phase3_analytics_testing_plan.md`.
+- Полный план покрытия (включая интеграции): `docs/REFACTORING/tests/phase2_news_testing_plan.md`.
+
+### OpenAPI схема
+
+- Сгенерировать актуальную схему:  
+  `cd backend && poetry run python scripts/generate_openapi.py`
+- Снапшот сохраняется в `openapi.json`; добавьте проверку в CI, чтобы отлавливать незадокументированные изменения API.
 
 ### Playwright E2E сценарии
 
@@ -378,6 +413,20 @@ k6 run tests/performance/analytics-load.test.js
 - [docs/TELEGRAM_SETUP.md](docs/TELEGRAM_SETUP.md) - Настройка Telegram бота
 - [docs/ANALYSIS/README.md](docs/ANALYSIS/README.md) - Полный анализ системы (разделен на части) ⭐
 - [docs/competitor-analysis.md](docs/competitor-analysis.md) - Анализ 123 конкурентов
+- [docs/REFACTORING/2025-11-10_backend_pre_refactoring_report.md](docs/REFACTORING/2025-11-10_backend_pre_refactoring_report.md) — актуальный срез backend архитектуры, БД, сервисов и рисков (включает карту ответственности ключевых файлов).
+- [docs/REFACTORING/2025-11-10_frontend_pre_refactoring_report.md](docs/REFACTORING/2025-11-10_frontend_pre_refactoring_report.md) — обзор frontend структуры, маршрутов, типов и точек интеграции (с указанием ответственных файлов).
+- [docs/REFACTORING/2025-11-10_refactoring_master_plan.md](docs/REFACTORING/2025-11-10_refactoring_master_plan.md) — мастер-план рефакторинга с целями, фазами, рисками и видением развития платформы.
+- [docs/REFACTORING/2025-11-10_refactoring_backlog.md](docs/REFACTORING/2025-11-10_refactoring_backlog.md) — пофазовый backlog; используйте как основу для задач в трекере.
+- [docs/REFACTORING/README.md](docs/REFACTORING/README.md) — навигация по всем документам рефакторинга и краткая инструкция по запуску.
+
+### Рефакторинг (обновлено 10.11.2025)
+- **Файлы и ответственность:** см. cheat-sheet разделы в `docs/REFACTORING/*_pre_refactoring_report.md` — в них перечислены ключевые файлы backend/frontend и зона их ответственности.
+- **План работы:** `docs/REFACTORING/2025-11-10_refactoring_master_plan.md` описывает очередность действий, критерии успеха, риски и будущие направления развития (многокомпонентная аналитика, платформенные интеграции, observability).
+- **Backlog:** `docs/REFACTORING/2025-11-10_refactoring_backlog.md` — детализация задач по фазам; обновляйте статусы и исполнителей по мере продвижения.
+- **Актуальность:** документы служат исходной точкой для предстоящего рефакторинга; обновляйте их после завершения фаз, чтобы сохранить синхронизацию документации и кода.
+- **Навигация:** `docs/REFACTORING/README.md` — единая точка входа с инструкцией, что читать и в какой последовательности.
+- **Метрики:** шаблон для Phase 0 — `docs/REFACTORING/metrics/phase0_baseline_metrics.md`.
+- **Миграции:** чек-лист проверки Alembic — `docs/REFACTORING/db/phase0_alembic_checklist.md`.
 
 ## 🗄️ Миграции
 

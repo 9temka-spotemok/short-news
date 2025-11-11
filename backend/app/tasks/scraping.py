@@ -10,8 +10,9 @@ from typing import List, Dict
 
 from app.celery_app import celery_app
 from app.core.database import AsyncSessionLocal
-from app.models import Company, NewsItem, SourceType
-from app.scrapers.universal_scraper import UniversalBlogScraper
+from app.domains.news import NewsFacade
+from app.domains.news.scrapers.interfaces import CompanyContext
+from app.models import Company
 from app.scrapers.real_scrapers import AINewsScraper
 from sqlalchemy import select
 from datetime import datetime, timedelta
@@ -40,70 +41,29 @@ def scrape_ai_blogs(self):
 
 async def _scrape_ai_blogs_async():
     """Async implementation of blog scraping"""
-    scraper = UniversalBlogScraper()
-    
-    try:
-        # Get all companies from database
-        async with AsyncSessionLocal() as db:
-            result = await db.execute(select(Company))
-            companies = result.scalars().all()
-        
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(select(Company))
+        companies = result.scalars().all()
+
         logger.info(f"Found {len(companies)} companies to scrape")
-        
-        # Prepare company list for scraper
-        company_list = [
-            {'name': c.name, 'website': c.website}
-            for c in companies
-        ]
-        
-        # Scrape blogs
-        all_news = await scraper.scrape_multiple_companies(
-            company_list,
-            max_articles_per_company=5
-        )
-        
-        # Save to database
-        async with AsyncSessionLocal() as db:
-            saved_count = 0
-            
-            for news_data in all_news:
-                # Find company
-                result = await db.execute(
-                    select(Company).where(Company.name == news_data['company_name'])
-                )
-                company = result.scalar_one_or_none()
-                
-                if not company:
-                    continue
-                
-                # Check if news already exists
-                existing = await db.execute(
-                    select(NewsItem).where(NewsItem.source_url == news_data['source_url'])
-                )
-                if existing.scalar_one_or_none():
-                    continue
-                
-                # Create news item
-                news_item = NewsItem(
-                    title=news_data['title'],
-                    content=news_data.get('content', news_data['summary']),
-                    summary=news_data['summary'],
-                    source_url=news_data['source_url'],
-                    source_type=news_data['source_type'],
-                    category=news_data['category'],
-                    company_id=company.id,
-                    published_at=news_data['published_at']
-                )
-                
-                db.add(news_item)
-                saved_count += 1
-            
-            await db.commit()
-        
+
+        facade = NewsFacade(db)
+        saved_count = 0
+
+        for company in companies:
+            context = CompanyContext(
+                id=company.id,
+                name=company.name or "",
+                website=company.website,
+                news_page_url=getattr(company, "news_page_url", None),
+            )
+            ingested = await facade.scraper_service.ingest_company_news(
+                context,
+                max_articles=5,
+            )
+            saved_count += ingested
+
         return {"status": "success", "scraped_count": saved_count}
-        
-    finally:
-        await scraper.close()
 
 
 @celery_app.task(bind=True)

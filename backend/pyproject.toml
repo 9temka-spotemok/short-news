@@ -3,7 +3,8 @@ name = "shot-news-backend"
 version = "0.1.0"
 description = "AI Competitor Insight Hub Backend API"
 authors = ["AI Competitor Insight Hub Team <team@shot-news.com>"]
-readme = "README.md"
+readme = "../README.md"
+package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.11"
@@ -37,6 +38,8 @@ langdetect = "^1.0.9"
 nltk = "^3.9.1"
 tiktoken = "^0.8.0"
 nest-asyncio = "^1.6.0"
+aiosqlite = "^0.21.0"
+aiohttp = "^3.10.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.0"

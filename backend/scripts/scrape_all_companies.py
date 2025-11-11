@@ -4,18 +4,20 @@ Scrape news from all companies in database
 
 import asyncio
 from pathlib import Path
-from typing import List, Dict, Any
-from sqlalchemy import select
+from typing import Dict, List
+from uuid import UUID
+
 from loguru import logger
+from sqlalchemy import select
 
 import sys
+
 sys.path.append(str(Path(__file__).parent.parent))
 
 from app.core.database import AsyncSessionLocal
+from app.domains.news import NewsFacade
+from app.domains.news.scrapers import CompanyContext
 from app.models.company import Company
-from app.models.news import NewsItem, SourceType, NewsCategory
-from app.scrapers.universal_scraper import UniversalBlogScraper
-from datetime import datetime
 
 
 async def get_all_companies() -> List[Dict[str, str]]:
@@ -37,65 +39,24 @@ async def get_all_companies() -> List[Dict[str, str]]:
         ]
 
 
-async def save_news_items(news_items: List[Dict[str, Any]]) -> Dict[str, int]:
-    """Save news items to database"""
-    async with AsyncSessionLocal() as db:
-        saved_count = 0
-        skipped_count = 0
-        error_count = 0
-        
-        for item in news_items:
-            try:
-                # Check if already exists
-                result = await db.execute(
-                    select(NewsItem).where(NewsItem.source_url == item['source_url'])
-                )
-                existing = result.scalar_one_or_none()
-                
-                if existing:
-                    skipped_count += 1
-                    continue
-                
-                # Get company by name
-                result = await db.execute(
-                    select(Company).where(Company.name == item['company_name'])
-                )
-                company = result.scalar_one_or_none()
-                
-                if not company:
-                    logger.warning(f"Company not found: {item['company_name']}")
-                    error_count += 1
-                    continue
-                
-                # Create news item
-                news_item = NewsItem(
-                    title=item['title'],
-                    content=item['content'],
-                    summary=item['summary'],
-                    source_url=item['source_url'],
-                    source_type=SourceType(item['source_type']),
-                    company_id=company.id,
-                    category=NewsCategory(item['category']) if item.get('category') else None,
-                    published_at=item['published_at'],
-                    priority_score=0.5
-                )
-                
-                db.add(news_item)
-                saved_count += 1
-                logger.info(f"Saved news: {item['title'][:50]}...")
-                
-            except Exception as e:
-                logger.error(f"Failed to save news item: {e}")
-                error_count += 1
-                continue
-        
-        await db.commit()
-        
-        return {
-            'saved': saved_count,
-            'skipped': skipped_count,
-            'errors': error_count
-        }
+async def ingest_company_news(
+    facade: NewsFacade,
+    company_entry: Dict[str, str],
+    max_articles: int,
+) -> Dict[str, int]:
+    context = CompanyContext(
+        id=UUID(company_entry["id"]),
+        name=company_entry["name"],
+        website=company_entry["website"],
+    )
+    ingested = await facade.scraper_service.ingest_company_news(
+        context,
+        max_articles=max_articles,
+    )
+    return {
+        "company_id": company_entry["id"],
+        "ingested": ingested,
+    }
 
 
 async def main():
@@ -110,35 +71,21 @@ async def main():
         logger.warning("No companies found in database. Please run import_competitors_from_csv.py first.")
         return
     
-    # Initialize scraper
-    scraper = UniversalBlogScraper()
-    
-    try:
-        # Scrape news from all companies (max 5 articles per company)
-        logger.info(f"Starting to scrape news from {len(companies)} companies...")
-        news_items = await scraper.scrape_multiple_companies(
-            companies,
-            max_articles_per_company=5
-        )
-        
-        logger.info(f"Scraped {len(news_items)} total news items")
-        
-        # Save to database
-        if news_items:
-            logger.info("Saving news items to database...")
-            result = await save_news_items(news_items)
-            
-            print(f"\n✅ Scraping Results:")
-            print(f"   Total scraped: {len(news_items)} news items")
-            print(f"   Saved: {result['saved']} items")
-            print(f"   Skipped (duplicates): {result['skipped']} items")
-            print(f"   Errors: {result['errors']} items")
-        else:
-            logger.warning("No news items were scraped")
-            print(f"\n⚠️  No news items were scraped from {len(companies)} companies")
-        
-    finally:
-        await scraper.close()
+    async with AsyncSessionLocal() as db:
+        facade = NewsFacade(db)
+        total_ingested = 0
+        for entry in companies:
+            result = await ingest_company_news(facade, entry, max_articles=5)
+            total_ingested += result["ingested"]
+            logger.info(
+                "Ingested %s items for company %s",
+                result["ingested"],
+                entry["name"],
+            )
+
+    print("\n✅ Scraping Results:")
+    print(f"   Companies processed: {len(companies)}")
+    print(f"   News items ingested: {total_ingested}")
 
 
 if __name__ == "__main__":

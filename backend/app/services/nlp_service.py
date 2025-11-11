@@ -13,8 +13,6 @@ from typing import List, Optional, Sequence
 from loguru import logger
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.core.database import AsyncSessionLocal
 from app.models.keyword import NewsKeyword
 from app.models.news import NewsItem, NewsTopic, SentimentLabel
 
@@ -214,9 +212,8 @@ class NewsNLPPipeline:
             raise ValueError(f"News item {news_id} not found")
         return news
 
-    async def classify_news(self, news_id: str) -> dict:
-        async with AsyncSessionLocal() as session:
-            news = await self._get_news(session, news_id)
+    async def classify_news(self, session: AsyncSession, news_id: str) -> dict:
+        news = await self._get_news(session, news_id)
             text = _normalize_text([news.title or "", news.summary or "", news.content or ""])
 
             category_fallback = None
@@ -237,7 +234,7 @@ class NewsNLPPipeline:
             news.topic = topic
             news.sentiment = sentiment
             news.priority_score = priority_score
-            await session.commit()
+        await session.commit()
 
             logger.info(
                 "Classified news %s | topic=%s sentiment=%s priority=%.2f",
@@ -246,60 +243,54 @@ class NewsNLPPipeline:
                 sentiment.value,
                 priority_score,
             )
-            return {
-                "news_id": news_id,
-                "topic": topic.value if topic else None,
-                "sentiment": sentiment.value,
-                "priority_score": priority_score,
-            }
+        return {
+            "news_id": news_id,
+            "topic": topic.value if topic else None,
+            "sentiment": sentiment.value,
+            "priority_score": priority_score,
+        }
 
-    async def summarise_news(self, news_id: str, force: bool = False) -> dict:
-        async with AsyncSessionLocal() as session:
-            news = await self._get_news(session, news_id)
-            if news.summary and not force:
-                logger.info("Summary already present for news %s, skipping", news_id)
-                return {"news_id": news_id, "summary": news.summary}
+    async def summarise_news(self, session: AsyncSession, news_id: str, force: bool = False) -> dict:
+        news = await self._get_news(session, news_id)
+        if news.summary and not force:
+            logger.info("Summary already present for news %s, skipping", news_id)
+            return {"news_id": news_id, "summary": news.summary}
 
-            source_text = news.content or ""
-            if not source_text:
-                values = [news.summary, news.title]
-                source_text = " ".join(filter(None, values))
+        source_text = news.content or ""
+        if not source_text:
+            values = [news.summary, news.title]
+            source_text = " ".join(filter(None, values))
 
-            summary = self.provider.summarise(source_text)
-            if summary:
-                news.summary = summary
-                await session.commit()
-                logger.info("Summary generated for news %s", news_id)
-            else:
-                logger.info("No summary generated for news %s (empty text)", news_id)
-
-            return {"news_id": news_id, "summary": news.summary or ""}
-
-    async def extract_keywords(self, news_id: str, limit: int = 8) -> dict:
-        async with AsyncSessionLocal() as session:
-            news = await self._get_news(session, news_id)
-            text = _normalize_text([news.title or "", news.summary or "", news.content or ""])
-            keywords = self.provider.extract_keywords(text, limit=limit)
-
-            await session.execute(delete(NewsKeyword).where(NewsKeyword.news_id == news.id))
-            for keyword, relevance in keywords:
-                news_key = NewsKeyword(
-                    news_id=news.id,
-                    keyword=keyword,
-                    relevance_score=float(relevance),
-                )
-                session.add(news_key)
-
+        summary = self.provider.summarise(source_text)
+        if summary:
+            news.summary = summary
             await session.commit()
-            logger.info("Extracted %d keywords for news %s", len(keywords), news_id)
-            return {
-                "news_id": news_id,
-                "keywords": [{"keyword": word, "relevance": score} for word, score in keywords],
-            }
+            logger.info("Summary generated for news %s", news_id)
+        else:
+            logger.info("No summary generated for news %s (empty text)", news_id)
+
+        return {"news_id": news_id, "summary": news.summary or ""}
+
+    async def extract_keywords(self, session: AsyncSession, news_id: str, limit: int = 8) -> dict:
+        news = await self._get_news(session, news_id)
+        text = _normalize_text([news.title or "", news.summary or "", news.content or ""])
+        keywords = self.provider.extract_keywords(text, limit=limit)
+
+        await session.execute(delete(NewsKeyword).where(NewsKeyword.news_id == news.id))
+        for keyword, relevance in keywords:
+            news_key = NewsKeyword(
+                news_id=news.id,
+                keyword=keyword,
+                relevance_score=float(relevance),
+            )
+            session.add(news_key)
+
+        await session.commit()
+        logger.info("Extracted %d keywords for news %s", len(keywords), news_id)
+        return {
+            "news_id": news_id,
+            "keywords": [{"keyword": word, "relevance": score} for word, score in keywords],
+        }
 
 
 PIPELINE = NewsNLPPipeline()
-
-
-def run_async(coro):
-    return asyncio.run(coro)

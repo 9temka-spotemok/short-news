@@ -11,6 +11,7 @@ from loguru import logger
 from sqlalchemy import and_, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models import (
     NotificationChannel,
@@ -184,7 +185,19 @@ class NotificationDispatcher:
 
         deliveries: List[NotificationDelivery] = []
         for subscription in subscriptions:
-            if subscription.channel.disabled or not subscription.channel.is_verified:
+            channel = getattr(subscription, "channel", None)
+            if channel is None:
+                logger.warning(
+                    "Subscription %s for user %s has no channel bound; suppressing event %s",
+                    subscription.id,
+                    subscription.user_id,
+                    event.id,
+                )
+                event.status = NotificationEventStatus.SUPPRESSED
+                await self.db.commit()
+                return
+
+            if channel.disabled or not channel.is_verified:
                 continue
             delivery = NotificationDelivery(
                 event_id=event.id,
@@ -215,6 +228,7 @@ class NotificationDispatcher:
     ) -> List[NotificationSubscription]:
         result = await self.db.execute(
             select(NotificationSubscription)
+            .options(selectinload(NotificationSubscription.channel))
             .join(NotificationChannel)
             .where(
                 and_(

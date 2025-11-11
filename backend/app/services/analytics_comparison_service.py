@@ -7,6 +7,7 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+import json
 import statistics
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 from uuid import UUID
@@ -190,9 +191,14 @@ class AnalyticsComparisonService:
         if payload.include.include_notifications:
             notification_summary = await self._load_notification_settings(user.id)
 
-        presets: List[UserReportPreset] = []
+        preset_rows: List[Dict[str, Any]] = []
         if payload.include.include_presets:
-            presets = await self._load_user_presets(user.id)
+            preset_rows = await self._load_user_presets(user.id)
+            logger.debug("Export presets fetched", preset_count=len(preset_rows))
+            if preset_rows:
+                logger.debug("First preset payload", preset_example=preset_rows[0])
+        else:
+            logger.debug("Preset inclusion disabled on payload")
 
         return AnalyticsExportResponse(
             version="2.0.0",
@@ -207,8 +213,8 @@ class AnalyticsComparisonService:
             comparison=comparison_response,
             notification_settings=notification_summary,
             presets=[
-                ReportPresetResponse.model_validate(preset, from_attributes=True)
-                for preset in presets
+                ReportPresetResponse.model_validate(preset_row)
+                for preset_row in preset_rows
             ],
         )
 
@@ -603,18 +609,10 @@ class AnalyticsComparisonService:
             return None
 
         return NotificationSettingsSummary(
-            notification_frequency=(
-                preferences.notification_frequency.value
-                if preferences.notification_frequency
-                else ""
-            ),
+            notification_frequency=self._enum_value(preferences.notification_frequency),
             digest_enabled=preferences.digest_enabled,
-            digest_frequency=(
-                preferences.digest_frequency.value if preferences.digest_frequency else ""
-            ),
-            digest_format=(
-                preferences.digest_format.value if preferences.digest_format else ""
-            ),
+            digest_frequency=self._enum_value(preferences.digest_frequency),
+            digest_format=self._enum_value(preferences.digest_format),
             digest_custom_schedule=preferences.digest_custom_schedule or {},
             subscribed_companies=[company for company in preferences.subscribed_companies or []],
             interested_categories=[
@@ -624,21 +622,52 @@ class AnalyticsComparisonService:
             keywords=preferences.keywords or [],
             telegram_enabled=preferences.telegram_enabled,
             telegram_chat_id=preferences.telegram_chat_id,
-            telegram_digest_mode=(
-                preferences.telegram_digest_mode.value if preferences.telegram_digest_mode else ""
-            ),
+            telegram_digest_mode=self._enum_value(preferences.telegram_digest_mode),
             timezone=preferences.timezone,
             week_start_day=preferences.week_start_day,
         )
 
-    async def _load_user_presets(self, user_id: UUID) -> List[UserReportPreset]:
+    async def _load_user_presets(self, user_id: UUID) -> List[Dict[str, Any]]:
         stmt = (
-            select(UserReportPreset)
+            select(
+                UserReportPreset.id,
+                UserReportPreset.user_id,
+                UserReportPreset.name,
+                UserReportPreset.description,
+                UserReportPreset.companies,
+                UserReportPreset.filters,
+                UserReportPreset.visualization_config,
+                UserReportPreset.is_favorite,
+                UserReportPreset.created_at,
+                UserReportPreset.updated_at,
+            )
             .where(UserReportPreset.user_id == user_id)
             .order_by(UserReportPreset.created_at.desc())
         )
         result = await self.db.execute(stmt)
-        return list(result.scalars().all())
+        rows = []
+        for mapping in result.mappings():
+            row_dict = dict(mapping)
+            logger.debug("Raw preset mapping: {}", row_dict)
+            companies = [str(company_id) for company_id in self._normalise_array(row_dict.get("companies"))]
+            filters = self._normalise_json(row_dict.get("filters"), default={})
+            visualization = self._normalise_json(row_dict.get("visualization_config"), default={})
+
+            serialised_row: Dict[str, Any] = {
+                "id": str(row_dict["id"]),
+                "user_id": str(row_dict["user_id"]),
+                "name": row_dict["name"],
+                "description": row_dict.get("description"),
+                "companies": companies,
+                "filters": filters,
+                "visualization_config": visualization,
+                "is_favorite": row_dict["is_favorite"],
+                "created_at": row_dict["created_at"].isoformat() if row_dict.get("created_at") else None,
+                "updated_at": row_dict["updated_at"].isoformat() if row_dict.get("updated_at") else None,
+            }
+            logger.debug("Serialised preset row: {}", serialised_row)
+            rows.append(serialised_row)
+        return rows
 
     async def _load_preset_map(
         self,
@@ -717,6 +746,44 @@ class AnalyticsComparisonService:
                     seen.add(item)
                     values.append(item)
         return values or None
+
+    @staticmethod
+    def _enum_value(value: Optional[Any]) -> str:
+        if value is None:
+            return ""
+        serialised = value.value if hasattr(value, "value") else str(value)
+        logger.debug("Normalised enum value", original=value, serialised=serialised)
+        return serialised
+
+    @staticmethod
+    def _normalise_array(value: Optional[Any]) -> List[UUID]:
+        if value is None:
+            return []
+        if isinstance(value, (list, tuple)):
+            return [UUID(str(item)) if not isinstance(item, UUID) else item for item in value]
+        try:
+            parsed = json.loads(value)
+            return [
+                UUID(str(item)) if not isinstance(item, UUID) else item
+                for item in parsed or []
+            ]
+        except (json.JSONDecodeError, TypeError, ValueError):
+            return [UUID(str(value))]
+
+    @staticmethod
+    def _normalise_json(value: Optional[Any], *, default: Any) -> Any:
+        if value is None:
+            return default
+        if isinstance(value, (dict, list)):
+            return value
+        if isinstance(value, str):
+            try:
+                parsed = json.loads(value)
+                return parsed if parsed is not None else default
+            except json.JSONDecodeError:
+                return default
+        logger.debug("Returning raw JSON value", raw=value)
+        return value
 
     def _normalize_filters(self, filters: Optional[ComparisonFilters]) -> Optional[Dict[str, Any]]:
         if not filters:

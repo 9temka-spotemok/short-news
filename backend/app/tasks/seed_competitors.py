@@ -18,7 +18,7 @@ from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import AsyncSessionLocal
-from app.models.company import Company
+from app.domains.competitors.repositories import CompetitorRepository
 
 
 def _extract_first_url(cells: List[str], domain_hint: Optional[str] = None) -> Optional[str]:
@@ -138,36 +138,8 @@ def parse_competitor_row(cells: List[str]) -> Optional[Dict[str, Any]]:
 
 
 async def upsert_company(db: AsyncSession, data: Dict[str, Any]) -> None:
-    # Check existing by name
-    from sqlalchemy import select
-
-    result = await db.execute(select(Company).where(Company.name == data["name"]))
-    existing = result.scalar_one_or_none()
-    if existing:
-        updated_fields = {
-            "website": data.get("website") or existing.website,
-            "description": data.get("description") or existing.description,
-            "category": data.get("category") or existing.category,
-            "twitter_handle": data.get("twitter_handle") or existing.twitter_handle,
-            "github_org": data.get("github_org") or existing.github_org,
-            "logo_url": data.get("logo_url") or existing.logo_url,
-        }
-        for k, v in updated_fields.items():
-            setattr(existing, k, v)
-        await db.commit()
-        return
-
-    company = Company(
-        name=data["name"],
-        website=data.get("website"),
-        description=data.get("description"),
-        category=data.get("category"),
-        twitter_handle=data.get("twitter_handle"),
-        github_org=data.get("github_org"),
-        logo_url=data.get("logo_url"),
-    )
-    db.add(company)
-    await db.commit()
+    repo = CompetitorRepository(db)
+    await repo.upsert_company(data)
 
 
 async def import_csv(csv_path: Path) -> int:

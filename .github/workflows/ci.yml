@@ -51,6 +51,14 @@ jobs:
       - name: Run database migrations
         working-directory: backend
         run: poetry run alembic upgrade head
+      - name: Guard against raw SQL in app
+        working-directory: backend
+        run: poetry run python scripts/check_no_raw_sql.py
+      - name: Verify OpenAPI snapshot
+        working-directory: backend
+        run: |
+          poetry run python scripts/generate_openapi.py
+          git diff --exit-code ../openapi.json || (echo "::error::OpenAPI snapshot is outdated. Regenerate and commit openapi.json." && exit 1)
       - name: Backend tests
         working-directory: backend
         run: poetry run pytest
