@@ -72,20 +72,20 @@ app/
 - 2025-11-11: добавлен `CompetitorNotificationService` — выбирает подписчиков (`UserPreferences` + `NotificationSettings`), формирует payload и вызывает `NotificationDispatcher` с дедупликацией, статус `notification_status` обновляется на `sent/ skipped`.  
 - 2025-11-11: `CompetitorIngestionDomainService` вызывает уведомления автоматически, фасад получил метод `notify_change_event`, добавлены unit-тесты `tests/unit/domains/competitors/test_notification_service.py`.
 
-4. **Facade и API (B-204-4)**  
-   - Создать `CompetitorFacade`, подключить к API через dependency (`get_competitor_facade`).  
-   - Переписать `app/api/v1/endpoints/competitors.py` и связанные ручки на фасад (чтение, пересканирование, change log).  
-   - Обновить сериализацию/DTO.
+4. **Facade и API (B-204-4)** ✅  
+   - Создан `CompetitorFacade`, dependency `get_competitor_facade` обновлён.  
+   - `app/api/v1/endpoints/competitors.py` и связанные ручки переведены на фасад (ingest/list/recompute).  
+   - DTO и сериализация согласованы с новыми сервисами.
 
-5. **Celery интеграция (B-204-5)**  
-   - Перенести задачи `seed_companies`, `seed_competitors`, `notifications` на фасад.  
-   - Добавить новые Celery задачи для pricing ingestion и recompute (`app.tasks.competitors`).  
-   - Обновить тесты (eager mode).
+5. **Celery интеграция (B-204-5)** ✅  
+   - Доменные адаптеры `app/domains/competitors/tasks.py` и модуль `app/tasks/competitors.py` вызывают фасад.  
+   - Задачи pricing ingestion и recompute интегрированы в `celery_app`.  
+   - Legacy задачи-обёртки обновлены; еager-тесты покрывают happy-path.
 
-6. **Документация и тесты (B-204-6)**  
-   - Добавить unit-тесты для новых сервисов/репозиториев.  
-   - Добавить интеграционные тесты API `/api/v1/competitors`, change log.  
-   - Обновить `phase2_bounded_contexts.md`, README и backlog.
+6. **Документация и тесты (B-204-6)** ✅  
+   - Добавлены unit-тесты для сервисов/репозиториев (`tests/unit/domains/competitors/*`).  
+   - Интеграционные тесты API `/api/v1/competitors/changes` и export сценарии обновлены.  
+   - Обновлены `phase2_bounded_contexts.md`, README, backlog (`B-204` закрыт).
 
 ## 5. Влияние
 - **API**: изменения dependency injection, ресериализация.  
@@ -99,11 +99,8 @@ app/
 - **Синхронизация с analytics:** удостовериться, что аналитика не зависит напрямую от старого сервиса (иначе добавить адаптер).
 
 ## 7. Статус
-- Статус: план предложен, требует декомпозиции в backlog (`B-204-1` … `B-204-6`).  
-- Следующие шаги:
-  1. Утвердить структуру с backend-командой.  
-  2. Добавить задачи в трекер (подраздел `B-204` в `2025-11-10_refactoring_backlog.md`).  
-  3. После завершения — обновить документацию и закрыть соответствующие пункты в `phase2_bounded_contexts.md`.
+- **Статус:** ✅ Завершено (11 Nov 2025).  
+- **Follow-up:** e2e Celery сценарии и мониторинг вынесены в `B-302` (idempotency/observability); фронтовые подписки — в Wave 3 UI задач.
 
 ---
 

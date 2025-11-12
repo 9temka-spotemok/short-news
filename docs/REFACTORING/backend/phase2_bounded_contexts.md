@@ -94,42 +94,36 @@ app/
 - **Тесты:** `tests/unit/domains/news/*`, `tests/integration/api/test_news_endpoints.py`, `tests/integration/tasks/test_scraping_task.py`, `test_nlp_tasks.py`.
 - **Следующие шаги:** завершить перенос NLP провайдера и переиспользовать registry для CLI (см. `phase2_news_refactor_plan.md`).
 
-### 3.2 Competitor Intelligence — 🔄 в прогрессе
-- **Готово:** `app/domains/competitors/facade.py`, репозитории (`competitor`, `pricing_snapshot`, `change_event`), базовые сервисы (`ingestion_service`, `change_service`), API `competitors.py` и CLI (`seed_competitors.py`, скрипты импорта) переподключены. Добавлены доменные адаптеры и Celery задачи (`app/domains/competitors/tasks.py`, `app/tasks/competitors.py`) для ingestion и recompute.
-- **В очереди:** вынести diff/ingestion пайплайн в домен (парсеры, планировщик Celery), формализовать адаптеры уведомлений. Детализация — `phase2_competitor_refactor_plan.md`, `phase2_competitor_ingestion_plan.md`.
-- **Тесты:** unit/integration сценарии готовятся (`tests/unit/domains/competitors/test_tasks.py`, `tests/integration/api/test_competitor_change_endpoints.py`), впереди — CLI/ Celery eager.
+### 3.2 Competitor Intelligence — ✅ стабилизирован
+- **Готово:** `app/domains/competitors/facade.py`, репозитории (`competitor`, `pricing_snapshot`, `change_event`), сервисы (`ingestion_service`, `change_service`, `notification_service`), Celery адаптеры (`app/domains/competitors/tasks.py`, `app/tasks/competitors.py`). API и legacy CLI используют фасад.
+- **Тесты:** unit (`tests/unit/domains/competitors/test_tasks.py`, `test_notification_service.py`) и integration (`tests/integration/api/test_competitor_change_endpoints.py`, `test_analytics_comparison_endpoints.py`).
+- **Follow-up:** расширенные e2e Celery сценарии и наблюдаемость зафиксированы в `B-302`.
 
-### 3.3 Analytics & Reports — 🟡 планирование
-- **Текущее состояние:** монолитные сервисы (`analytics_service`, `analytics_comparison_service`) сочетают пересчёт, агрегацию, экспорт.
-- **Планируемая структура:**
-  - `domains/analytics/facade.py` — единая точка доступа.  
-  - `services/snapshot_service.py` — агрегация и чтение метрик.  
-  - `pipelines/recompute_runner.py` — запуск Celery задач и управление зависимостями.  
-  - `exporters/report_builder.py` — генерация JSON/PDF/CSV.  
-  - `repositories/analytics_repository.py` (план) — доступ к таблицам snapshots/graph.
-- **Key TODO:** выделить DTO для `/api/v2/analytics/*`, сформировать план тестирования (Phase3 B-301).
+### 3.3 Analytics & Reports — 🔄 в прогрессе (Wave 3)
+- **План реализации:** см. `backend/phase2_analytics_wave3_plan.md`.  
+- **Фокус:** фасад, репозитории, сервисы snapshot/comparison/export, pipelines для Celery.  
+- **Прогресс:** добавлен `app/domains/analytics/` (facade, snapshot/comparison services), API v2 и Celery переведены на фасад, unit/integration тесты обновлены.  
+- **Следующие шаги:** реализовать `app/domains/analytics/*`, перевести API v2 и Celery, обновить тесты согласно плану.
 
-### 3.4 Notifications & Digests — 🟡 планирование
-- **Текущее состояние:** логика рассредоточена по `notification_dispatcher`, `notification_delivery_executor`, `digest_service`, `app/tasks/notifications.py`, `app/tasks/digest.py`.
-- **Планируемая структура:**
-  - `domains/notifications/facade.py` — orchestration user preferences + каналы.  
-  - `services/dispatcher.py` — маршрутизация событий и построение доставок.  
-  - `senders/*` — конкретные каналы (telegram/email/webhook).  
-  - `templates/digest_renderer.py` — генерация дайджеста (общая для email/telegram).  
-  - `repositories/*` — хранение подписок, событий, попыток.  
-- **Key TODO:** определить границы с Competitor/Analytics (кто публикует события), добавить контрактные тесты.
+### 3.4 Notifications & Digests — 🔄 в прогрессе (Wave 4)
+- **План реализации:** см. `backend/phase2_notifications_wave4_plan.md`.  
+- **Фокус:** фасад уведомлений, каналы, дайджесты, перенос Celery задач в домен.  
+- **Прогресс (12 Nov 2025):** фасад подключён ко всем точкам входа; вынесены репозитории (`channels/events/deliveries/settings/preferences`), `DispatcherService` переписан на доменный слой, `notification_service.py`/`digest_service.py` стали thin adapters.
+- **Следующие шаги:** завершить миграцию Celery пайплайнов (`app/tasks/notifications.py`, `app/tasks/digest.py`) на доменные сервисы и сформировать channel/pipeline сервисы.
 
-### 3.5 Auth & Users — ⚪️ поддержание
-- Сохраняем в `app/domains/users` (план на Phase 3) — минимальный приоритет, т.к. текущее разделение терпимо.
+### 3.5 Shared Services & Auth — 🟡 планирование (Wave 5)
+- **План реализации:** см. `backend/phase2_shared_services_wave5_plan.md`.  
+- **Фокус:** выделение домена `users`, платформа feature flags, shared security/integrations.  
+- **Следующие шаги:** после Wave 3-4 зафиксировать сроки реализации feature flags и shared infrastructure.
 
 ## 4. Итерационный план (waves)
 | Wave | Фокус | Deliverables | Зависимости |
 |------|-------|--------------|-------------|
 | **Wave 1 (Done)** | News & Scraping | Фасад, репозитории, сервисы, скраперы, тесты | Завершено (B-201-1, B-203) |
-| **Wave 2 (In flight)** | Competitor Intelligence | Фасад, ingestion/change сервисы, перевод API/CLI | На стыке с B-204, ожидается завершение Celery миграции |
-| **Wave 3 (Planned)** | Analytics | Архитектура pipelines/exporters, выделение фасада, DTO | Требует устоявшегося OpenAPI (B-102) и базы метрик |
-| **Wave 4 (Planned)** | Notifications & Digests | Dispatcher, senders, шаблоны, интеграция с analytics events | Нужен план событий от Analytics/Competitor |
-| **Wave 5 (Planned)** | Общие сервисы | Auth/Users домен, shared infrastructure пакеты | После стабилизации основных контекстов |
+| **Wave 2 (Done)** | Competitor Intelligence | Фасад, ingestion/change/notification сервисы, перевод API/CLI, Celery адаптеры | Завершено (B-204). Follow-up: `B-302` для метрик/idempotency |
+| **Wave 3 (In progress)** | Analytics | Фасад, репозитории, сервисы snapshot/comparison/export, pipelines | Требует устоявшегося OpenAPI (B-102) и базы метрик |
+| **Wave 4 (In progress)** | Notifications & Digests | Dispatcher, каналы, дайджесты, Celery pipelines | Зависит от событий Competitor/Analytics |
+| **Wave 5 (Planned)** | Общие сервисы | Auth/Users домен, shared infrastructure пакеты | После стабилизации Wave 3–4 и запуска feature flags |
 
 ## 5. Артефакты и ToDo
 - ADR на каждый wave (привязаны к backlog задачам `B-201-*`, `B-204`, `B-301`).  

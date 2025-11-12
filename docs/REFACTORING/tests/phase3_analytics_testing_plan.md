@@ -63,6 +63,6 @@
 ---
 
 **Ответственный:** Backend QA / Engineers  
-**Статус:** Draft (Phase 3 kickoff)  
+**Статус:** ✅ Completed (11 Nov 2025) — regression scenarios заведены в backlog отдельно  
 
 

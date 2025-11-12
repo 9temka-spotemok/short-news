@@ -6,12 +6,37 @@ Ensure all documentation (README, Storybook, refactoring files) reflects the new
 ## Documentation Targets
 | Artifact | Updates Required | Owner | Notes |
 |----------|-----------------|-------|-------|
-| Root `README.md` | Add section “Frontend Feature Modules” with mapping of key directories (`src/features/competitor-analysis`, `src/lib/queryClient.ts`, testing commands). | Frontend Lead | Include quick start commands (`npm run dev`, `npm run test:unit`, `npm run storybook`). |
+| Root `README.md` | Add section “Frontend Feature Modules” with mapping of key directories (`src/features/competitor-analysis`, `src/lib/queryClient.ts`, testing commands). | Frontend Lead | ✅ 11 Nov 2025 — добавлен раздел “Feature-модуль Competitor Analysis”, отражающий новые файлы и интеграцию TanStack Query. |
 | `docs/REFACTORING/README.md` | Maintain navigation to new frontend docs (decomposition, TanStack Query, testing, performance). | Documentation Coordinator | Already partially updated; confirm after each new plan is added. |
 | `docs/FEATURES_GUIDE.md` | Document feature responsibilities, exported hooks, and integration points (auth store, toasts). | Frontend Lead | Create cross-links to API catalog entries. |
 | Storybook Docs (MDX) | Provide usage notes for major components (`FiltersPanel`, `AnalyticsBoard`, `ChangeLog`, `ExportModal`). | Design Systems | Outline data requirements and sample query hooks usage. |
 | API Catalog (`api/phase1_endpoint_catalog.md`) | Reference new hooks for each endpoint; add column “Query Hook” linking to implementation. | Backend + Frontend | Supports todo-frontend-9 baseline alignment. |
 | Testing Plans | Append QA acceptance results to `tests/phase3_analytics_testing_plan.md`; link to Playwright reports. | QA Lead | Sync with phase2 testing plan outcomes. |
+
+### Storybook Integration Snippet
+
+```tsx
+// .storybook/preview.tsx
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+
+const storybookQueryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: false,
+      refetchOnWindowFocus: false,
+      staleTime: 60 * 1000,
+    },
+  },
+})
+
+export const decorators = [
+  (Story) => (
+    <QueryClientProvider client={storybookQueryClient}>
+      <Story />
+    </QueryClientProvider>
+  ),
+]
+```
 
 ## Communication Plan
 - Publish changelog in engineering channel summarising doc updates.

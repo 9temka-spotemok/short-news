@@ -61,14 +61,14 @@ app/
 ## 5. Промежуточный статус
 | Компонент | Что сделано | Что осталось |
 |-----------|-------------|--------------|
-| `CompetitorFacade` | ✅ Создан, API подключено, ingestion/diff сервисы доступны | Добавить методы уведомлений |
-| `CompetitorRepository` | ✅ fetch/list/get/delete/save + upsert компании | Вынести командные операции (bulk) |
-| `PricingSnapshotRepository` / `ChangeEventRepository` | ✅ Созданы, интегрированы в domain сервисы | Расширить вспомогательными методами (bulk/history) |
-| `CompetitorChangeDomainService` | ✅ Использует новые репозитории, обёртка legacy diff | Полностью заменить содержание на доменную реализацию |
-| `CompetitorIngestionDomainService` | ✅ Инкапсулирует парсинг, snapshot и diff через репозитории | Добавить NotificationService/расширение |
-| Celery | Создан `app/domains/competitors/tasks.py`, добавлен модуль `app/tasks/competitors.py` (ingest pricing, recompute/list change events) | Завершить миграцию legacy задач и покрытия тестами |
-| Diff engine | Выделен `services/diff_engine.py`, `CompetitorChangeDomainService` и ingestion используют новую логику; legacy сервис — thin wrapper | Связать с уведомлениями и аналитикой, удалить остатки после внедрения |
-| Тесты | Добавлены unit-тесты `tests/unit/domains/competitors/test_tasks.py` и интеграционные `tests/integration/api/test_competitor_change_endpoints.py` | Дополнить проверками CLI/Celery eager |
+| `CompetitorFacade` | ✅ Создан, API подключено, ingestion/diff/notifications доступны | — |
+| `CompetitorRepository` | ✅ fetch/list/get/delete/save + upsert компаний | Follow-up: bulk операции (перенесено в B-302) |
+| `PricingSnapshotRepository` / `ChangeEventRepository` | ✅ Созданы, интегрированы в domain сервисы | Follow-up: history helpers (при необходимости) |
+| `CompetitorChangeDomainService` | ✅ Использует новые репозитории и `diff_engine` | — |
+| `CompetitorIngestionDomainService` | ✅ Инкапсулирует парсинг, snapshot, diff и уведомления | — |
+| Celery | ✅ `app/domains/competitors/tasks.py` + `app/tasks/competitors.py`, интеграция в `celery_app` | Follow-up: расширенные eager/e2e сценарии (B-302) |
+| Diff engine | ✅ `services/diff_engine.py` используется ingestion/change сервисами; legacy обёртка сохранена для обратной совместимости | — |
+| Тесты | ✅ Unit + integration для задач и API; экспорт сценарии обновлены | Follow-up: CLI/e2e smoke (B-302) |
 
 ## 6. Риски
 - **Парсеры**: PricingPageParser тесно связан с HTML и snapshot хранением → требуется аккуратный рефактор.
@@ -83,6 +83,6 @@ app/
 
 ---
 
-**Статус:** в работе (10 Nov 2025)  
+**Статус:** ✅ завершено (11 Nov 2025) — дальнейшие улучшения учтены в задачах `B-302` и фронтовом backlog  
 **Подпись:** GPT-5 Codex
 

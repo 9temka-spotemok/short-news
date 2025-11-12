@@ -52,6 +52,24 @@ frontend/src/
 | 5. Exports & Side-effects | Extract export flow (`useExportAnalytics`), centralise toast/error handling, hook into unified utilities. | Shared toast component, export hook tests, documentation updates. | Wave 4, Task F-203. | No direct `toast.*` calls in page; utilities reused across feature. |
 | 6. Clean-up & Removal | Remove remaining legacy helpers, ensure tree-shaking/route-level code splitting where applicable. | Lazy loading for charts, updated Playwright specs, final README updates. | Waves 1–5, Task F-302. | Bundle size diff recorded; Playwright regression run passes. |
 
+## Progress (11 Nov 2025)
+- ✅ Wave 1 scaffolded: `frontend/src/features/competitor-analysis/{constants.ts,index.ts,types.ts}` плюс утилита `utils/filterPayload.ts`.
+- ✅ Wave 2 (filters) в работе: внедрены `hooks/useFiltersState.ts` и `components/FiltersPanel.tsx`, `CompetitorAnalysisPage` переключён на новый хук/компонент; legacy фильтровый код удалён.
+- ✅ Начат вынос change-log: добавлены `hooks/useChangeEvents.ts` + интеграция на странице через TanStack Query.
+- ✅ Вынесены крупные секции: `PersistentMetricsBoard` и `CurrentSignalsBoard` теперь живут в `features/competitor-analysis/components/*`; вкладка **Persistent Metrics** и **Current Signals** подключают их напрямую.
+- ✅ Страница переключена на `useCompanyAnalyticsInsights` (TanStack Query) вместо `loadAnalyticsInsights`: снапшоты, временные ряды и knowledge graph подтягиваются через фичевый хук и разделяют кэш между компонентами.
+- ✅ Создан компонент `CompanyDeepDive.tsx`, который инкапсулирует Brand Preview, BI, распределения тем/тональности и сравнение объёма новостей; `CompetitorAnalysisPage` теперь передаёт данные через фасад вместо ручного JSX.
+- ✅ Режим Company Analysis вынесен в `CompanyAnalysisFlow.tsx`, а сводка активных фильтров переиспользуется через `ActiveFiltersSummary.tsx`; страница стала тоньше и выступает только координатором.
+- ✅ Шаги Custom Analysis (`CompanySelection`, `CompetitorSuggestion`, `AnalysisResults`) вынесены в `features/competitor-analysis/components/custom-analysis/*`; главная страница переключает их как визард, а выбор режима реализован `AnalysisModeSelection.tsx`.
+- ✅ Analytics вкладки и менеджер пресетов вынесены в `custom-analysis/AnalyticsTabs.tsx` и `custom-analysis/PresetManager.tsx`; `CompetitorAnalysisPage` теперь просто передаёт стейт и колбэки.
+- ✅ Impact панель вынесена в `components/ImpactPanel.tsx`; отображение метрик и knowledge graph теперь полностью управляется фичевым компонентом.
+- ✅ Вспомогательные хелперы вынесены в `utils/comparisonPayload.ts`: генерация payload для TanStack Query и экспорта теперь переиспользуется между вкладками и download-флоу.
+- ✅ Логика сравнения инкапсулирована в `hooks/useComparisonManager.ts`: загрузка сравнения, переключение периодов и выбор A/B теперь реализованы в фичевом хуке, страница лишь вызывает действия.
+- ✅ Управление состоянием анализа вынесено в `hooks/useAnalysisFlow.ts`: выбор компаний, выполнение анализа и управление ошибками/спиннерами теперь сосредоточены в одном фичевом хуке.
+- ✅ Добавлены фичевые фасады (`queryKeys.ts`, `useChangeLog`, `useKnowledgeGraph`, `usePrefetchAnalytics`, `useReportPresetActions`, `useAnalyticsExportHandler`); страница пользуется готовыми хуками вместо локальных обработчиков.
+- ✅ Унифицированы состояния загрузки/ошибок через `frontend/src/components/ErrorBanner.tsx` и `frontend/src/components/LoadingOverlay.tsx`; `ChangeEventsSection`, `PersistentMetricsBoard`, `ImpactPanel` и мастеринг подсказок используют единую визуализацию.
+- ℹ️ Следующие шаги — покрытие e2e/Storybook по новому плану (Wave 3–4).
+
 ## State & Data Strategy
 - **Filters:** Adopt reducer-based store (Zustand slice or React context) to manage query params, persisted in URL via `useSearchParams`.
 - **Analytics payloads:** TanStack Query configured with `keepPreviousData`, `staleTime` tuned for dashboard usage, and dedicated cache keys (`["analytics", companyId, filters]`).

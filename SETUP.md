@@ -136,6 +136,12 @@ poetry run celery -A celery_app worker --loglevel=info
 poetry run celery -A celery_app beat --loglevel=info
 ```
 
+После запуска Проверьте метрики:
+```bash
+curl http://localhost:9464/metrics | grep celery_task_total
+```
+При необходимости измените порт/хост через переменные `CELERY_METRICS_HOST` и `CELERY_METRICS_PORT`.
+
 ### Frontend
 
 #### 1. Установка зависимостей
@@ -218,6 +224,14 @@ short-news/
 | `TWITTER_API_KEY` | Twitter API ключ | ❌ Нет | - |
 | `REDDIT_CLIENT_ID` | Reddit API ID | ❌ Нет | - |
 | `SENDGRID_API_KEY` | SendGrid для email | ❌ Нет | - |
+| `CELERY_DEDUP_TTL_SECONDS` | TTL для ключей дедупликации аналитических задач | ❌ Нет | 900 |
+| `CELERY_METRICS_ENABLED` | Включить Prometheus-экспортёр для Celery | ❌ Нет | true |
+| `CELERY_METRICS_EXPOSE_SERVER` | Поднять встроенный HTTP сервер метрик | ❌ Нет | true |
+| `CELERY_METRICS_HOST` | Хост для экспорта метрик | ❌ Нет | 0.0.0.0 |
+| `CELERY_METRICS_PORT` | Порт для экспорта метрик | ❌ Нет | 9464 |
+| `CELERY_METRICS_NAMESPACE` | Namespace префикс для метрик | ❌ Нет | shot_news |
+| `CELERY_METRICS_DURATION_BUCKETS` | Бакеты гистограммы длительности задач (через запятую) | ❌ Нет | 0.1,0.5,1,2,5,10,30,60,120,300 |
+| `CELERY_OTEL_ENABLED` | Включить экспорт в OpenTelemetry при настроенном провайдере | ❌ Нет | false |
 
 ### Frontend Environment Variables
 

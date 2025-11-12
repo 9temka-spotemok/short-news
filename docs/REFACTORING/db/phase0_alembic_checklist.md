@@ -45,3 +45,5 @@ poetry run alembic history --verbose
 **Подпись:** _Имя, команда_
 
 
+
+

@@ -46,6 +46,8 @@
 - Контракты OpenAPI и feature flags: `frontend/phase2_contracts_feature_flags.md`.
 - План baseline-артефактов фронтенда: `frontend/phase2_baseline_artifacts_plan.md`.
 
+> **Обновление от 11 Nov 2025:** первая волна декомпозиции `CompetitorAnalysisPage` завершена. Фильтры, change log, persistent metrics и current signals вынесены в `frontend/src/features/competitor-analysis/` (hooks, компоненты, утилиты); глобальный `QueryClient` размещён в `frontend/src/lib/queryClient.ts`. Детали и карта файлов — в корневом `README.md`.
+
 6. **Phase 3 (Quality & Performance) — ключевые документы**
 - План тестирования аналитики (B-301): `tests/phase3_analytics_testing_plan.md`.
 

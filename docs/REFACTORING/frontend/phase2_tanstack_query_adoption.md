@@ -35,6 +35,19 @@
 | `useReportPresets` | `/api/v2/analytics/report-presets` | `["report-presets"]` | `staleTime: Infinity`, `enabled` based on auth | Supports create/update mutations later. |
 | `useExportAnalytics` | `/api/v2/analytics/export` (mutation) | Mutation key `["analytics-export"]` | `onSuccess` triggers download util; `onError` surfaces toast | Coordinates with shared toast/error components; returns async status. |
 | `usePrefetchAnalytics` | variant helper | Uses `queryClient.prefetchQuery` | Preloads analytics data on dashboard navigation | Called from router loaders or dashboard widgets. |
+| `useCompanyAnalyticsInsights` | `/api/v2/analytics/companies/:id/*` (snapshot, series, graph) | `["competitor-analysis","company-analytics",companyId]` | `staleTime: 60 * 1000`, `refetchOnWindowFocus: false`, promise.all aggregation | Consolidates snapshot, timeseries и knowledge graph; возвращает message для 404 кейсов. |
+
+## Progress (11 Nov 2025)
+- ✅ `useReportPresetsQuery` интегрирован: кеширует `/analytics/reports/presets`, `CompetitorAnalysisPage` получает данные через TanStack Query и избавился от локального состояния/`loadReportPresets`.
+- ✅ Реализован общий `queryClient` (`frontend/src/lib/queryClient.ts`) + подключены React Query Devtools в DEV.
+- ✅ `useChangeEventsQuery` + `useRecomputeChangeEventMutation`: история изменений теперь загружается и обновляется через TanStack Query.
+- ✅ `useAnalyticsComparisonMutation` и `useExportAnalyticsMutation`: сравнения и экспорт используют мутирующие хуки с кэшированием результатов.
+- ✅ Добавлен `useCompanyAnalyticsInsights`: агрегирует latest snapshot, series и knowledge graph через TanStack Query с кешированием и переиспользованием в `PersistentMetricsBoard`/`CurrentSignalsBoard`; `CompetitorAnalysisPage` избавился от `loadAnalyticsInsights`.
+- ✅ Оркестрация company/custom анализа перенесена в `useAnalysisFlow`: страница больше не дергает `ApiService` напрямую, а использует связку TanStack Query + фичевые хуки.
+- ✅ Введены `queryKeys.ts`, `useChangeLog`, `useKnowledgeGraph`, `usePrefetchAnalytics`, `useReportPresetActions`, `useAnalyticsExportHandler`: страница и компоненты используют унифицированные ключи/фасады вместо локальных обработчиков и прямых `ApiService` вызовов.
+- ✅ Добавлен SSR-хелпер `features/competitor-analysis/ssr.ts`, возвращающий `dehydratedState` после префетча company insights и comparison payload — используется для `dehydrate/rehydrate` сценариев.
+- ✅ Celery completion watcher: `CompetitorAnalysisPage` отслеживает task_id от recompute/sync и автоматически refetch'ит данные после завершения фоновой задачи.
+- 🔄 Остаётся вынести остальные аналитические запросы (change log v2, knowledge graph дополнительные представления, компонентные подпакеты) и прикрыть тестами.
 
 ### Mutation Strategy
 - Wrap Axios POST/PUT requests via `useMutation`.

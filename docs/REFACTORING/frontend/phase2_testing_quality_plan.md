@@ -24,6 +24,7 @@ Deliver a coordinated QA plan for the refactored competitor analysis feature set
 | `useChangeLog` | pagination, empty state, error fallback | Validate `keepPreviousData` handling |
 | `useReportPresets` | stale data reuse, enabled flag, edge errors | Ensure auth gating respected |
 | `useExportAnalytics` | mutation success/error, invalidation triggers | Mock download helper |
+| UI компоненты | Snapshot + interaction тесты (React Testing Library для основных веток фильтров/метрик). | `FiltersPanel`, `PersistentMetricsBoard`, `ChangeEventsSection`, `ExportModal`, `CompanyAnalysisFlow`, `custom-analysis/AnalyticsTabs`, `custom-analysis/PresetManager`. |
 | Shared formatters/mappers | unit tests per formatter + snapshot for chart data | Align with todo-frontend-7 |
 
 - Create `renderHookWithClient` helper to wrap tests with `QueryClientProvider`.
@@ -41,7 +42,7 @@ Deliver a coordinated QA plan for the refactored competitor analysis feature set
 - Update `docs/REFACTORING/tests/phase0_playwright_baseline.md` with new scenario IDs referencing this plan.
 
 ## Storybook & Visual Regression
-- Add stories for `FiltersPanel`, `AnalyticsBoard`, `ChangeLog`, `ExportModal`.
+- Add stories for `FiltersPanel`, `AnalyticsTabs`, `PresetManager`, `CompanyAnalysisFlow`, `CompanySelectionStep`, `CompetitorSuggestionStep`, `AnalysisResultsStep`.
 - Integrate Chromatic (or Playwright snapshot mode) to catch regressions.
 - Document knobs/controls for mocking TanStack Query data.
 

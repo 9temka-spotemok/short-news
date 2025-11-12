@@ -21,9 +21,9 @@ git clone <repository-url>
 cd short-news
 ```
 
-2. **Запустите инфраструктуру (БД, брокер и очереди Celery):**
+2. **Запустите инфраструктуру:**
 ```bash
-docker-compose up -d postgres redis worker
+docker-compose up -d postgres redis
 ```
 
 3. **Настройте backend:**
@@ -41,8 +41,6 @@ npm install
 npm run dev
 ```
 
-> ℹ️ **API-конфигурация:** по умолчанию фронтенд проксирует все запросы на `/api/*` через Vite, поэтому в разработке CORS не требуется. Если backend запущен на другом домене, задайте переменную `VITE_API_URL=https://your-backend.example` (логика описана в `frontend/src/services/api.ts`), чтобы явно указать полный базовый URL.
-
 ## 🏗️ Архитектура
 
 ```
@@ -53,18 +51,6 @@ shot-news/
 ├── docker-compose.yml # Инфраструктура
 └── README.md
 ```
-
-## 📑 API контракт (OpenAPI)
-
-- `openapi.json` — актуальный снимок публичного API, лежит в корне репозитория и используется как единый источник правды для клиентов и проверок в CI.
-- `backend/scripts/generate_openapi.py` — скрипт генерации. Он поднимает приложение с минимальными переменными окружения, подключает in-memory SQLite (через `aiosqlite`) и защищает FastAPI от побочных эффектов, поэтому не требует запущенных внешних сервисов.
-- Команда обновления:
-  ```bash
-  cd backend
-  poetry run python scripts/generate_openapi.py
-  ```
-  (при необходимости можно использовать `python scripts/generate_openapi.py`, если Poetry недоступен; скрипт сам добавит `backend` в `PYTHONPATH`).
-- GitHub Actions (`.github/workflows/ci.yml`) автоматически регенерирует схему и проверяет, что `openapi.json` не расходится с репозиторием. Если файл устарел, сборка зафейлится с подсказкой сгенерировать и закоммитить новый снапшот.
 
 ## 📋 Функциональность
 
@@ -102,12 +88,8 @@ shot-news/
 - Модуль `backend/app/parsers/pricing.py` нормализует цены, валюты, биллинг и блоки функций из произвольной вёрстки (таблицы, карточки, списки).
 - `backend/app/services/competitor_change_service.py` сравнивает свежий снапшот с предыдущим, высчитывает diff и создаёт события `competitor_change_events`.
 - API `/api/v1/competitors/changes/{company_id}` и `/api/v1/competitors/changes/{event_id}/recompute` отдают историю изменений и позволяют пересчитать diff.
-- Celery задачи для Competitor Intelligence живут в `backend/app/tasks/competitors.py` и используют фасад через `backend/app/domains/competitors/tasks.py` (ingest pricing, recompute/list change events).
-- Diff/summary логика ценовых изменений реализована в `backend/app/domains/competitors/services/diff_engine.py`, сервисы `competitor_change_service.py` выступают тонкой обёрткой для обратной совместимости.
 - Фронтенд `CompetitorAnalysisPage` дополнился секцией **Latest Changes** с кратким diff, статусом обработки и ссылками на сырые HTML-снапшоты.
 - Сырые страницы складываются в `storage/raw_snapshots/pricing/<company>/<source>.html`, что облегчает трассировку и аудит.
-- `backend/app/domains/competitors/services/notification_service.py` — доменный сервис уведомлений: собирает подписчиков из `UserPreferences`, проверяет `NotificationSettings`, формирует payload и ставит событие в очередь через `NotificationDispatcher`, обновляя `notification_status` у `CompetitorChangeEvent`.
-- `backend/tests/unit/domains/competitors/test_notification_service.py` — покрытие сценариев рассылки (`dispatch_change_event`) и graceful skip, когда подписчиков нет.
 
 ### Итерация 3 (в прогрессе): Управление обходами и уведомлениями
 
@@ -118,9 +100,13 @@ shot-news/
   - `backend/app/celery_app.py` — загрузка динамического beat-расписания через `load_effective_celery_schedule`.
 - [x] Мультиканальные уведомления:
   - `backend/app/models/notification_channels.py` — каналы, подписки, события и доставки с состояниями.
-  - `backend/app/services/notification_dispatcher.py` — очередь событий, дедупликация, формирование доставок.
-  - `backend/app/services/notification_delivery_executor.py` — отправка Telegram, webhook и email (SendGrid) с ретраями.
-  - `backend/app/tasks/notifications.py` — Celery-задача `dispatch_notification_deliveries` для обработки очереди доставок.
+  - `backend/app/domains/notifications/repositories/*` — data access для каналов, событий, доставок, пользовательских настроек.
+  - `backend/app/domains/notifications/services/dispatcher_service.py` — очередь событий, дедупликация и формирование доставок.
+  - `backend/app/domains/notifications/services/notification_service.py` / `digest_service.py` — доменные сервисы для микропушей и дайджестов (legacy `app/services/*` — тонкие адаптеры).
+  - `backend/app/services/notification_delivery_executor.py` — отправка Telegram, webhook и email (SendGrid) с ретраями поверх `DispatcherService`.
+  - `backend/app/domains/notifications/facade.py` — фасад домена уведомлений для API и Celery.
+  - `backend/app/api/v1/endpoints/notifications.py` — CRUD уведомлений и настройки через фасад, без прямой работы с legacy сервисами.
+  - `backend/app/tasks/notifications.py` — Celery-задачи генерации/доставки работают через фасад (pipeline миграция → Wave 4).
 - [x] Миграция `backend/alembic/versions/1f2a3b4c5d6e_add_crawl_and_notification_channels.py` создаёт новые таблицы и перечисления.
 - [ ] UI панель управления расписаниями и подписками на `CompetitorAnalysisPage`.
 - [ ] Интеграционные тесты обходов/уведомлений и e2e сценарии.
@@ -129,12 +115,13 @@ shot-news/
 
 - [x] Бэкенд-аналитика и impact score:
   - `backend/app/models/analytics.py` — таблицы `company_analytics_snapshots`, `impact_components`, `analytics_graph_edges`, `user_report_presets` и перечисления `AnalyticsPeriod`, `ImpactComponentType`, `AnalyticsEntityType`, `RelationshipType`.
-  - `backend/app/services/analytics_service.py` — агрегирование сигналов, расчёт `impact_score`, трендового `trend_delta`, построение knowledge graph.
-  - `backend/app/tasks/analytics.py` — Celery-задачи пересчёта метрик и синхронизации графа (`recompute_company_analytics`, `recompute_all_analytics`, `sync_company_knowledge_graph`).
+  - `backend/app/domains/analytics/` — фасад, `SnapshotService` и `ComparisonService`; legacy `backend/app/services/analytics_service.py` оставлен как совместимый алиас на время миграции.
+  - `backend/app/tasks/analytics.py` — Celery-задачи пересчёта метрик и синхронизации графа (`recompute_company_analytics`, `recompute_all_analytics`, `sync_company_knowledge_graph`) используют фасад.
+    - Инструментация: `backend/app/instrumentation/celery_metrics.py` — Prometheus/OTel метрики, дедуп ключи для задач аналитики, smoke-тесты `tests/unit/tasks/test_analytics_task_guards.py`.
   - `backend/alembic/versions/2b1c3d4e5f6g_add_analytics_models.py` — миграция новых сущностей.
 - [x] API `v2` и фича-флаги:
   - `backend/app/api/v2/api.py`, `backend/app/api/v2/endpoints/analytics.py` — `/api/v2/analytics/*` (снапшоты, запуск пересчёта, knowledge graph, пресеты, батч-компаратор `/comparisons`, экспорт `/export`).
-  - `backend/app/services/analytics_comparison_service.py` — сводные метрики, сравнение компаний/пресетов, подготовка payload для экспорта.
+  - `backend/app/domains/analytics/facade.py` — точка входа для API/Celery; `backend/app/services/analytics_comparison_service.py` временно сохраняет логику сравнений (поэтапно переносится в домен).
   - `backend/app/schemas/analytics.py` — схемы `ComparisonRequest/Response`, `AnalyticsExportRequest/Response`, агрегаты для impact breakdown.
   - `backend/main.py`, `backend/app/core/config.py` — флаг `ENABLE_ANALYTICS_V2`, условное подключение роутеров.
 - [x] Планировщик фоновых задач:
@@ -144,37 +131,9 @@ shot-news/
   - Новые состояния сравнения (`comparisonSubjects`, `comparisonData`), комбинированная панель на вкладке **Persistent Metrics** (общий график и таблица метрик).
   - A/B виджет на вкладке **Current Signals** (сравнение сигналов, knowledge graph и change log для компаний/пресетов, добавление пресетов в сравнение).
 - [x] Обновлённый экспорт (JSON/PDF/CSV):
-  - `backend/app/services/analytics_comparison_service.py.build_export_payload` — формирование payload версии 2.0 (метаданные, сравнительные серии, knowledge graph, change log, настройки уведомлений, список пресетов).
-  - `frontend/src/services/api.ts` — построение запроса `AnalyticsExportRequest`, переработанные генераторы `exportAnalysis` (PDF-шаблон, нормализованные CSV в zip, JSON), подавление toast-уведомлений для штатных 404 по снапшотам и унификация вспомогательных методов экспорта.
-  - `frontend/src/pages/CompetitorAnalysisPage.tsx` — загрузка impact-снапшотов и knowledge graph через `Promise.allSettled`: 404 по свежим компаниям больше не роняют панель, UI показывает подсказку «Аналитика ещё не построена. Запустите пересчёт…», кнопка **Recompute** остаётся доступной.
-  - `frontend/src/components/MarketPosition.tsx` — карточки топ-категорий используют стабильные ключи, нормализуют шкалу и приводят payload AI-подсказок (`suggestedCompetitors`) к единообразной структуре без React warning'ов.
+  - `backend/app/domains/analytics/services/comparison_service.py` (`build_export_payload`) — формирование payload версии 2.0 (метаданные, сравнительные серии, knowledge graph, change log, настройки уведомлений, список пресетов).
+  - `frontend/src/services/api.ts` — построение запроса `AnalyticsExportRequest`, переработанные генераторы `exportAnalysis` (PDF-шаблон, нормализованные CSV в zip, JSON).
 - [ ] E2E и нагрузочные тесты (Playwright/k6) + обновление CI гайдлайнов.
-
-#### Как пересчитать аналитику и проверить снапшоты
-
-1. **Инфраструктура**  
-   Убедитесь, что подняты `postgres`, `redis` и очереди Celery:  
-   ```bash
-   docker-compose up -d postgres redis worker
-   ```
-   Именно `redis` и `worker` нужны, чтобы задача `recompute_company_analytics` могла встать в очередь и выполниться.
-
-2. **Пересчёт через UI**  
-   На странице `Competitor Analysis` в режиме **Custom Analysis** выберите компании → нажмите **Analyze**. В панели **Impact Score** используйте кнопку **Recompute** — после выполнения таска графики и таблицы на вкладке **Persistent Metrics** заполнятся свежими данными.
-
-3. **Пересчёт через API**  
-   ```
-   curl -X POST "http://localhost:8000/api/v2/analytics/companies/<company_id>/recompute?period=daily&lookback=60" \
-        -H "Authorization: Bearer <token>"
-   ```
-   Ответ `{"status": "queued", "task_id": "..."}` означает, что задача отправлена в Celery.
-
-4. **Проверка результата**  
-   - UI перестанет показывать подсказку и обновит виджеты.
-   - API `GET /api/v2/analytics/companies/<company_id>/impact/latest?period=daily` вернёт JSON со значениями `impact_score`, `trend_delta`, `news_total` и др.  
-   - В PostgreSQL появятся строки в `company_analytics_snapshots`.
-
-> Если снапшотов ещё нет, фронтенд больше не показывает toast с ошибкой — вместо него отображается подсказка о необходимости запустить пересчёт.
 
 ### Roadmap
 - [ ] Telegram-бот
@@ -196,6 +155,14 @@ shot-news/
 - Tailwind CSS 3.4.0
 - TanStack Query 5.56.0
 
+## 📈 Observability
+
+- **Celery Prometheus exporter:** включается по умолчанию (`CELERY_METRICS_ENABLED=true`), доступен по `http://localhost:9464/metrics`. Настройки: `CELERY_METRICS_HOST`, `CELERY_METRICS_PORT`, `CELERY_METRICS_NAMESPACE`, `CELERY_METRICS_DURATION_BUCKETS`.
+- **OpenTelemetry:** активируйте `CELERY_OTEL_ENABLED=true` и настройте провайдера (`OTEL_METRICS_EXPORTER`, `OTEL_RESOURCE_ATTRIBUTES`), чтобы пересылать метрики в единую систему.
+- **Дедупликация задач:** `CELERY_DEDUP_TTL_SECONDS` контролирует TTL для ключей вида `analytics:<scope>:...`. При повторной постановке возвращается payload со статусом `duplicate`.
+- **Baseline Phase 0:** инструкция и чек-лист — `docs/REFACTORING/metrics/2025-11-12_baseline.md`, итоговые значения заносятся в `docs/REFACTORING/metrics/phase0_baseline_metrics.md`.
+- **Нагрузочные сценарии:** `backend/tests/performance/api_news.js` и `api_analytics_impact.js` (k6), шаблон payload `tests/performance/payloads/company-scan.template.json` для `hey`. Команды и параметры см. в baseline-инструкции.
+
 ## 📊 Источники данных
 
 - OpenAI Blog
@@ -212,9 +179,6 @@ shot-news/
 # Backend tests
 cd backend && poetry run pytest
 
-# Проверка на отсутствие raw SQL в runtime-коде
-cd backend && poetry run python scripts/check_no_raw_sql.py
-
 # Точечные unit-тесты (NLP и конкурентная аналитика)
 cd backend && poetry run pytest tests/test_nlp_service.py tests/test_competitor_service.py
 
@@ -230,22 +194,6 @@ cd backend && TEST_DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/sh
 # Нагрузочные тесты (k6)
 k6 run tests/performance/analytics-load.test.js
 ```
-
-- Репозитории и сервисы news-домена: `poetry run pytest tests/unit/domains/news/`.
-- Celery задачи news-домена (scraping + NLP): `poetry run pytest tests/integration/tasks/test_scraping_task.py tests/integration/tasks/test_nlp_tasks.py`.
-- API `/api/v1/news`: `poetry run pytest tests/integration/api/test_news_endpoints.py`.
-- Фасад Competitor Intelligence: `poetry run pytest tests/integration/api/test_competitor_change_endpoints.py`.
-- Юнит-тесты аналитики: `poetry run pytest tests/unit/services/test_analytics_service.py`.
-- Celery задачи аналитики: `poetry run pytest tests/integration/tasks/test_analytics_tasks.py`.
-- API сравнения/экспорта аналитики: `poetry run pytest tests/integration/api/test_analytics_comparison_endpoints.py`.
-- Доп. сценарии аналитики (API/Celery) — см. план `docs/REFACTORING/tests/phase3_analytics_testing_plan.md`.
-- Полный план покрытия (включая интеграции): `docs/REFACTORING/tests/phase2_news_testing_plan.md`.
-
-### OpenAPI схема
-
-- Сгенерировать актуальную схему:  
-  `cd backend && poetry run python scripts/generate_openapi.py`
-- Снапшот сохраняется в `openapi.json`; добавьте проверку в CI, чтобы отлавливать незадокументированные изменения API.
 
 ### Playwright E2E сценарии
 
@@ -286,6 +234,8 @@ k6 run tests/performance/analytics-load.test.js
 - `backend/tests/test_analytics_v2.py` — интеграционные тесты API v2 analytics.
 - `tests/performance/analytics-load.test.js` — k6 нагрузочный профиль Celery/экспорта.
 - `.github/workflows/ci.yml`, `.github/workflows/performance-tests.yml` — обновлённый CI контур.
+- `frontend/src/components/ErrorBanner.tsx` — общий баннер ошибок с action-кнопками и поддержкой ретраев.
+- `frontend/src/components/LoadingOverlay.tsx` — универсальный спиннер (inline/overlay) для состояний загрузки.
 
 ## 📈 Производительность
 
@@ -325,25 +275,10 @@ k6 run tests/performance/analytics-load.test.js
   - `backend/app/api/v1/endpoints/competitors.py` — REST-ручки `/competitors/changes/*`.
   - `frontend/src/services/api.ts` — методы `getCompetitorChangeEvents`, `recomputeCompetitorChangeEvent`.
   - `frontend/src/pages/CompetitorAnalysisPage.tsx` — UI-секция Latest Changes и действия по пересчёту diff.
+- `frontend/src/components/ErrorBanner.tsx` — переиспользуемое отображение ошибок (используется в карточках аналитики и подсказок).
+- `frontend/src/components/LoadingOverlay.tsx` — консистентный индикатор загрузки (inline и overlay-режимы).
 
 ## 🐛 Исправленные проблемы
-
-### 2025-11-09 - Исправление ошибки overrides в `/companies/scan`
-
-**Проблема:**
-- Эндпоинт `POST /api/v1/companies/scan` возвращал `500 Internal Server Error` при передаче поля `sources`, фронтенд логировал `UniversalBlogScraper.scrape_company_blog() got an unexpected keyword argument 'source_overrides'`.
-
-**Причина:**
-- В `backend/app/scrapers/universal_scraper.py` существовало две реализации `scrape_company_blog`. Устаревшая версия без параметра `source_overrides` переопределяла новую конфигурационную реализацию, из-за чего аргумент не распознавался.
-
-**Исправления:**
-- ✅ Конфигурационная версия `scrape_company_blog` объединена с эвристической: сначала используются источники из `ScraperConfigRegistry`, при отсутствии/неудаче автоматически срабатывает старый детектор URL.
-- ✅ Добавлен приватный helper `_scrape_with_heuristics`, который повторяет прежнюю логику обхода и категоризации, но больше не переопределяет публичный метод.
-- ✅ Параметр `sources` снова корректно прокидывается из API в скрейпер; ручные overrides больше не ломают обработку.
-
-**Файлы:**
-- `backend/app/scrapers/universal_scraper.py` — единая реализация `scrape_company_blog`, helper `_scrape_with_heuristics`.
-- `backend/app/api/v1/endpoints/companies.py` — эндпоинт `POST /companies/scan`, прокидывающий массив `sources`.
 
 ### 2025-11-07 - Исправление запуска news-scraper и поддержка Next.js блогов
 
@@ -413,20 +348,6 @@ k6 run tests/performance/analytics-load.test.js
 - [docs/TELEGRAM_SETUP.md](docs/TELEGRAM_SETUP.md) - Настройка Telegram бота
 - [docs/ANALYSIS/README.md](docs/ANALYSIS/README.md) - Полный анализ системы (разделен на части) ⭐
 - [docs/competitor-analysis.md](docs/competitor-analysis.md) - Анализ 123 конкурентов
-- [docs/REFACTORING/2025-11-10_backend_pre_refactoring_report.md](docs/REFACTORING/2025-11-10_backend_pre_refactoring_report.md) — актуальный срез backend архитектуры, БД, сервисов и рисков (включает карту ответственности ключевых файлов).
-- [docs/REFACTORING/2025-11-10_frontend_pre_refactoring_report.md](docs/REFACTORING/2025-11-10_frontend_pre_refactoring_report.md) — обзор frontend структуры, маршрутов, типов и точек интеграции (с указанием ответственных файлов).
-- [docs/REFACTORING/2025-11-10_refactoring_master_plan.md](docs/REFACTORING/2025-11-10_refactoring_master_plan.md) — мастер-план рефакторинга с целями, фазами, рисками и видением развития платформы.
-- [docs/REFACTORING/2025-11-10_refactoring_backlog.md](docs/REFACTORING/2025-11-10_refactoring_backlog.md) — пофазовый backlog; используйте как основу для задач в трекере.
-- [docs/REFACTORING/README.md](docs/REFACTORING/README.md) — навигация по всем документам рефакторинга и краткая инструкция по запуску.
-
-### Рефакторинг (обновлено 10.11.2025)
-- **Файлы и ответственность:** см. cheat-sheet разделы в `docs/REFACTORING/*_pre_refactoring_report.md` — в них перечислены ключевые файлы backend/frontend и зона их ответственности.
-- **План работы:** `docs/REFACTORING/2025-11-10_refactoring_master_plan.md` описывает очередность действий, критерии успеха, риски и будущие направления развития (многокомпонентная аналитика, платформенные интеграции, observability).
-- **Backlog:** `docs/REFACTORING/2025-11-10_refactoring_backlog.md` — детализация задач по фазам; обновляйте статусы и исполнителей по мере продвижения.
-- **Актуальность:** документы служат исходной точкой для предстоящего рефакторинга; обновляйте их после завершения фаз, чтобы сохранить синхронизацию документации и кода.
-- **Навигация:** `docs/REFACTORING/README.md` — единая точка входа с инструкцией, что читать и в какой последовательности.
-- **Метрики:** шаблон для Phase 0 — `docs/REFACTORING/metrics/phase0_baseline_metrics.md`.
-- **Миграции:** чек-лист проверки Alembic — `docs/REFACTORING/db/phase0_alembic_checklist.md`.
 
 ## 🗄️ Миграции
 
@@ -473,10 +394,10 @@ k6 run tests/performance/analytics-load.test.js
 **Сервисы (`app/services/`):**
 - `news_service.py` - Сервис для работы с новостями (поиск, фильтрация, агрегация, нормализация `topic/sentiment`)
 - `nlp_service.py` - NLP-пайплайн: эвристическая классификация тем, расчёт тональности, приоритета и извлечение ключевых слов
-- `digest_service.py` - Генерация дайджестов. Форматирование для Telegram на английском языке. Логика фильтрации: "All News" — все новости без фильтра по категориям; "Tracked Only" — только отслеживаемые компании и выбранные категории
+- `digest_service.py` - Legacy-адаптер; основная логика генерации вынесена в `app/domains/notifications/services/digest_service.py`.
 - `telegram_service.py` - Отправка сообщений в Telegram, клавиатуры, webhook. Добавлено `send_post_digest_controls()` и улучшено `send_digest_settings_menu()`
 - `competitor_service.py` - Управление отслеживаемыми компаниями
-- `notification_service.py` - Управление уведомлениями
+- `notification_service.py` - Legacy-адаптер для доменного `app/domains/notifications/services/notification_service.py`
 - `company_info_extractor.py` - Извлечение метаданных компании из веб-сайта (название, описание, логотип, категория)
 
 **Фоновые задачи (`app/tasks/`):**

@@ -23,6 +23,9 @@
   3. Снять Celery метрики: среднее время задачи, количество задач/час, доля ошибок.  
   4. Провести Lighthouse (mobile + desktop) и Playwright trace для ключевых сценариев.  
   5. Заполненный шаблон сохранить в `docs/REFACTORING/metrics/` и дать ссылку команде.
+_Progress:_  
+- Подготовлена инструкция `docs/REFACTORING/metrics/2025-11-12_baseline.md` (нагрузочные сценарии, команды для Prometheus/Lighthouse).  
+- Метрики Celery собираются автоматически (см. `B-302`). Следующий шаг — выполнить нагрузочные замеры и заполнить шаблон.
 - **X-003 · Проверка alembic history на staging**  
   _Owner:_ Backend  
   _Details:_ прогон `poetry run alembic upgrade head` на копии базы, сверка ревизий, фиксация checklist’а.  
@@ -77,10 +80,12 @@
 - **B-201 · Проектирование bounded contexts** 🔄  
   _Owner:_ Backend  
   _Tasks:_ RFC по отдельным модулям (News, Analytics, Notifications, Competitor Intelligence), список сервисов/файлов для переноса. Базовый план — `backend/phase2_bounded_contexts.md` (обновлять по мере утверждения).  
-  _Progress:_  
-  - Документ расширен: целевая структура каталогов, статусы по контекстам, разбивка на waves 1–5, зависимости и риски.  
-  - Wave 1 (News & Scraping) отмечен как завершён (фасад, сервисы, тесты); Wave 2 (Competitor Intelligence) синхронизирован с B-204; Waves 3–5 описаны с целевыми артефактами.  
-  - Следующий шаг — детализировать Wave 2 (Celery ingestion/notifications adapters) и раскатить связанные задачи в backlog.
+_Progress:_  
+- Waves 1–2 закрыты; документ обновлён ссылками на план волны (`backend/phase2_bounded_contexts.md`).  
+- Wave 3 (Analytics) — фасад и snapshot/comparison сервисы перенесены в `app/domains/analytics`, API v2 и Celery используют фасад; план `backend/phase2_analytics_wave3_plan.md` актуализирован (осталось вынести экспорт/репозитории).  
+- Wave 4 (Notifications & Digests) — добавлен фасад `app/domains/notifications/NotificationsFacade`, обновлены API и Celery таски; следующая итерация — миграция dispatcher/digest сервисов в домен (см. `backend/phase2_notifications_wave4_plan.md`).
+- Wave 5 (Shared/Auth) — план `backend/phase2_shared_services_wave5_plan.md`, фокус на users, feature flags, shared security.  
+- Следующий шаг — завести подзадачи в трекере (B-201-3a…c, B-201-4a… и т.д.), синхронизировать сроки с frontend roadmap.
 - **B-202 · Инкапсуляция raw SQL** ✅  
   _Owner:_ Backend  
   _Details:_ инвентаризировать endpoints с SQL строками (`users.py`, `notifications.py` и т.д.), определить порядок переписывания на SQLAlchemy Core. Итоги инвентаризации — `backend/phase2_raw_sql_inventory.md`.  
@@ -92,17 +97,16 @@
   _Owner:_ Backend  
   _Tasks:_ выделить интерфейсы для `UniversalBlogScraper`, Playwright fallback, конфигурации источников. План — `backend/phase2_scraper_interface_plan.md` (B-203-1…5).  
   _Progress:_ интерфейсы/адаптеры/реестр внедрены, Celery и CLI/скрипты используют `NewsScraperService`, API `companies.scan_company` использует реестр; unit/integration тесты добавлены.
-- **B-204 · Competitor Intelligence реорганизация** 🔄  
+- **B-204 · Competitor Intelligence реорганизация** ✅  
   _Owner:_ Backend  
   _Tasks:_ выделить доменный пакет `competitors`, перенести ingestion/diff/notifications в фасад, обновить Celery и API. План — `backend/phase2_competitor_refactor_plan.md`.  
 _Progress:_  
 - `CompetitorFacade` / `CompetitorRepository` (включая upsert компаний) / `CompetitorChangeDomainService` / `CompetitorIngestionDomainService` подключены, API работает через фасад.  
 - Celery слой переведён на фасад: добавлены `app/domains/competitors/tasks.py` + `app/tasks/competitors.py`, включены в `celery_app`.  
 - diff/summary логика перенесена в домен (`services/diff_engine.py`, обновлён `CompetitorChangeDomainService`), legacy сервис остался тонкой обёрткой.  
-- Тесты: `tests/unit/domains/competitors/test_tasks.py` и `tests/integration/api/test_competitor_change_endpoints.py` покрывают ingest/list/recompute; далее нужны проверки CLI/ Celery eager.  
-- Добавлен `CompetitorNotificationService` (`backend/app/domains/competitors/services/notification_service.py`): подбор подписчиков, постановка событий в `NotificationDispatcher`, обновление `notification_status`. Фасад получил метод `notify_change_event`, ingest вызывает уведомления автоматически.
-- Юнит-тесты `tests/unit/domains/competitors/test_notification_service.py` проверяют happy-path и graceful skip (без подписчиков), экспорт API обновлён под гибридные `user_id` форматы.
-- Следующий шаг — добрать e2e/CLI проверки Celery уведомлений и закрыть фронтовые контролы подписок.
+- Тесты: `tests/unit/domains/competitors/test_tasks.py` и `tests/integration/api/test_competitor_change_endpoints.py` покрывают ingest/list/recompute; уведомления проверены unit-тестами.  
+- Добавлен `CompetitorNotificationService` (`backend/app/domains/competitors/services/notification_service.py`): подбор подписчиков, постановка событий в `NotificationDispatcher`, обновление `notification_status`. Фасад получил метод `notify_change_event`, ingest вызывает уведомления автоматически.  
+- Follow-up: вынос e2e Celery сценариев и фронтовых контролов подписок перенесён в backlog `B-302` / фронтовые задачи.
 - **F-201 · Декомпозиция CompetitorAnalysisPage**  
   _Owner:_ Frontend  
   _Steps:_ дизайн будущих подпакетов (filters, analytics board, change log, export), план миграции состояния/хуков.
@@ -114,17 +118,21 @@ _Progress:_
   _Tasks:_ создать модуль форматтеров (дат, валют, приоритетов), покрыть типами и тестами.
 
 ## Phase 3 — Quality & Performance
-- **B-301 · Интеграционные тесты аналитики**  
+- **B-301 · Интеграционные тесты аналитики** ✅  
   _Owner:_ Backend QA  
   _Scope:_ `analytics_comparison_service`, `company_analytics_snapshots`, Celery задачи на recompute/export.
 _Progress:_  
 - Сформирован план `docs/REFACTORING/tests/phase3_analytics_testing_plan.md`.  
 - Добавлены baseline тесты: `tests/unit/services/test_analytics_service.py`, `tests/unit/services/test_analytics_comparison_service.py`, `tests/integration/api/test_analytics_endpoints.py`, `tests/integration/tasks/test_analytics_tasks.py`, `tests/integration/api/test_analytics_comparison_endpoints.py`.  
 - Расширены data builders (`tests/utils/analytics_builders.py`) для graph edges, notification presets, export сценариев.  
-- Далее: добрать multi-subject/preset сценарии и включить аналитические тесты в CI.
+- Тесты встроены в CI (`pytest -m "not e2e"`), результаты зелёные. Дополнительные multi-subject сценарии заведены отдельными тикетами (опционально).
 - **B-302 · Idempotency & observability Celery**  
   _Owner:_ Backend  
   _Tasks:_ внедрить метрики (Prometheus/OpenTelemetry), добавить guard’ы от повторных обработок.
+_Progress:_  
+- Prometheus/OTel экспортёр добавлен (`app/instrumentation/celery_metrics.py`), метрики доступны по `http://localhost:9464/metrics`.  
+- Дедупликация аналитических задач реализована (ключи `analytics:<scope>:...`, unit-тесты `tests/unit/tasks/test_analytics_task_guards.py`).  
+- Следующий шаг: собрать фактические метрики в `docs/REFACTORING/metrics/phase0_baseline_metrics.md`, добавить алерты/дашборды.
 - **F-301 · Vitest покрытие hooks/services**  
   _Owner:_ Frontend  
   _Targets:_ новые hooks анализа, `ApiService` утилиты, форматтеры.
