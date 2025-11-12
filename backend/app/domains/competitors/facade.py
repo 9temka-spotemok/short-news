@@ -195,8 +195,27 @@ class CompetitorFacade:
             status=status,
         )
 
+    async def list_change_events_payload(
+        self,
+        company_id: UUID,
+        *,
+        limit: int,
+        status: Optional[ChangeProcessingStatus] = None,
+    ) -> List[Dict[str, Any]]:
+        return await self.change_service.list_change_events_payload(
+            company_id,
+            limit=limit,
+            status=status,
+        )
+
+    async def fetch_change_event_payload(
+        self,
+        event_id: UUID,
+    ) -> Optional[Dict[str, Any]]:
+        return await self.change_service.fetch_change_event_payload(event_id)
+
     async def recompute_change_event(self, event_id: UUID):
-        return await self.change_service.recompute_diff(event_id)
+        return await self.change_service.recompute_change_event(event_id)
 
     async def notify_change_event(self, event_id: UUID | str) -> int:
         """Trigger notifications for a previously detected change event."""

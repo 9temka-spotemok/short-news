@@ -13,6 +13,8 @@ from app.core.database import get_db
 from app.core.security import decode_token
 from app.domains.news import NewsFacade
 from app.domains.competitors import CompetitorFacade
+from app.domains.analytics import AnalyticsFacade
+from app.domains.notifications import NotificationsFacade
 from app.models import User
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
@@ -154,4 +156,22 @@ def get_competitor_facade(
     Provide CompetitorFacade instance for request-scoped operations.
     """
     return CompetitorFacade(db)
+
+
+def get_analytics_facade(
+    db: AsyncSession = Depends(get_db),
+) -> AnalyticsFacade:
+    """
+    Provide AnalyticsFacade instance for request-scoped operations.
+    """
+    return AnalyticsFacade(db)
+
+
+def get_notifications_facade(
+    db: AsyncSession = Depends(get_db),
+) -> NotificationsFacade:
+    """
+    Provide NotificationsFacade instance for request-scoped operations.
+    """
+    return NotificationsFacade(db)
 

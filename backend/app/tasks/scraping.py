@@ -42,7 +42,7 @@ def scrape_ai_blogs(self):
 async def _scrape_ai_blogs_async():
     """Async implementation of blog scraping"""
     async with AsyncSessionLocal() as db:
-        result = await db.execute(select(Company))
+        result = await db.execute(select(Company).order_by(Company.created_at.desc()))
         companies = result.scalars().all()
 
         logger.info(f"Found {len(companies)} companies to scrape")

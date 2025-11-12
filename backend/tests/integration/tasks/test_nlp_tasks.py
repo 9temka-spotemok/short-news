@@ -48,6 +48,17 @@ def _swap_provider(monkeypatch: pytest.MonkeyPatch) -> None:
     nlp_service.PIPELINE.provider = original
 
 
+@pytest.fixture(autouse=True)
+def _override_session_factory(
+    monkeypatch: pytest.MonkeyPatch,
+    async_session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    from app.domains import news
+    from app.domains.news import tasks as news_tasks
+
+    monkeypatch.setattr(news_tasks, "AsyncSessionLocal", async_session_factory)
+
+
 async def _create_news(session: AsyncSession) -> str:
     news = NewsItem(
         title="AI Launch Event",

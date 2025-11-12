@@ -18,7 +18,7 @@ from app.models import (
     NotificationChannelType,
     NotificationDelivery,
 )
-from app.services.notification_dispatcher import NotificationDispatcher
+from app.domains.notifications.services import DispatcherService
 from app.services.telegram_service import TelegramService
 
 
@@ -27,7 +27,7 @@ class NotificationDeliveryExecutor:
 
     def __init__(self, db: AsyncSession):
         self.db = db
-        self.dispatcher = NotificationDispatcher(db)
+        self.dispatcher = DispatcherService(db)
         self.telegram_service = TelegramService()
 
     async def process_delivery(self, delivery: NotificationDelivery) -> bool:

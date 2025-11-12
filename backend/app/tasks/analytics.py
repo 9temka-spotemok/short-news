@@ -13,10 +13,14 @@ from loguru import logger
 
 from app.celery_app import celery_app
 from app.core.database import AsyncSessionLocal
+from app.instrumentation import TaskExecutionContext
 from app.models import AnalyticsPeriod, Company
-from app.services.analytics_service import AnalyticsService
+from app.domains.analytics import AnalyticsFacade
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+
+_ANALYTICS_LABELS = {"queue": "analytics"}
 
 
 @celery_app.task(bind=True, ignore_result=False)
@@ -24,25 +28,48 @@ def recompute_company_analytics(self, company_id: str, period: str = AnalyticsPe
     """
     Recompute analytics snapshots for a single company.
     """
-    logger.info("Recomputing analytics for company %s (period=%s, lookback=%s)", company_id, period, lookback)
+    analytics_period = AnalyticsPeriod(period)
+    dedup_key = f"analytics:company:{company_id}:{analytics_period.value}:{lookback}"
+    labels = {**_ANALYTICS_LABELS, "period": analytics_period.value}
 
-    try:
-        result = asyncio.run(_recompute_company_analytics_async(UUID(company_id), AnalyticsPeriod(period), lookback))
-        logger.info(
-            "Analytics recompute finished for company %s (%s snapshots)",
-            company_id,
-            result["snapshots_recomputed"],
-        )
-        return result
-    except Exception as exc:
-        logger.error("Analytics recompute failed for company %s: %s", company_id, exc, exc_info=True)
-        raise self.retry(exc=exc, countdown=120, max_retries=3)
+    logger.info(
+        "Recomputing analytics for company %s (period=%s, lookback=%s)",
+        company_id,
+        analytics_period.value,
+        lookback,
+    )
+
+    with TaskExecutionContext(
+        "recompute_company_analytics",
+        dedup_key=dedup_key,
+        labels=labels,
+        duplicate_payload={
+            "status": "duplicate",
+            "reason": "already_processing_company_period",
+            "company_id": company_id,
+            "period": analytics_period.value,
+        },
+    ) as ctx:
+        if not ctx.should_run:
+            return ctx.result
+
+        try:
+            result = asyncio.run(_recompute_company_analytics_async(UUID(company_id), analytics_period, lookback))
+            logger.info(
+                "Analytics recompute finished for company %s (%s snapshots)",
+                company_id,
+                result["snapshots_recomputed"],
+            )
+            return ctx.finish(result)
+        except Exception as exc:
+            logger.error("Analytics recompute failed for company %s: %s", company_id, exc, exc_info=True)
+            raise self.retry(exc=exc, countdown=120, max_retries=3)
 
 
 async def _recompute_company_analytics_async(company_id: UUID, period: AnalyticsPeriod, lookback: int):
     async with AsyncSessionLocal() as session:
-        service = AnalyticsService(session)
-        snapshots = await service.refresh_company_snapshots(company_id=company_id, period=period, lookback=lookback)
+        facade = AnalyticsFacade(session)
+        snapshots = await facade.refresh_company_snapshots(company_id=company_id, period=period, lookback=lookback)
         await session.commit()
         return {
             "status": "success",
@@ -57,28 +84,45 @@ def recompute_all_analytics(self, period: str = AnalyticsPeriod.DAILY.value, loo
     """
     Recompute analytics snapshots for all companies.
     """
-    logger.info("Starting global analytics recompute (period=%s lookback=%s)", period, lookback)
+    analytics_period = AnalyticsPeriod(period)
+    dedup_key = f"analytics:global:{analytics_period.value}:{lookback}"
+    labels = {**_ANALYTICS_LABELS, "period": analytics_period.value}
 
-    try:
-        result = asyncio.run(_recompute_all_analytics_async(AnalyticsPeriod(period), lookback))
-        logger.info(
-            "Global analytics recompute complete (%s companies updated)",
-            result["companies_processed"],
-        )
-        return result
-    except Exception as exc:
-        logger.error("Global analytics recompute failed: %s", exc, exc_info=True)
-        raise self.retry(exc=exc, countdown=300, max_retries=2)
+    logger.info("Starting global analytics recompute (period=%s lookback=%s)", analytics_period.value, lookback)
+
+    with TaskExecutionContext(
+        "recompute_all_analytics",
+        dedup_key=dedup_key,
+        labels=labels,
+        duplicate_payload={
+            "status": "duplicate",
+            "reason": "global_recompute_in_progress",
+            "period": analytics_period.value,
+        },
+    ) as ctx:
+        if not ctx.should_run:
+            return ctx.result
+
+        try:
+            result = asyncio.run(_recompute_all_analytics_async(analytics_period, lookback))
+            logger.info(
+                "Global analytics recompute complete (%s companies updated)",
+                result["companies_processed"],
+            )
+            return ctx.finish(result)
+        except Exception as exc:
+            logger.error("Global analytics recompute failed: %s", exc, exc_info=True)
+            raise self.retry(exc=exc, countdown=300, max_retries=2)
 
 
 async def _recompute_all_analytics_async(period: AnalyticsPeriod, lookback: int):
     async with AsyncSessionLocal() as session:
         company_ids = await _load_company_ids(session)
-        service = AnalyticsService(session)
+        facade = AnalyticsFacade(session)
         total_snapshots = 0
 
         for company_id in company_ids:
-            snapshots = await service.refresh_company_snapshots(company_id=company_id, period=period, lookback=lookback)
+            snapshots = await facade.refresh_company_snapshots(company_id=company_id, period=period, lookback=lookback)
             total_snapshots += len(snapshots)
 
         await session.commit()
@@ -99,31 +143,50 @@ def sync_company_knowledge_graph(
     """
     Derive knowledge graph edges for a company within a period.
     """
+    analytics_period = AnalyticsPeriod(period)
+    labels = {**_ANALYTICS_LABELS, "period": analytics_period.value}
+    dedup_key = f"analytics:graph:{company_id}:{analytics_period.value}:{period_start_iso}"
+
     logger.info(
         "Synchronising analytics graph for company %s (period=%s start=%s)",
         company_id,
-        period,
+        analytics_period.value,
         period_start_iso,
     )
 
-    try:
-        period_start = _parse_period_start(period_start_iso)
-        result = asyncio.run(
-            _sync_company_graph_async(
-                UUID(company_id),
-                AnalyticsPeriod(period),
-                period_start,
+    with TaskExecutionContext(
+        "sync_company_knowledge_graph",
+        dedup_key=dedup_key,
+        labels=labels,
+        duplicate_payload={
+            "status": "duplicate",
+            "reason": "graph_sync_in_progress",
+            "company_id": company_id,
+            "period": analytics_period.value,
+            "period_start": period_start_iso,
+        },
+    ) as ctx:
+        if not ctx.should_run:
+            return ctx.result
+
+        try:
+            period_start = _parse_period_start(period_start_iso)
+            result = asyncio.run(
+                _sync_company_graph_async(
+                    UUID(company_id),
+                    analytics_period,
+                    period_start,
+                )
             )
-        )
-        logger.info(
-            "Graph sync complete for company %s (%s edges created)",
-            company_id,
-            result["edges_created"],
-        )
-        return result
-    except Exception as exc:
-        logger.error("Graph sync failed for company %s: %s", company_id, exc, exc_info=True)
-        raise self.retry(exc=exc, countdown=180, max_retries=3)
+            logger.info(
+                "Graph sync complete for company %s (%s edges created)",
+                company_id,
+                result["edges_created"],
+            )
+            return ctx.finish(result)
+        except Exception as exc:
+            logger.error("Graph sync failed for company %s: %s", company_id, exc, exc_info=True)
+            raise self.retry(exc=exc, countdown=180, max_retries=3)
 
 
 async def _sync_company_graph_async(
@@ -132,8 +195,8 @@ async def _sync_company_graph_async(
     period_start: datetime,
 ):
     async with AsyncSessionLocal() as session:
-        service = AnalyticsService(session)
-        created_edges = await service.sync_knowledge_graph(
+        facade = AnalyticsFacade(session)
+        created_edges = await facade.sync_knowledge_graph(
             company_id=company_id,
             period_start=period_start,
             period=period,

@@ -9,7 +9,7 @@ service rather than the legacy implementation directly.
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Optional, Sequence, Dict, Any, List
+from typing import Optional, Sequence, Dict, Any, List, Tuple
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,6 +18,7 @@ from app.models import (
     ChangeNotificationStatus,
     ChangeProcessingStatus,
     CompetitorChangeEvent,
+    SourceType,
 )
 from ..repositories import ChangeEventRepository, PricingSnapshotRepository
 from .diff_engine import (
@@ -48,6 +49,50 @@ class CompetitorChangeDomainService:
             limit=limit,
             status=status,
         )
+
+    async def list_change_events_payload(
+        self,
+        company_id: UUID,
+        *,
+        limit: int = 20,
+        status: Optional[ChangeProcessingStatus] = None,
+    ) -> List[Dict[str, Any]]:
+        return await self._change_repo.list_change_events_serialised(
+            company_id,
+            limit=limit,
+            status=status,
+        )
+
+    async def paginate_change_events_payload(
+        self,
+        company_id: UUID,
+        *,
+        limit: int = 20,
+        status: Optional[ChangeProcessingStatus] = None,
+        cursor_detected_at: Optional[datetime] = None,
+        cursor_event_id: Optional[UUID] = None,
+        source_types: Optional[Sequence[SourceType]] = None,
+    ) -> Tuple[List[Dict[str, Any]], bool, int]:
+        events, has_more = await self._change_repo.paginate_change_events_serialised(
+            company_id,
+            limit=limit,
+            status=status,
+            cursor_detected_at=cursor_detected_at,
+            cursor_event_id=cursor_event_id,
+            source_types=source_types,
+        )
+        total = await self._change_repo.count_change_events(
+            company_id,
+            status=status,
+            source_types=source_types,
+        )
+        return events, has_more, total
+
+    async def fetch_change_event_payload(
+        self,
+        event_id: UUID,
+    ) -> Optional[Dict[str, Any]]:
+        return await self._change_repo.fetch_serialised_by_id(event_id)
 
     async def recompute_change_event(self, event_id: UUID):
         event = await self._change_repo.fetch_by_id(

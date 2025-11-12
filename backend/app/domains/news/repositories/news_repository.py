@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Optional, List, Tuple, Dict, Any
+from uuid import UUID
 
 from sqlalchemy import select, func, and_, or_, desc
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -51,7 +52,7 @@ class NewsRepository:
 
     async def fetch_by_id(
         self,
-        news_id: str,
+        news_id: UUID | str,
         *,
         include_relations: bool = False,
     ) -> Optional[NewsItem]:
@@ -62,7 +63,13 @@ class NewsRepository:
                 selectinload(NewsItem.keywords),
                 selectinload(NewsItem.activities),
             )
-        stmt = stmt.where(NewsItem.id == news_id)
+        target_id = news_id
+        if isinstance(news_id, str):
+            try:
+                target_id = UUID(news_id)
+            except ValueError:
+                target_id = news_id
+        stmt = stmt.where(NewsItem.id == target_id)
         result = await self._session.execute(stmt)
         return result.scalar_one_or_none()
 
@@ -233,7 +240,7 @@ class NewsRepository:
             select(NewsItem.source_type, func.count(NewsItem.id))
             .group_by(NewsItem.source_type)
         )
-        source_counts = {
+        source_type_counts = {
             str(row[0]): row[1]
             for row in source_rows
             if row[0]
@@ -253,7 +260,7 @@ class NewsRepository:
         return NewsStatistics(
             total_count=total_count,
             category_counts=category_counts,
-            source_counts=source_counts,
+            source_type_counts=source_type_counts,
             recent_count=recent_count,
             high_priority_count=high_priority_count,
         )
@@ -284,7 +291,7 @@ class NewsRepository:
             .where(id_filter)
             .group_by(NewsItem.source_type)
         )
-        source_counts = {
+        source_type_counts = {
             str(row[0]): row[1]
             for row in source_rows
             if row[0]
@@ -310,7 +317,7 @@ class NewsRepository:
         return NewsStatistics(
             total_count=total_count,
             category_counts=category_counts,
-            source_counts=source_counts,
+            source_type_counts=source_type_counts,
             recent_count=recent_count,
             high_priority_count=high_priority_count,
         )

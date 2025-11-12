@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import asyncio
 import re
+import uuid
 from collections import Counter
 from datetime import datetime, timezone
 from typing import List, Optional, Sequence
@@ -206,7 +207,8 @@ class NewsNLPPipeline:
         self.provider = provider or HeuristicNLPProvider()
 
     async def _get_news(self, session: AsyncSession, news_id: str) -> NewsItem:
-        result = await session.execute(select(NewsItem).where(NewsItem.id == news_id))
+        news_uuid = uuid.UUID(str(news_id))
+        result = await session.execute(select(NewsItem).where(NewsItem.id == news_uuid))
         news = result.scalar_one_or_none()
         if not news:
             raise ValueError(f"News item {news_id} not found")
@@ -214,35 +216,34 @@ class NewsNLPPipeline:
 
     async def classify_news(self, session: AsyncSession, news_id: str) -> dict:
         news = await self._get_news(session, news_id)
-            text = _normalize_text([news.title or "", news.summary or "", news.content or ""])
+        text = _normalize_text([news.title or "", news.summary or "", news.content or ""])
 
-            category_fallback = None
-            if news.category:
-                category_fallback = news.category.value if hasattr(news.category, "value") else str(news.category)
+        category_fallback = None
+        if news.category:
+            category_fallback = news.category.value if hasattr(news.category, "value") else str(news.category)
 
-            topic = self.provider.classify_topic(
-                text,
-                fallback=category_fallback,
-            )
-            sentiment = self.provider.sentiment(text)
-            priority_score = self.provider.compute_priority(
-                news.title or "",
-                news.published_at,
-                topic,
-            )
+        topic = self.provider.classify_topic(
+            text,
+            fallback=category_fallback,
+        )
+        sentiment = self.provider.sentiment(text)
+        priority_score = self.provider.compute_priority(
+            news.title or "",
+            news.published_at,
+            topic,
+        )
 
-            news.topic = topic
-            news.sentiment = sentiment
-            news.priority_score = priority_score
+        news.topic = topic
+        news.sentiment = sentiment
+        news.priority_score = priority_score
         await session.commit()
-
-            logger.info(
-                "Classified news %s | topic=%s sentiment=%s priority=%.2f",
-                news_id,
-                topic.value if topic else None,
-                sentiment.value,
-                priority_score,
-            )
+        logger.info(
+            "Classified news %s | topic=%s sentiment=%s priority=%.2f",
+            news_id,
+            topic.value if topic else None,
+            sentiment.value,
+            priority_score,
+        )
         return {
             "news_id": news_id,
             "topic": topic.value if topic else None,

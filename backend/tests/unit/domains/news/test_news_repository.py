@@ -243,3 +243,5 @@ async def test_aggregate_statistics_for_companies_filters(async_session: AsyncSe
     assert stats.category_counts == {NewsCategory.PRODUCT_UPDATE.value: 1}
 
 
+
+

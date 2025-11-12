@@ -112,3 +112,5 @@ async def test_create_news_item_invalid_payload_raises(async_session: AsyncSessi
         await service.create_news_item(payload)
 
 
+
+

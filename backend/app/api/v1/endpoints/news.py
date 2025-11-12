@@ -209,6 +209,7 @@ async def delete_news(
 
 
 @router.get("/", response_model=Dict[str, Any])
+@router.get("", response_model=Dict[str, Any], include_in_schema=False)
 async def get_news(
     category: Optional[NewsCategory] = Query(None, description="Filter by news category"),
     company_id: Optional[str] = Query(None, description="Filter by single company ID"),
@@ -230,15 +231,32 @@ async def get_news(
     try:
         # Parse company IDs if provided
         parsed_company_ids = None
+        normalised_company_id = None
         if company_ids:
             parsed_company_ids = [cid.strip() for cid in company_ids.split(',') if cid.strip()]
         elif company_id:
             parsed_company_ids = [company_id]
+
+        if parsed_company_ids:
+            normalised_ids = []
+            for cid in parsed_company_ids:
+                try:
+                    normalised_ids.append(UUID(cid))
+                except (ValueError, TypeError):
+                    normalised_ids.append(cid)
+            parsed_company_ids = normalised_ids
+            if len(parsed_company_ids) == 1:
+                normalised_company_id = parsed_company_ids[0]
+        elif company_id:
+            try:
+                normalised_company_id = UUID(company_id)
+            except (ValueError, TypeError):
+                normalised_company_id = company_id
         
         # Get news items with enhanced filtering
         news_items, total_count = await facade.list_news(
             category=category,
-            company_id=company_id,
+            company_id=normalised_company_id,
             company_ids=parsed_company_ids,
             source_type=source_type,
             search_query=search_query,

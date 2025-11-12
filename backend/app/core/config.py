@@ -49,13 +49,30 @@ class Settings(BaseSettings):
                 return [host.strip() for host in v.split(',')]
         return v
     
-    @field_validator('SCRAPER_HEADLESS_ENABLED', 'SCRAPER_SNAPSHOTS_ENABLED', 'ENABLE_ANALYTICS_V2', 'ENABLE_KNOWLEDGE_GRAPH', mode='before')
+    @field_validator(
+        'SCRAPER_HEADLESS_ENABLED',
+        'SCRAPER_SNAPSHOTS_ENABLED',
+        'ENABLE_ANALYTICS_V2',
+        'ENABLE_KNOWLEDGE_GRAPH',
+        'CELERY_METRICS_ENABLED',
+        'CELERY_METRICS_EXPOSE_SERVER',
+        'CELERY_OTEL_ENABLED',
+        mode='before',
+    )
     @classmethod
     def validate_bool_flags(cls, v):
         """Allow boolean flags to be passed as strings"""
         if isinstance(v, str):
             return v.lower() in ('true', '1', 'yes', 'on')
         return bool(v)
+
+    @field_validator('CELERY_METRICS_DURATION_BUCKETS', mode='before')
+    @classmethod
+    def validate_metrics_buckets(cls, v):
+        """Allow providing histogram buckets as comma-separated string."""
+        if isinstance(v, str):
+            return [float(item.strip()) for item in v.split(',') if item.strip()]
+        return v
     
     # Database
     DATABASE_URL: str = Field(..., description="PostgreSQL database URL")
@@ -94,6 +111,20 @@ class Settings(BaseSettings):
     # Celery
     CELERY_BROKER_URL: str = Field(default="redis://localhost:6379/0", description="Celery broker URL")
     CELERY_RESULT_BACKEND: str = Field(default="redis://localhost:6379/0", description="Celery result backend URL")
+    CELERY_DEDUP_TTL_SECONDS: int = Field(default=900, description="TTL for Celery task deduplication locks (seconds)")
+    CELERY_METRICS_ENABLED: bool = Field(default=True, description="Enable Prometheus metrics for Celery workers")
+    CELERY_METRICS_EXPOSE_SERVER: bool = Field(default=True, description="Expose embedded Prometheus HTTP server")
+    CELERY_METRICS_HOST: str = Field(default="0.0.0.0", description="Host for Celery Prometheus exporter")
+    CELERY_METRICS_PORT: int = Field(default=9464, description="Port for Celery Prometheus exporter")
+    CELERY_METRICS_NAMESPACE: str = Field(default="shot_news", description="Prometheus namespace for Celery metrics")
+    CELERY_METRICS_DURATION_BUCKETS: List[float] = Field(
+        default_factory=lambda: [0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0, 60.0, 120.0, 300.0],
+        description="Histogram buckets for Celery task duration in seconds",
+    )
+    CELERY_OTEL_ENABLED: bool = Field(
+        default=False,
+        description="Forward Celery metrics via OpenTelemetry when configured",
+    )
     
     # Feature flags
     ENABLE_ANALYTICS_V2: bool = Field(default=True, description="Expose API v2 analytics endpoints")

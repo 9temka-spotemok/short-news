@@ -7,12 +7,15 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from uuid import uuid4
+
 from app.models import Company, NewsItem
 from app.models.news import NewsCategory, SourceType
 
 
 async def _create_company(session: AsyncSession, name: str) -> Company:
-    company = Company(name=name, website="https://example.com")
+    unique_suffix = uuid4().hex[:8]
+    company = Company(name=f"{name}-{unique_suffix}", website=f"https://example.com/{unique_suffix}")
     session.add(company)
     await session.commit()
     await session.refresh(company)
@@ -46,6 +49,7 @@ async def _create_news(
 @pytest.mark.asyncio
 async def test_create_news_endpoint(async_client: AsyncClient, async_session: AsyncSession) -> None:
     company = await _create_company(async_session, "OpenAI")
+    company_id = str(company.id)
 
     payload = {
         "title": "New Product Launch",
@@ -54,7 +58,7 @@ async def test_create_news_endpoint(async_client: AsyncClient, async_session: As
         "source_url": "https://example.com/new-product",
         "source_type": SourceType.BLOG.value,
         "category": NewsCategory.PRODUCT_UPDATE.value,
-        "company_id": str(company.id),
+        "company_id": company_id,
         "published_at": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -63,13 +67,14 @@ async def test_create_news_endpoint(async_client: AsyncClient, async_session: As
     assert response.status_code == 201
     body = response.json()
     assert body["title"] == payload["title"]
-    assert body["company"]["id"] == str(company.id)
+    assert body["company"]["id"] == company_id
 
 
 @pytest.mark.asyncio
 async def test_get_news_filters(async_client: AsyncClient, async_session: AsyncSession) -> None:
     company_a = await _create_company(async_session, "OpenAI")
     company_b = await _create_company(async_session, "Anthropic")
+    company_a_id = str(company_a.id)
 
     await _create_news(
         async_session,
@@ -90,7 +95,7 @@ async def test_get_news_filters(async_client: AsyncClient, async_session: AsyncS
         "/api/v1/news",
         params={
             "category": NewsCategory.PRICING_CHANGE.value,
-            "company_ids": str(company_a.id),
+            "company_ids": company_a_id,
             "limit": 10,
             "offset": 0,
         },
@@ -105,6 +110,7 @@ async def test_get_news_filters(async_client: AsyncClient, async_session: AsyncS
 @pytest.mark.asyncio
 async def test_news_statistics(async_client: AsyncClient, async_session: AsyncSession) -> None:
     company = await _create_company(async_session, "OpenAI")
+    company_id = str(company.id)
     await _create_news(async_session, company=company, title="Stats News")
 
     response = await async_client.get("/api/v1/news/stats")
@@ -118,19 +124,21 @@ async def test_news_statistics(async_client: AsyncClient, async_session: AsyncSe
 async def test_update_and_delete_news(async_client: AsyncClient, async_session: AsyncSession) -> None:
     company = await _create_company(async_session, "OpenAI")
     news = await _create_news(async_session, company=company)
+    news_id = str(news.id)
 
     update_payload = {"summary": "Updated summary"}
     response = await async_client.put(
-        f"/api/v1/news/{news.id}",
+        f"/api/v1/news/{news_id}",
         json=update_payload,
     )
     assert response.status_code == 200
     assert response.json()["summary"] == "Updated summary"
 
-    response = await async_client.delete(f"/api/v1/news/{news.id}")
+    response = await async_client.delete(f"/api/v1/news/{news_id}")
     assert response.status_code == 204
 
-    check = await async_client.get(f"/api/v1/news/{news.id}")
+    check = await async_client.get(f"/api/v1/news/{news_id}")
     assert check.status_code == 404
+
 
 

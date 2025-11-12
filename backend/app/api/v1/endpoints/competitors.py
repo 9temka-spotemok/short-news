@@ -29,35 +29,6 @@ class CompareRequest(BaseModel):
     date_to: Optional[str] = None
     name: Optional[str] = None
 
-
-def _serialize_change_event(event) -> dict:
-    def snapshot_dict(snapshot):
-        if not snapshot:
-            return None
-        return {
-            "id": snapshot.id,
-            "parser_version": snapshot.parser_version,
-            "raw_snapshot_url": snapshot.raw_snapshot_url,
-            "extraction_metadata": snapshot.extraction_metadata or {},
-            "warnings": snapshot.warnings or [],
-            "processing_status": snapshot.processing_status,
-        }
-
-    return {
-        "id": event.id,
-        "company_id": event.company_id,
-        "source_type": event.source_type,
-        "change_summary": event.change_summary,
-        "changed_fields": event.changed_fields or [],
-        "raw_diff": event.raw_diff or {},
-        "detected_at": event.detected_at,
-        "processing_status": event.processing_status,
-        "notification_status": event.notification_status,
-        "current_snapshot": snapshot_dict(event.current_snapshot),
-        "previous_snapshot": snapshot_dict(event.previous_snapshot),
-    }
-
-
 @router.post("/compare")
 async def compare_companies(
     request_data: dict = Body(...),
@@ -427,16 +398,14 @@ async def list_change_events(
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid status filter")
 
-    events = await facade.list_change_events(
+    events = await facade.list_change_events_payload(
         company_uuid,
         limit=max(1, min(limit, 100)),
         status=status_filter,
     )
 
     payload = [
-        CompetitorChangeEventSchema.model_validate(
-            _serialize_change_event(event)
-        ).model_dump()
+        CompetitorChangeEventSchema.model_validate(event).model_dump()
         for event in events
     ]
 
@@ -461,7 +430,20 @@ async def recompute_change_event(
     if not event:
         raise HTTPException(status_code=404, detail="Change event not found")
 
-    schema = CompetitorChangeEventSchema.model_validate(
-        _serialize_change_event(event)
-    )
+    data = await facade.fetch_change_event_payload(event.id)
+    if not data:
+        data = {
+            "id": event.id,
+            "company_id": event.company_id,
+            "source_type": event.source_type,
+            "change_summary": event.change_summary,
+            "changed_fields": event.changed_fields or [],
+            "raw_diff": event.raw_diff or {},
+            "detected_at": event.detected_at,
+            "processing_status": event.processing_status,
+            "notification_status": event.notification_status,
+            "current_snapshot": None,
+            "previous_snapshot": None,
+        }
+    schema = CompetitorChangeEventSchema.model_validate(data)
     return schema.model_dump()

@@ -555,10 +555,12 @@ class AnalyticsComparisonService:
     ) -> List[CompetitorChangeEventSchema]:
         events: List[CompetitorChangeEventSchema] = []
         for company_id in company_ids:
-            raw_events = await self.change_service.list_change_events(company_id, limit=limit)
+            serialised = await self.change_service.list_change_events_payload(
+                company_id, limit=limit
+            )
             events.extend(
-                CompetitorChangeEventSchema.model_validate(event, from_attributes=True)
-                for event in raw_events
+                CompetitorChangeEventSchema.model_validate(event)
+                for event in serialised
             )
 
         events.sort(key=lambda event: event.detected_at, reverse=True)

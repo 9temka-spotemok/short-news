@@ -19,7 +19,7 @@ from app.models.notification_channels import (
 )
 from app.models.notifications import NotificationSettings
 from app.models.preferences import UserPreferences
-from app.services.notification_dispatcher import NotificationDispatcher
+from app.domains.notifications.services import DispatcherService
 
 
 class CompetitorNotificationService:
@@ -32,10 +32,10 @@ class CompetitorNotificationService:
         self,
         session: AsyncSession,
         *,
-        dispatcher: Optional[NotificationDispatcher] = None,
+        dispatcher: Optional[DispatcherService] = None,
     ) -> None:
         self._session = session
-        self._dispatcher = dispatcher or NotificationDispatcher(session)
+        self._dispatcher = dispatcher or DispatcherService(session)
 
     async def dispatch_change_event(
         self,

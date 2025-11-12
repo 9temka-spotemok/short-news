@@ -222,7 +222,7 @@ class NewsService:
             return NewsStatsSchema(
                 total_count=stats.total_count,
                 category_counts=stats.category_counts,
-                source_type_counts=stats.source_counts,
+                source_type_counts=stats.source_type_counts,
                 recent_count=stats.recent_count,
                 high_priority_count=stats.high_priority_count
             )
@@ -247,7 +247,7 @@ class NewsService:
             return NewsStatsSchema(
                 total_count=stats.total_count,
                 category_counts=stats.category_counts,
-                source_type_counts=stats.source_counts,
+                source_type_counts=stats.source_type_counts,
                 recent_count=stats.recent_count,
                 high_priority_count=stats.high_priority_count
             )

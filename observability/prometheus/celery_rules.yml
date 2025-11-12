@@ -1,0 +1,41 @@
+groups:
+  - name: celery-observability
+    interval: 30s
+    rules:
+      - alert: CeleryTaskFailuresHigh
+        expr: sum(rate(celery_task_total{status="failure"}[5m])) > 0
+        for: 5m
+        labels:
+          severity: critical
+          team: backend
+        annotations:
+          summary: "Celery tasks are failing"
+          description: |
+            Detected at least one failing Celery task during the last 5 minutes.
+            Investigate worker logs and recent deployments.
+
+      - alert: CeleryDuplicateSpike
+        expr: sum(rate(celery_task_duplicates_total[5m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "Deduplication spike detected"
+          description: |
+            More than 5 deduplicated Celery tasks in the last 5 minutes.
+            Possible cause: unstable dedup keys or retry storms.
+
+      - alert: CeleryTaskStalled
+        expr: sum(celery_task_in_progress) > 0
+        for: 15m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "Celery tasks stalled"
+          description: |
+            Tasks have been running for longer than 15 minutes.
+            Check queue congestion and downstream dependencies.
+
+

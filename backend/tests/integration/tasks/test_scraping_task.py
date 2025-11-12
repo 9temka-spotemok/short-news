@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from uuid import uuid4
 
 import pytest
 from sqlalchemy import select
@@ -39,7 +40,8 @@ async def test_scrape_ai_blogs_async_ingests_news(
     monkeypatch: pytest.MonkeyPatch,
 ):
     async with async_session_factory() as session:
-        company = Company(name="OpenAI", website="https://openai.com")
+        unique_suffix = uuid4().hex[:8]
+        company = Company(name=f"OpenAI-{unique_suffix}", website=f"https://openai.com/{unique_suffix}")
         session.add(company)
         await session.commit()
         await session.refresh(company)

@@ -1,0 +1,35 @@
+# HELP shot_news_celery_task_total Total Celery tasks by status
+# TYPE shot_news_celery_task_total counter
+shot_news_celery_task_total{queue="analytics",status="success",task_name="analytics.recompute_single"} 16.0
+shot_news_celery_task_total{queue="analytics",status="failure",task_name="analytics.recompute_single"} 1.0
+# HELP shot_news_celery_task_created Total Celery tasks by status
+# TYPE shot_news_celery_task_created gauge
+shot_news_celery_task_created{queue="analytics",status="success",task_name="analytics.recompute_single"} 1.762949527491763e+09
+shot_news_celery_task_created{queue="analytics",status="failure",task_name="analytics.recompute_single"} 1.7629495296711674e+09
+# HELP shot_news_celery_task_duplicates_total Celery tasks skipped due to deduplication
+# TYPE shot_news_celery_task_duplicates_total counter
+shot_news_celery_task_duplicates_total{queue="analytics",task_name="analytics.recompute_single"} 1.0
+# HELP shot_news_celery_task_duplicates_created Celery tasks skipped due to deduplication
+# TYPE shot_news_celery_task_duplicates_created gauge
+shot_news_celery_task_duplicates_created{queue="analytics",task_name="analytics.recompute_single"} 1.7629495296711674e+09
+# HELP shot_news_celery_task_in_progress Currently executing Celery tasks
+# TYPE shot_news_celery_task_in_progress gauge
+shot_news_celery_task_in_progress{queue="analytics",task_name="analytics.recompute_single"} 0.0
+# HELP shot_news_celery_task_duration_seconds Celery task duration in seconds
+# TYPE shot_news_celery_task_duration_seconds histogram
+shot_news_celery_task_duration_seconds_bucket{le="0.1",queue="analytics",task_name="analytics.recompute_single"} 10.0
+shot_news_celery_task_duration_seconds_bucket{le="0.5",queue="analytics",task_name="analytics.recompute_single"} 16.0
+shot_news_celery_task_duration_seconds_bucket{le="1.0",queue="analytics",task_name="analytics.recompute_single"} 16.0
+shot_news_celery_task_duration_seconds_bucket{le="2.0",queue="analytics",task_name="analytics.recompute_single"} 16.0
+shot_news_celery_task_duration_seconds_bucket{le="5.0",queue="analytics",task_name="analytics.recompute_single"} 16.0
+shot_news_celery_task_duration_seconds_bucket{le="10.0",queue="analytics",task_name="analytics.recompute_single"} 16.0
+shot_news_celery_task_duration_seconds_bucket{le="30.0",queue="analytics",task_name="analytics.recompute_single"} 16.0
+shot_news_celery_task_duration_seconds_bucket{le="60.0",queue="analytics",task_name="analytics.recompute_single"} 16.0
+shot_news_celery_task_duration_seconds_bucket{le="120.0",queue="analytics",task_name="analytics.recompute_single"} 16.0
+shot_news_celery_task_duration_seconds_bucket{le="300.0",queue="analytics",task_name="analytics.recompute_single"} 16.0
+shot_news_celery_task_duration_seconds_bucket{le="+Inf",queue="analytics",task_name="analytics.recompute_single"} 16.0
+shot_news_celery_task_duration_seconds_count{queue="analytics",task_name="analytics.recompute_single"} 16.0
+shot_news_celery_task_duration_seconds_sum{queue="analytics",task_name="analytics.recompute_single"} 2.217951599508524
+# HELP shot_news_celery_task_duration_seconds_created Celery task duration in seconds
+# TYPE shot_news_celery_task_duration_seconds_created gauge
+shot_news_celery_task_duration_seconds_created{queue="analytics",task_name="analytics.recompute_single"} 1.762949527491763e+09

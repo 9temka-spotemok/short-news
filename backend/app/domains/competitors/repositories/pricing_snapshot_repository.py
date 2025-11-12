@@ -70,4 +70,15 @@ class PricingSnapshotRepository:
         await self.session.flush()
         return snapshot
 
+    async def fetch_by_id(
+        self,
+        snapshot_id: UUID,
+    ) -> Optional[CompetitorPricingSnapshot]:
+        query = select(CompetitorPricingSnapshot).where(
+            CompetitorPricingSnapshot.id == snapshot_id
+        )
+        result = await self.session.execute(query)
+        return result.scalar_one_or_none()
+
+
 

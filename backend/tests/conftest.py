@@ -235,10 +235,7 @@ async def test_app(async_session: AsyncSession) -> AsyncGenerator[FastAPI, None]
     await async_session.refresh(test_user)
 
     async def override_get_db() -> AsyncGenerator[AsyncSession, None]:
-        try:
-            yield async_session
-        finally:
-            await async_session.rollback()
+        yield async_session
 
     async def override_get_current_user() -> User:
         return test_user

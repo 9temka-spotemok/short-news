@@ -281,6 +281,14 @@ class ComparisonResponse(BaseModel):
     knowledge_graph: Dict[str, List[KnowledgeGraphEdgeResponse]] = Field(default_factory=dict)
 
 
+class AnalyticsChangeLogResponse(BaseModel):
+    """Paginated change log response for analytics v2."""
+
+    events: List[CompetitorChangeEventSchema] = Field(default_factory=list)
+    next_cursor: Optional[str] = None
+    total: int
+
+
 class NotificationSettingsSummary(BaseModel):
     """Notification settings snapshot included in exports."""
 

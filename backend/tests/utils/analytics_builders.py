@@ -38,7 +38,8 @@ async def create_company(
     name: str = "Acme Analytics",
     website: str = "https://example.com",
 ) -> Company:
-    company = Company(name=name, website=website)
+    unique_suffix = uuid4().hex[:8]
+    company = Company(name=f"{name}-{unique_suffix}", website=f"{website.rstrip('/')}/{unique_suffix}")
     session.add(company)
     await session.commit()
     await session.refresh(company)

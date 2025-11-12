@@ -56,7 +56,7 @@ class NewsScraperService:
                 "company_id": str(company.id) if company.id else company.name,
             }
             try:
-                await self._ingestion_service.create_news_item(payload)
+                news_item = await self._ingestion_service.create_news_item(payload)
             except Exception as exc:  # pragma: no cover - best-effort logging
                 logger.warning(
                     "Failed to ingest scraped news for %s (%s): %s",
@@ -65,7 +65,8 @@ class NewsScraperService:
                     exc,
                 )
             else:
-                ingested += 1
+                if getattr(news_item, "_was_created", False):
+                    ingested += 1
 
         try:
             await provider.close()

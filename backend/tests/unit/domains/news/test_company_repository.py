@@ -45,3 +45,5 @@ async def test_fetch_by_name_returns_none_for_unknown(async_session: AsyncSessio
     assert result is None
 
 
+
+

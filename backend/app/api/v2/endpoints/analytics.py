@@ -4,8 +4,10 @@ Analytics endpoints for API v2.
 
 from __future__ import annotations
 
+import base64
+import json
 from datetime import datetime, timezone
-from typing import List
+from typing import List, Optional, Sequence, Tuple
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -16,16 +18,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from kombu.exceptions import OperationalError as KombuOperationalError
 from redis import exceptions as redis_exceptions
 
-from app.api.dependencies import get_current_user
+from app.api.dependencies import get_current_user, get_analytics_facade
 from app.core.database import get_db
 from app.models import (
     AnalyticsGraphEdge,
     AnalyticsPeriod,
+    NewsTopic,
     RelationshipType,
+    SentimentLabel,
+    SourceType,
     User,
     UserReportPreset,
 )
 from app.schemas.analytics import (
+    AnalyticsChangeLogResponse,
     AnalyticsExportRequest,
     AnalyticsExportResponse,
     CompanyAnalyticsSnapshotResponse,
@@ -37,15 +43,41 @@ from app.schemas.analytics import (
     ReportPresetResponse,
     SnapshotSeriesResponse,
 )
-from app.services.analytics_service import AnalyticsService
-from app.services.analytics_comparison_service import AnalyticsComparisonService
 from app.tasks.analytics import (
     recompute_company_analytics,
     sync_company_knowledge_graph,
 )
+from app.domains.analytics import AnalyticsFacade
 
 
 router = APIRouter()
+
+
+def _encode_change_log_cursor(detected_at: datetime, event_id: UUID) -> str:
+    normalized = detected_at
+    if normalized.tzinfo is None:
+        normalized = normalized.replace(tzinfo=timezone.utc)
+    else:
+        normalized = normalized.astimezone(timezone.utc)
+    payload = {
+        "detected_at": normalized.isoformat(),
+        "event_id": str(event_id),
+    }
+    return base64.urlsafe_b64encode(json.dumps(payload).encode("utf-8")).decode("utf-8")
+
+
+def _decode_change_log_cursor(cursor: str) -> Tuple[datetime, UUID]:
+    try:
+        raw = base64.urlsafe_b64decode(cursor.encode("utf-8")).decode("utf-8")
+        payload = json.loads(raw)
+        detected_at = datetime.fromisoformat(payload["detected_at"])
+        if detected_at.tzinfo is None:
+            detected_at = detected_at.replace(tzinfo=timezone.utc)
+        detected_at = detected_at.astimezone(timezone.utc).replace(tzinfo=None)
+        event_id = UUID(payload["event_id"])
+        return detected_at, event_id
+    except Exception as exc:  # pragma: no cover - defensive: malformed cursors
+        raise ValueError("Invalid pagination cursor") from exc
 
 
 @router.get(
@@ -57,11 +89,10 @@ async def get_company_snapshots(
     company_id: UUID,
     period: AnalyticsPeriod = Query(default=AnalyticsPeriod.DAILY),
     limit: int = Query(default=30, ge=1, le=180),
-    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    analytics: AnalyticsFacade = Depends(get_analytics_facade),
 ) -> SnapshotSeriesResponse:
-    service = AnalyticsService(db)
-    snapshots = await service.get_snapshots(company_id, period, limit)
+    snapshots = await analytics.get_snapshots(company_id, period, limit)
     snapshot_models = [_snapshot_to_response(snapshot) for snapshot in snapshots]
     return SnapshotSeriesResponse(
         company_id=company_id,
@@ -78,11 +109,10 @@ async def get_company_snapshots(
 async def get_latest_snapshot(
     company_id: UUID,
     period: AnalyticsPeriod = Query(default=AnalyticsPeriod.DAILY),
-    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    analytics: AnalyticsFacade = Depends(get_analytics_facade),
 ) -> CompanyAnalyticsSnapshotResponse:
-    service = AnalyticsService(db)
-    snapshot = await service.get_latest_snapshot(company_id, period)
+    snapshot = await analytics.get_latest_snapshot(company_id, period)
     if not snapshot:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -137,6 +167,68 @@ async def trigger_graph_sync(
         period.value,
     )
     return {"status": "queued", "task_id": task.id}
+
+
+@router.get(
+    "/change-log",
+    response_model=AnalyticsChangeLogResponse,
+    summary="Get analytics change log events",
+)
+async def get_change_log(
+    company_id: UUID = Query(..., description="Company identifier"),
+    period: AnalyticsPeriod = Query(
+        default=AnalyticsPeriod.DAILY,
+        description="Analysis period (reserved for future filtering)",
+    ),
+    cursor: Optional[str] = Query(
+        default=None,
+        description="Opaque pagination cursor from previous page",
+    ),
+    limit: int = Query(default=20, ge=1, le=100),
+    source_types: Optional[Sequence[SourceType]] = Query(default=None),
+    topics: Optional[Sequence[NewsTopic]] = Query(default=None),
+    sentiments: Optional[Sequence[SentimentLabel]] = Query(default=None),
+    min_priority: Optional[float] = Query(default=None),
+    current_user: User = Depends(get_current_user),
+    analytics: AnalyticsFacade = Depends(get_analytics_facade),
+) -> AnalyticsChangeLogResponse:
+    del period  # Reserved for future use
+
+    if topics or sentiments or min_priority is not None:
+        logger.debug(
+            "Change log filter parameters (topics/sentiments/min_priority) "
+            "are currently not implemented for backend filtering",
+        )
+
+    cursor_detected_at: Optional[datetime] = None
+    cursor_event_id: Optional[UUID] = None
+    if cursor:
+        try:
+            cursor_detected_at, cursor_event_id = _decode_change_log_cursor(cursor)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(exc),
+            ) from exc
+
+    events, has_more, total = await analytics.get_change_log(
+        company_id=company_id,
+        limit=limit,
+        cursor_detected_at=cursor_detected_at,
+        cursor_event_id=cursor_event_id,
+        source_types=source_types,
+    )
+
+    next_cursor: Optional[str] = None
+    if has_more and events:
+        last_event = events[-1]
+        next_cursor = _encode_change_log_cursor(last_event.detected_at, last_event.id)
+
+    return AnalyticsChangeLogResponse(
+        events=events,
+        next_cursor=next_cursor,
+        total=total,
+    )
 
 
 @router.get(
@@ -220,9 +312,9 @@ async def build_comparison_overview(
     payload: ComparisonRequest,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    analytics: AnalyticsFacade = Depends(get_analytics_facade),
 ) -> ComparisonResponse:
-    service = AnalyticsComparisonService(db)
-    return await service.build_comparison(payload, user=current_user)
+    return await analytics.build_comparison(payload, user=current_user)
 
 
 @router.post(
@@ -234,9 +326,9 @@ async def build_export_payload(
     payload: AnalyticsExportRequest,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    analytics: AnalyticsFacade = Depends(get_analytics_facade),
 ) -> AnalyticsExportResponse:
-    service = AnalyticsComparisonService(db)
-    return await service.build_export_payload(payload, user=current_user)
+    return await analytics.build_export_payload(payload, user=current_user)
 
 
 def _ensure_timezone(value: datetime) -> datetime:

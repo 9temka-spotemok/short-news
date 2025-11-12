@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 from uuid import uuid4, UUID
 
 import pytest
@@ -8,27 +9,24 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.schemas.analytics import (
     ComparisonRequest,
-    ComparisonSubjectInput,
+    ComparisonSubjectRequest,
     AnalyticsExportRequest,
-    AnalyticsExportInclude,
-    NotificationIncludeConfig,
-    PresetIncludeConfig,
+    ExportIncludeOptions,
+    ComparisonFilters,
 )
-from app.schemas.analytics import ComparisonFilters
 from app.services.analytics_comparison_service import AnalyticsComparisonService
 from app.services.analytics_service import AnalyticsService
 from app.services.competitor_service import CompetitorAnalysisService
 from app.services.competitor_change_service import CompetitorChangeService
 from app.models import User, UserReportPreset
-from app.schemas.analytics import AnalyticsExportFormat
 
 
 class DummyUser(User):
     """Lightweight substitute for current user fixture."""
 
-    def __init__(self) -> None:
+    def __init__(self, email: Optional[str] = None) -> None:
         super().__init__(
-            email="analytics-user@example.com",
+            email=email or f"analytics-user-{uuid4()}@example.com",
             password_hash="unused",
             is_active=True,
         )
@@ -38,14 +36,14 @@ class DummyUser(User):
 async def test_build_comparison_basic(monkeypatch, async_session: AsyncSession) -> None:
     service = AnalyticsComparisonService(async_session)
     user = DummyUser()
-    await async_session.add(user)
+    async_session.add(user)
     await async_session.commit()
     await async_session.refresh(user)
 
     company_id = uuid4()
     period = "daily"
 
-    async def fake_get_snapshots(company_id: UUID, period: str, lookback: int):
+    async def fake_get_snapshots(self, company_id: UUID, period: str, lookback: int):
         return []
 
     async def fake_build_company_metrics(*args, **kwargs):
@@ -68,13 +66,16 @@ async def test_build_comparison_basic(monkeypatch, async_session: AsyncSession) 
 
     monkeypatch.setattr(AnalyticsService, "get_snapshots", fake_get_snapshots)
     monkeypatch.setattr(AnalyticsComparisonService, "_load_metrics_for_subject", fake_build_company_metrics)
+    async def fake_load_company_map(*args, **kwargs):
+        return {}
+
     monkeypatch.setattr(AnalyticsComparisonService, "_load_change_events", fake_load_change_events)
     monkeypatch.setattr(AnalyticsComparisonService, "_load_graph_edges", fake_load_graph_edges)
-    monkeypatch.setattr(AnalyticsComparisonService, "_load_company_map", lambda *args, **kwargs: {})
+    monkeypatch.setattr(AnalyticsComparisonService, "_load_company_map", fake_load_company_map)
 
     request = ComparisonRequest(
         subjects=[
-            ComparisonSubjectInput(
+            ComparisonSubjectRequest(
                 subject_type="company",
                 reference_id=company_id,
                 label="Company A",
@@ -99,14 +100,14 @@ async def test_build_comparison_basic(monkeypatch, async_session: AsyncSession) 
 async def test_build_export_payload(monkeypatch, async_session: AsyncSession) -> None:
     service = AnalyticsComparisonService(async_session)
     user = DummyUser()
-    await async_session.add(user)
+    async_session.add(user)
     await async_session.commit()
     await async_session.refresh(user)
 
     comparison_response = await service.build_comparison(
         ComparisonRequest(
             subjects=[
-                ComparisonSubjectInput(
+                ComparisonSubjectRequest(
                     subject_type="company",
                     reference_id=uuid4(),
                     label="Company",
@@ -136,18 +137,25 @@ async def test_build_export_payload(monkeypatch, async_session: AsyncSession) ->
         AnalyticsExportRequest(
             period="daily",
             lookback=7,
-            subjects=comparison_response.subjects,
-            include=AnalyticsExportInclude(
-                include_notifications=NotificationIncludeConfig(enabled=False),
-                include_presets=PresetIncludeConfig(enabled=False),
+            subjects=[
+                ComparisonSubjectRequest(
+                    subject_type="company",
+                    reference_id=uuid4(),
+                    label="Company",
+                )
+            ],
+            include=ExportIncludeOptions(
+                include_notifications=False,
+                include_presets=False,
             ),
-            export_format=AnalyticsExportFormat.JSON,
+            export_format="json",
         ),
         user=user,
     )
 
     assert export_payload.version.startswith("2.")
     assert export_payload.comparison.period == "daily"
-    assert export_payload.export_format == AnalyticsExportFormat.JSON
+    assert export_payload.export_format == "json"
+
 
 

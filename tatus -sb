@@ -1,0 +1,359 @@
+warning: in the working copy of 'frontend/src/pages/CompetitorAnalysisPage.tsx', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/frontend/src/pages/CompetitorAnalysisPage.tsx b/frontend/src/pages/CompetitorAnalysisPage.tsx[m
+[1mindex ffcd584..f0f45d0 100644[m
+[1m--- a/frontend/src/pages/CompetitorAnalysisPage.tsx[m
+[1m+++ b/frontend/src/pages/CompetitorAnalysisPage.tsx[m
+[36m@@ -1,5 +1,22 @@[m
+ import axios from 'axios'[m
+[31m-import { Activity, ArrowLeft, ArrowRight, BarChart3, Building2, Clock, Filter, Gauge, History, LineChart, Newspaper, PieChart, RefreshCw, Smile, Sparkles, TrendingUp, Users } from 'lucide-react'[m
+[32m+[m[32mimport {[m
+[32m+[m[32m  Activity,[m
+[32m+[m[32m  ArrowLeft,[m
+[32m+[m[32m  ArrowRight,[m
+[32m+[m[32m  BarChart3,[m
+[32m+[m[32m  Building2,[m
+[32m+[m[32m  Clock,[m
+[32m+[m[32m  Gauge,[m
+[32m+[m[32m  History,[m
+[32m+[m[32m  LineChart,[m
+[32m+[m[32m  Newspaper,[m
+[32m+[m[32m  PieChart,[m
+[32m+[m[32m  RefreshCw,[m
+[32m+[m[32m  Smile,[m
+[32m+[m[32m  Sparkles,[m
+[32m+[m[32m  TrendingUp,[m
+[32m+[m[32m  Users[m
+[32m+[m[32m} from 'lucide-react'[m
+ import { useCallback, useEffect, useMemo, useState } from 'react'[m
+ import toast from 'react-hot-toast'[m
+ import BrandPreview from '../components/BrandPreview'[m
+[36m@@ -14,6 +31,7 @@[m [mimport MultiImpactTrendChart, { MultiImpactSeriesDescriptor } from '../component[m
+ import ProgressSteps from '../components/ProgressSteps'[m
+ import { TeamInsights } from '../components/TeamInsights'[m
+ import ThemeAnalysis from '../components/ThemeAnalysis'[m
+[32m+[m[32mimport { FiltersPanel, useFiltersState } from '../features/competitor-analysis'[m
+ import { ApiService } from '../services/api'[m
+ import {[m
+   AnalyticsExportRequestPayload,[m
+[36m@@ -36,36 +54,6 @@[m [mimport {[m
+ type AnalysisMode = 'company' | 'custom'[m
+ type Step = 'select' | 'suggest' | 'analyze'[m
+ [m
+[31m-const SOURCE_TYPE_OPTIONS = [[m
+[31m-  { value: 'blog', label: 'Blog' },[m
+[31m-  { value: 'news_site', label: 'News Site' },[m
+[31m-  { value: 'press_release', label: 'Press Release' },[m
+[31m-  { value: 'twitter', label: 'Twitter/X' },[m
+[31m-  { value: 'github', label: 'GitHub' },[m
+[31m-  { value: 'reddit', label: 'Reddit' }[m
+[31m-][m
+[31m-[m
+[31m-const SENTIMENT_OPTIONS = [[m
+[31m-  { value: 'positive', label: 'Positive' },[m
+[31m-  { value: 'neutral', label: 'Neutral' },[m
+[31m-  { value: 'negative', label: 'Negative' },[m
+[31m-  { value: 'mixed', label: 'Mixed' }[m
+[31m-][m
+[31m-[m
+[31m-const TOPIC_OPTIONS = [[m
+[31m-  { value: 'product', label: 'Product & Launches' },[m
+[31m-  { value: 'strategy', label: 'Strategy' },[m
+[31m-  { value: 'finance', label: 'Finance' },[m
+[31m-  { value: 'technology', label: 'Technology' },[m
+[31m-  { value: 'security', label: 'Security' },[m
+[31m-  { value: 'research', label: 'Research' },[m
+[31m-  { value: 'community', label: 'Community' },[m
+[31m-  { value: 'talent', label: 'Talent' },[m
+[31m-  { value: 'regulation', label: 'Regulation' },[m
+[31m-  { value: 'market', label: 'Market' },[m
+[31m-  { value: 'other', label: 'Other' }[m
+[31m-][m
+[31m-[m
+ const formatLabel = (value: string) =>[m
+   value[m
+     .replace(/_/g, ' ')[m
+[36m@@ -94,10 +82,6 @@[m [mexport default function CompetitorAnalysisPage() {[m
+   const [themesData, setThemesData] = useState<any>(null)[m
+   const [loading, setLoading] = useState(false)[m
+   const [error, setError] = useState<string | null>(null)[m
+[31m-  const [sourceTypeFilters, setSourceTypeFilters] = useState<string[]>([])[m
+[31m-  const [topicFilters, setTopicFilters] = useState<string[]>([])[m
+[31m-  const [sentimentFilters, setSentimentFilters] = useState<string[]>([])[m
+[31m-  const [minPriorityFilter, setMinPriorityFilter] = useState<number | null>(null)[m
+   const [changeEvents, setChangeEvents] = useState<CompetitorChangeEvent[]>([])[m
+   const [changeEventsLoading, setChangeEventsLoading] = useState(false)[m
+   const [changeEventsError, setChangeEventsError] = useState<string | null>(null)[m
+[36m@@ -125,6 +109,21 @@[m [mexport default function CompetitorAnalysisPage() {[m
+   const [pendingPresetId, setPendingPresetId] = useState('')[m
+   const [analysisRange, setAnalysisRange] = useState<{ from: string; to: string } | null>(null)[m
+ [m
+[32m+[m[32m  const {[m
+[32m+[m[32m    sourceTypeFilters,[m
+[32m+[m[32m    topicFilters,[m
+[32m+[m[32m    sentimentFilters,[m
+[32m+[m[32m    minPriorityFilter,[m
+[32m+[m[32m    hasActiveFilters,[m
+[32m+[m[32m    toggleSourceType,[m
+[32m+[m[32m    toggleTopic: toggleTopicFilter,[m
+[32m+[m[32m    toggleSentiment: toggleSentimentFilter,[m
+[32m+[m[32m    updateMinPriority: updateMinPriorityFilter,[m
+[32m+[m[32m    clearFilters,[m
+[32m+[m[32m    setFilters,[m
+[32m+[m[32m    applyFiltersToPayload: applyFiltersToPayloadWithState[m
+[32m+[m[32m  } = useFiltersState()[m
+[32m+[m
+   const SUBJECT_COLORS = ['#2563eb', '#0ea5e9', '#10b981', '#f97316', '#8b5cf6', '#f43f5e', '#14b8a6', '#d946ef'][m
+ [m
+   const subjectColorMap = useMemo(() => {[m
+[36m@@ -152,72 +151,6 @@[m [mexport default function CompetitorAnalysisPage() {[m
+     }[m
+   }, [selectedCompany, analysisMode])[m
+ [m
+[31m-  const toggleSourceType = (value: string) => {[m
+[31m-    setSourceTypeFilters(prev =>[m
+[31m-      prev.includes(value) ? prev.filter(item => item !== value) : [...prev, value][m
+[31m-    )[m
+[31m-  }[m
+[31m-[m
+[31m-  const toggleTopicFilter = (value: string) => {[m
+[31m-    setTopicFilters(prev =>[m
+[31m-      prev.includes(value) ? prev.filter(item => item !== value) : [...prev, value][m
+[31m-    )[m
+[31m-  }[m
+[31m-[m
+[31m-  const toggleSentimentFilter = (value: string) => {[m
+[31m-    setSentimentFilters(prev =>[m
+[31m-      prev.includes(value) ? prev.filter(item => item !== value) : [...prev, value][m
+[31m-    )[m
+[31m-  }[m
+[31m-[m
+[31m-  const clearFilters = () => {[m
+[31m-    setSourceTypeFilters([])[m
+[31m-    setTopicFilters([])[m
+[31m-    setSentimentFilters([])[m
+[31m-    setMinPriorityFilter(null)[m
+[31m-  }[m
+[31m-[m
+[31m-  type FilteredPayload<T> = T & {[m
+[31m-    source_types?: string[][m
+[31m-    topics?: string[][m
+[31m-    sentiments?: string[][m
+[31m-    min_priority?: number[m
+[31m-  }[m
+[31m-[m
+[31m-  type FilterOptions = {[m
+[31m-    sourceTypes?: string[][m
+[31m-    topics?: string[][m
+[31m-    sentiments?: string[][m
+[31m-    minPriority?: number | null[m
+[31m-  }[m
+[31m-  [m
+[31m-  const applyFiltersToPayload = <T extends Record<string, unknown>>([m
+[31m-    payload: T,[m
+[31m-    options: FilterOptions = {}[m
+[31m-  ): FilteredPayload<T> => {[m
+[31m-    const {[m
+[31m-      sourceTypes = sourceTypeFilters,[m
+[31m-      topics = topicFilters,[m
+[31m-      sentiments = sentimentFilters,[m
+[31m-      minPriority = minPriorityFilter[m
+[31m-    } = options[m
+[31m-[m
+[31m-    const nextPayload: FilteredPayload<T> = { ...payload }[m
+[31m-    if (sourceTypes.length) {[m
+[31m-      nextPayload.source_types = sourceTypes[m
+[31m-    }[m
+[31m-    if (topics.length) {[m
+[31m-      nextPayload.topics = topics[m
+[31m-    }[m
+[31m-    if (sentiments.length) {[m
+[31m-      nextPayload.sentiments = sentiments[m
+[31m-    }[m
+[31m-    if (minPriority !== null && minPriority !== undefined) {[m
+[31m-      nextPayload.min_priority = Number(minPriority.toFixed(2))[m
+[31m-    }[m
+[31m-    return nextPayload[m
+[31m-  }[m
+[31m-[m
+   const buildComparisonPayload = ([m
+     subjects: ComparisonSubjectRequest[],[m
+     period: AnalyticsPeriod,[m
+[36m@@ -242,7 +175,7 @@[m [mexport default function CompetitorAnalysisPage() {[m
+       payload.date_to = range.to[m
+     }[m
+ [m
+[31m-    const filtersPayload = applyFiltersToPayload({}, {})[m
+[32m+[m[32m    const filtersPayload = applyFiltersToPayloadWithState({})[m
+     if (filtersPayload.source_types || filtersPayload.topics || filtersPayload.sentiments || filtersPayload.min_priority !== undefined) {[m
+       payload.filters = {[m
+         topics: filtersPayload.topics ?? [],[m
+[36m@@ -255,112 +188,6 @@[m [mexport default function CompetitorAnalysisPage() {[m
+     return payload[m
+   }[m
+ [m
+[31m-  const renderFilterControls = () => ([m
+[31m-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">[m
+[31m-      <div className="flex items-center justify-between mb-4">[m
+[31m-        <div className="flex items-center space-x-3">[m
+[31m-          <div className="p-2 bg-primary-100 rounded-lg">[m
+[31m-            <Filter className="w-5 h-5 text-primary-600" />[m
+[31m-          </div>[m
+[31m-          <div>[m
+[31m-            <h4 className="text-sm font-semibold text-gray-900">Advanced Filters</h4>[m
+[31m-            <p className="text-xs text-gray-500">Fine-tune analytics results by source, topic, sentiment and priority</p>[m
+[31m-          </div>[m
+[31m-        </div>[m
+[31m-        <button[m
+[31m-          onClick={clearFilters}[m
+[31m-          disabled={!sourceTypeFilters.length && !topicFilters.length && !sentimentFilters.length && minPriorityFilter === null}[m
+[31m-          className="text-sm text-gray-500 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"[m
+[31m-        >[m
+[31m-          Reset[m
+[31m-        </button>[m
+[31m-      </div>[m
+[31m-[m
+[31m-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">[m
+[31m-        <div>[m
+[31m-          <h5 className="text-xs font-medium text-gray-600 uppercase mb-3">Source Types</h5>[m
+[31m-          <div className="space-y-2">[m
+[31m-            {SOURCE_TYPE_OPTIONS.map(option => ([m
+[31m-              <label key={option.value} className="flex items-center space-x-2 text-sm text-gray-700">[m
+[31m-                <input[m
+[31m-                  type="checkbox"[m
+[31m-                  className="h-4 w-4 text-primary-600 border-gray-300 rounded"[m
+[31m-                  checked={sourceTypeFilters.includes(option.value)}[m
+[31m-                  onChange={() => toggleSourceType(option.value)}[m
+[31m-                />[m
+[31m-                <span>{option.label}</span>[m
+[31m-              </label>[m
+[31m-            ))}[m
+[31m-          </div>[m
+[31m-        </div>[m
+[31m-[m
+[31m-        <div>[m
+[31m-          <h5 className="text-xs font-medium text-gray-600 uppercase mb-3">Topics</h5>[m
+[31m-          <div className="grid grid-cols-2 gap-2">[m
+[31m-            {TOPIC_OPTIONS.map(option => ([m
+[31m-              <button[m
+[31m-                key={option.value}[m
+[31m-                type="button"[m
+[31m-                onClick={() => toggleTopicFilter(option.value)}[m
+[31m-                className={`px-3 py-1 text-xs rounded-full border transition-colors ${topicFilters.includes(option.value)[m
+[31m-                  ? 'bg-blue-100 border-blue-300 text-blue-700'[m
+[31m-                  : 'bg-gray-100 border-gray-200 text-gray-600 hover:border-gray-300'[m
+[31m-                }`}[m
+[31m-              >[m
+[31m-                {option.label}[m
+[31m-              </button>[m
+[31m-            ))}[m
+[31m-          </div>[m
+[31m-        </div>[m
+[31m-[m
+[31m-        <div className="space-y-4">[m
+[31m-          <div>[m
+[31m-            <h5 className="text-xs font-medium text-gray-600 uppercase mb-3">Sentiment</h5>[m
+[31m-            <div className="space-y-2">[m
+[31m-              {SENTIMENT_OPTIONS.map(option => ([m
+[31m-                <label key={option.value} className="flex items-center space-x-2 text-sm text-gray-700">[m
+[31m-                  <input[m
+[31m-                    type="checkbox"[m
+[31m-                    className="h-4 w-4 text-primary-600 border-gray-300 rounded"[m
+[31m-                    checked={sentimentFilters.includes(option.value)}[m
+[31m-                    onChange={() => toggleSentimentFilter(option.value)}[m
+[31m-                  />[m
+[31m-                  <span>{option.label}</span>[m
+[31m-                </label>[m
+[31m-              ))}[m
+[31m-            </div>[m
+[31m-          </div>[m
+[31m-[m
+[31m-          <div>[m
+[31m-            <h5 className="text-xs font-medium text-gray-600 uppercase mb-2">Minimum Priority</h5>[m
+[31m-            <div className="flex items-center space-x-3">[m
+[31m-              <input[m
+[31m-                type="range"[m
+[31m-                min={0}[m
+[31m-                max={1}[m
+[31m-                step={0.05}[m
+[31m-                value={minPriorityFilter ?? 0}[m
+[31m-                onChange={event => {[m
+[31m-                  const value = Number(event.target.value)[m
+[31m-                  if (value <= 0) {[m
+[31m-                    setMinPriorityFilter(null)[m
+[31m-                  } else {[m
+[31m-                    setMinPriorityFilter(Number(value.toFixed(2)))[m
+[31m-                  }[m
+[31m-                }}[m
+[31m-                className="w-full"[m
+[31m-              />[m
+[31m-              <span className="text-sm font-medium text-gray-700 w-12 text-right">[m
+[31m-                {minPriorityFilter !== null ? minPriorityFilter.toFixed(2) : 'Off'}[m
+[31m-              </span>[m
+[31m-            </div>[m
+[31m-            <p className="text-xs text-gray-500 mt-1">Filter out low-priority news items below the selected threshold.</p>[m
+[31m-          </div>[m
+[31m-        </div>[m
+[31m-      </div>[m
+[31m-    </div>[m
+[31m-  )[m
+[31m-[m
+   const sentimentColors: Record<string, string> = {[m
+     positive: 'bg-green-500',[m
+     neutral: 'bg-gray-400',[m
+[36m@@ -1052,10 +879,12 @@[m [mexport default function CompetitorAnalysisPage() {[m
+           reason: 'Preset'[m
+         }))[m
+       )[m
+[31m-      setSourceTypeFilters(presetSourceTypes)[m
+[31m-      setTopicFilters(presetTopics)[m
+[31m-      setSentimentFilters(presetSentiments)[m
+[31m-      setMinPriorityFilter(presetMinPriority)[m
+[32m+[m[32m      setFilters({[m
+[32m+[m[32m        sourceTypes: presetSourceTypes,[m
+[32m+[m[32m        topics: presetTopics,[m
+[32m+[m[32m        sentiments: presetSentiments,[m
+[32m+[m[32m        minPriority: presetMinPriority[m
+[32m+[m[32m      })[m
+ [m
+       await runAnalysis({[m
+         primaryCompany,[m
+[36m@@ -2358,7 +2187,18 @@[m [mexport default function CompetitorAnalysisPage() {[m
+         />[m
+ [m
+         <div className="mt-6">[m
+[31m-          {renderFilterControls()}[m
+[32m+[m[32m          <FiltersPanel[m
+[32m+[m[32m            sourceTypeFilters={sourceTypeFilters}[m
+[32m+[m[32m            topicFilters={topicFilters}[m
+[32m+[m[32m            sentimentFilters={sentimentFilters}[m
+[32m+[m[32m            minPriorityFilter={minPriorityFilter}[m
+[32m+[m[32m            hasActiveFilters={hasActiveFilters}[m
+[32m+[m[32m            onToggleSourceType={toggleSourceType}[m
+[32m+[m[32m            onToggleTopic={toggleTopicFilter}[m
+[32m+[m[32m            onToggleSentiment={toggleSentimentFilter}[m
+[32m+[m[32m            onMinPriorityChange={updateMinPriorityFilter}[m
+[32m+[m[32m            onClearFilters={clearFilters}[m
+[32m+[m[32m          />[m
+         </div>[m
+         [m
+         {selectedCompany && ([m
+[36m@@ -2660,7 +2500,18 @@[m [mexport default function CompetitorAnalysisPage() {[m
+         />[m
+ [m
+         <div className="mt-6">[m
+[31m-          {renderFilterControls()}[m
+[32m+[m[32m          <FiltersPanel[m
+[32m+[m[32m            sourceTypeFilters={sourceTypeFilters}[m
+[32m+[m[32m            topicFilters={topicFilters}[m
+[32m+[m[32m            sentimentFilters={sentimentFilters}[m
+[32m+[m[32m            minPriorityFilter={minPriorityFilter}[m
+[32m+[m[32m            hasActiveFilters={hasActiveFilters}[m
+[32m+[m[32m            onToggleSourceType={toggleSourceType}[m
+[32m+[m[32m            onToggleTopic={toggleTopicFilter}[m
+[32m+[m[32m            onToggleSentiment={toggleSentimentFilter}[m
+[32m+[m[32m            onMinPriorityChange={updateMinPriorityFilter}[m
+[32m+[m[32m            onClearFilters={clearFilters}[m
+[32m+[m[32m          />[m
+         </div>[m
+         [m
+         <div class

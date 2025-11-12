@@ -5,7 +5,7 @@ from typing import Callable
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import delete, select
 
 from app.domains.competitors.services.notification_service import (
     CompetitorNotificationService,
@@ -96,7 +96,20 @@ async def test_dispatch_change_event_skips_without_watchers(async_session):
 
 
 async def _setup_company_and_user(async_session):
-    company = Company(name="Acme Analytics", website="https://acme.example")
+    # Ensure clean slate between tests to avoid cross-test subscriptions.
+    for model in (
+        NotificationEvent,
+        NotificationSubscription,
+        NotificationChannel,
+        NotificationSettings,
+        UserPreferences,
+        Company,
+        User,
+    ):
+        await async_session.execute(delete(model))
+    await async_session.commit()
+
+    company = Company(name=f"Acme Analytics {uuid4()}", website="https://acme.example")
     user = User(
         email=f"watcher-{uuid4()}@example.com",
         password_hash="not-used",
@@ -143,4 +156,5 @@ async def _enable_notifications(async_session, user: User, company: Company) -> 
     )
     async_session.add(subscription)
     await async_session.commit()
+
 

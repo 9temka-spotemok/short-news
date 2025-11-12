@@ -14,9 +14,7 @@ nest_asyncio.apply()
 from app.celery_app import celery_app
 from app.core.database import AsyncSessionLocal
 from app.models import NewsItem, Notification
-from app.services.notification_service import NotificationService
-from app.services.notification_dispatcher import NotificationDispatcher
-from app.services.notification_delivery_executor import NotificationDeliveryExecutor
+from app.domains.notifications import NotificationsFacade
 from sqlalchemy import select, and_
 
 
@@ -45,6 +43,9 @@ async def _process_new_news_notifications_async(news_id: str):
     import uuid
     
     async with AsyncSessionLocal() as db:
+        notifications_facade = NotificationsFacade(db)
+        notification_service = notifications_facade.notification_service
+
         # Get news item
         result = await db.execute(
             select(NewsItem).where(NewsItem.id == uuid.UUID(news_id))
@@ -55,13 +56,12 @@ async def _process_new_news_notifications_async(news_id: str):
             return {"status": "error", "message": "News item not found"}
         
         # Check triggers
-        notification_service = NotificationService(db)
-        notifications = await notification_service.check_new_news_triggers(news_item)
+        created_notifications = await notification_service.check_new_news_triggers(news_item)
         
         return {
             "status": "success",
             "news_id": news_id,
-            "notifications_created": len(notifications)
+            "notifications_created": len(created_notifications)
         }
 
 
@@ -85,7 +85,8 @@ def check_daily_trends(self):
 async def _check_daily_trends_async():
     """Async implementation of daily trends checking"""
     async with AsyncSessionLocal() as db:
-        notification_service = NotificationService(db)
+        notifications_facade = NotificationsFacade(db)
+        notification_service = notifications_facade.notification_service
         
         # Check category trends
         category_notifications = await notification_service.check_category_trends(hours=24, threshold=5)
@@ -116,7 +117,8 @@ def check_company_activity(self):
 async def _check_company_activity_async():
     """Async implementation of company activity checking"""
     async with AsyncSessionLocal() as db:
-        notification_service = NotificationService(db)
+        notifications_facade = NotificationsFacade(db)
+        notification_service = notifications_facade.notification_service
         
         # Check for companies with 3+ news in last 24 hours
         activity_notifications = await notification_service.check_company_activity(hours=24)
@@ -199,8 +201,9 @@ def dispatch_notification_deliveries(self):
 async def _dispatch_notification_deliveries_async():
     """Async implementation for dispatching notification deliveries."""
     async with AsyncSessionLocal() as db:
-        dispatcher = NotificationDispatcher(db)
-        executor = NotificationDeliveryExecutor(db)
+        notifications_facade = NotificationsFacade(db)
+        dispatcher = notifications_facade.dispatcher
+        executor = notifications_facade.delivery_executor
 
         deliveries = await dispatcher.get_pending_deliveries(limit=25)
         sent = 0

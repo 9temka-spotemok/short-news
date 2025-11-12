@@ -2,7 +2,7 @@
 Database configuration and session management
 """
 
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from loguru import logger
 
@@ -49,7 +49,7 @@ async def init_db():
     try:
         # Test connection
         async with engine.begin() as conn:
-            await conn.execute(select(1))
+            await conn.execute(text("SELECT 1"))
         
         logger.info("Database connection established successfully")
     except Exception as e:

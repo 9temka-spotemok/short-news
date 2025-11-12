@@ -8,7 +8,7 @@ import hashlib
 import json
 import uuid
 from datetime import datetime, timezone
-from typing import Optional, List
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from loguru import logger
 from sqlalchemy import desc, select
@@ -58,6 +58,43 @@ class CompetitorChangeService:
             limit=limit,
             status=status,
         )
+
+    async def list_change_events_payload(
+        self,
+        company_id: uuid.UUID,
+        limit: int = 20,
+        status: Optional[ChangeProcessingStatus] = None,
+    ) -> List[Dict[str, Any]]:
+        return await self._domain_change.list_change_events_payload(
+            company_id,
+            limit=limit,
+            status=status,
+        )
+
+    async def paginate_change_events_payload(
+        self,
+        company_id: uuid.UUID,
+        *,
+        limit: int = 20,
+        status: Optional[ChangeProcessingStatus] = None,
+        cursor_detected_at: Optional[datetime] = None,
+        cursor_event_id: Optional[uuid.UUID] = None,
+        source_types: Optional[Sequence[SourceType]] = None,
+    ) -> Tuple[List[Dict[str, Any]], bool, int]:
+        return await self._domain_change.paginate_change_events_payload(
+            company_id,
+            limit=limit,
+            status=status,
+            cursor_detected_at=cursor_detected_at,
+            cursor_event_id=cursor_event_id,
+            source_types=source_types,
+        )
+
+    async def fetch_change_event_payload(
+        self,
+        event_id: uuid.UUID,
+    ) -> Optional[Dict[str, Any]]:
+        return await self._domain_change.fetch_change_event_payload(event_id)
 
     async def process_pricing_page(
         self,
