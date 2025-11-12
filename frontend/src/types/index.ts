@@ -370,6 +370,12 @@ export interface AnalyticsExportResponse {
   presets: ReportPreset[]
 }
 
+export interface AnalyticsChangeLogResponse {
+  events: CompetitorChangeEvent[]
+  next_cursor: string | null
+  total: number
+}
+
 export interface ReportPresetCreateRequest {
   name: string
   description?: string | null

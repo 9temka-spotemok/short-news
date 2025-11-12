@@ -1,5 +1,6 @@
 import { useAuthStore } from '@/store/authStore'
 import type {
+  AnalyticsChangeLogResponse,
   AnalyticsExportRequestPayload,
   AnalyticsExportResponse,
   AnalyticsPeriod,
@@ -10,6 +11,7 @@ import type {
   CompanyAnalyticsSnapshot,
   CompanyScanRequest,
   CompanyScanResult,
+  ComparisonFilters,
   ComparisonRequestPayload,
   ComparisonResponse,
   CompetitorChangeEvent,
@@ -615,6 +617,55 @@ export class ApiService {
     if (limit) params.append('limit', limit.toString())
 
     const response = await apiV2.get<KnowledgeGraphEdge[]>('/analytics/graph', { params })
+    return response.data
+  }
+
+  static async getAnalyticsChangeLog(params: {
+    companyId?: string
+    subjectKey?: string
+    period?: AnalyticsPeriod
+    cursor?: string | null
+    limit?: number
+    filters?: ComparisonFilters
+  }): Promise<AnalyticsChangeLogResponse> {
+    const queryParams: Record<string, any> = {}
+
+    if (params.companyId) {
+      queryParams.company_id = params.companyId
+    }
+    if (params.subjectKey) {
+      queryParams.subject_key = params.subjectKey
+    }
+    if (params.period) {
+      queryParams.period = params.period
+    }
+    if (params.cursor) {
+      queryParams.cursor = params.cursor
+    }
+    if (typeof params.limit === 'number') {
+      queryParams.limit = params.limit
+    }
+    if (params.filters) {
+      if (params.filters.topics?.length) {
+        queryParams.topics = params.filters.topics
+      }
+      if (params.filters.sentiments?.length) {
+        queryParams.sentiments = params.filters.sentiments
+      }
+      if (params.filters.source_types?.length) {
+        queryParams.source_types = params.filters.source_types
+      }
+      if (
+        params.filters.min_priority !== undefined &&
+        params.filters.min_priority !== null
+      ) {
+        queryParams.min_priority = params.filters.min_priority
+      }
+    }
+
+    const response = await apiV2.get<AnalyticsChangeLogResponse>('/analytics/change-log', {
+      params: queryParams
+    })
     return response.data
   }
 
