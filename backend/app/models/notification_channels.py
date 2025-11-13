@@ -8,22 +8,18 @@ from datetime import datetime
 from typing import Optional, Dict, Any
 import enum
 
-from sqlalchemy import (
-    Boolean,
-    Column,
-    DateTime,
-    Enum,
-    ForeignKey,
-    Integer,
-    String,
-    UniqueConstraint,
-)
+from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID, JSON
 from sqlalchemy.orm import relationship
 
 from .base import BaseModel
 from .notifications import NotificationPriority, NotificationType
 from .user import User
+
+
+def enum_values(enum_cls):
+    """Return enum values preserving definition order."""
+    return [member.value for member in enum_cls]
 
 
 class NotificationChannelType(str, enum.Enum):
@@ -63,7 +59,11 @@ class NotificationChannel(BaseModel):
     __tablename__ = "notification_channels"
 
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    channel_type = Column(Enum(NotificationChannelType), nullable=False, index=True)
+    channel_type = Column(
+        Enum(NotificationChannelType, name="notificationchanneltype", values_callable=enum_values),
+        nullable=False,
+        index=True,
+    )
     destination = Column(String(500), nullable=False)
     metadata_json = Column("metadata", JSON, default=dict)
     is_verified = Column(Boolean, nullable=False, default=False)
@@ -85,10 +85,18 @@ class NotificationSubscription(BaseModel):
 
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     channel_id = Column(UUID(as_uuid=True), ForeignKey("notification_channels.id", ondelete="CASCADE"), nullable=False)
-    notification_type = Column(Enum(NotificationType), nullable=False, index=True)
+    notification_type = Column(
+        Enum(NotificationType, name="notification_type", values_callable=enum_values),
+        nullable=False,
+        index=True,
+    )
     enabled = Column(Boolean, nullable=False, default=True)
     frequency = Column(String(50), nullable=False, default="immediate")
-    min_priority = Column(Enum(NotificationPriority), nullable=False, default=NotificationPriority.MEDIUM)
+    min_priority = Column(
+        Enum(NotificationPriority, name="notification_priority", values_callable=enum_values),
+        nullable=False,
+        default=NotificationPriority.MEDIUM,
+    )
     filters = Column(JSON, default=dict)
 
     user = relationship(User, backref="notification_subscriptions")
@@ -105,11 +113,24 @@ class NotificationEvent(BaseModel):
     __tablename__ = "notification_events"
 
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    notification_type = Column(Enum(NotificationType), nullable=False, index=True)
-    priority = Column(Enum(NotificationPriority), nullable=False, default=NotificationPriority.MEDIUM)
+    notification_type = Column(
+        Enum(NotificationType, name="notification_type", values_callable=enum_values),
+        nullable=False,
+        index=True,
+    )
+    priority = Column(
+        Enum(NotificationPriority, name="notification_priority", values_callable=enum_values),
+        nullable=False,
+        default=NotificationPriority.MEDIUM,
+    )
     payload = Column(JSON, default=dict)
     deduplication_key = Column(String(255), index=True)
-    status = Column(Enum(NotificationEventStatus), nullable=False, default=NotificationEventStatus.QUEUED, index=True)
+    status = Column(
+        Enum(NotificationEventStatus, name="notificationeventstatus", values_callable=enum_values),
+        nullable=False,
+        default=NotificationEventStatus.QUEUED,
+        index=True,
+    )
     scheduled_for = Column(DateTime(timezone=True))
     dispatched_at = Column(DateTime(timezone=True))
     delivered_at = Column(DateTime(timezone=True))
@@ -126,7 +147,12 @@ class NotificationDelivery(BaseModel):
 
     event_id = Column(UUID(as_uuid=True), ForeignKey("notification_events.id", ondelete="CASCADE"), nullable=False)
     channel_id = Column(UUID(as_uuid=True), ForeignKey("notification_channels.id", ondelete="CASCADE"), nullable=False)
-    status = Column(Enum(NotificationDeliveryStatus), nullable=False, default=NotificationDeliveryStatus.PENDING, index=True)
+    status = Column(
+        Enum(NotificationDeliveryStatus, name="notificationdeliverystatus", values_callable=enum_values),
+        nullable=False,
+        default=NotificationDeliveryStatus.PENDING,
+        index=True,
+    )
     attempt = Column(Integer, nullable=False, default=0)
     last_attempt_at = Column(DateTime(timezone=True))
     next_retry_at = Column(DateTime(timezone=True))

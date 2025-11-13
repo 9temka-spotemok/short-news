@@ -2,16 +2,23 @@
 Notification models
 """
 
-from sqlalchemy import Column, String, ForeignKey, Enum, Boolean, Integer, Text
-from sqlalchemy.dialects.postgresql import UUID, JSON
-from sqlalchemy.orm import relationship
 import enum
+
+from sqlalchemy import Boolean, Column, Enum, ForeignKey, Integer, String, Text
+from sqlalchemy.dialects.postgresql import JSON, UUID
+from sqlalchemy.orm import relationship
 
 from .base import BaseModel
 
 
+def enum_values(enum_cls):
+    """Return enum values preserving definition order."""
+    return [member.value for member in enum_cls]
+
+
 class NotificationType(str, enum.Enum):
     """Notification type enumeration"""
+
     NEW_NEWS = "new_news"
     COMPANY_ACTIVE = "company_active"
     PRICING_CHANGE = "pricing_change"
@@ -24,6 +31,7 @@ class NotificationType(str, enum.Enum):
 
 class NotificationPriority(str, enum.Enum):
     """Notification priority enumeration"""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -63,7 +71,14 @@ class Notification(BaseModel):
     __tablename__ = "notifications"
     
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    type = Column(Enum(NotificationType), nullable=False)
+    type = Column(
+        Enum(
+            NotificationType,
+            name="notification_type",
+            values_callable=enum_values,
+        ),
+        nullable=False,
+    )
     title = Column(String(255), nullable=False)
     message = Column(Text, nullable=False)
     
@@ -71,7 +86,14 @@ class Notification(BaseModel):
     data = Column(JSON, default=dict)
     
     is_read = Column(Boolean, default=False, index=True)
-    priority = Column(Enum(NotificationPriority), default=NotificationPriority.MEDIUM)
+    priority = Column(
+        Enum(
+            NotificationPriority,
+            name="notification_priority",
+            values_callable=enum_values,
+        ),
+        default=NotificationPriority.MEDIUM,
+    )
     
     # Relationships
     user = relationship("User", backref="notifications")

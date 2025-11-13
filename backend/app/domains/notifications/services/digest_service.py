@@ -291,16 +291,24 @@ class DigestService:
     ) -> Dict[str, Any]:
         digest_format = format_type or user_prefs.digest_format or DigestFormat.SHORT.value
 
+        source_value = getattr(news_item, "source", None)
+        if not source_value:
+            source_type = getattr(news_item, "source_type", None)
+            if source_type:
+                source_value = getattr(source_type, "value", str(source_type))
+
+        impact_value = getattr(news_item, "impact_score", None)
+
         base_data = {
             "id": str(news_item.id),
             "title": news_item.title,
             "summary": news_item.summary,
             "category": news_item.category,
             "published_at": news_item.published_at.isoformat() if news_item.published_at else None,
-            "source": news_item.source,
+            "source": source_value,
             "source_url": news_item.source_url,
             "priority_score": news_item.priority_score,
-            "impact_score": news_item.impact_score,
+            "impact_score": impact_value,
             "company_id": str(news_item.company_id) if news_item.company_id else None,
         }
 

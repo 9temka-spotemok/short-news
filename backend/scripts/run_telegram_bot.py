@@ -16,6 +16,8 @@ sys.path.insert(0, str(project_root))
 
 from app.core.config import settings
 
+LOCAL_DEV_BOT_USERNAME = "short_news_bot_test_bot"
+
 class TelegramBotRunner:
     """Telegram bot runner for Docker container"""
     
@@ -50,7 +52,14 @@ class TelegramBotRunner:
                         result = await response.json()
                         if result.get("ok"):
                             bot_info = result.get("result", {})
-                            logger.info(f"Bot health check passed: @{bot_info.get('username')}")
+                            bot_username = bot_info.get("username")
+                            logger.info(f"Bot health check passed: @{bot_username}")
+                            if settings.ENVIRONMENT in {"development", "local"} and bot_username != LOCAL_DEV_BOT_USERNAME:
+                                logger.warning(
+                                    f"Development environment is using Telegram bot @{bot_username}. "
+                                    "Ensure you've configured the local test bot token in the project .env "
+                                    "(see LOCAL_BOT_SETUP.md) to avoid conflicts with the production webhook."
+                                )
                             return True
                         else:
                             logger.error(f"Telegram API error: {result}")

@@ -133,7 +133,8 @@ class NotificationService:
 
     async def check_company_activity(self, hours: int = 24) -> List[Notification]:
         notifications: List[Notification] = []
-        cutoff_time = datetime.now(timezone.utc) - timedelta(hours=hours)
+        cutoff_time_aware = datetime.now(timezone.utc) - timedelta(hours=hours)
+        cutoff_time = cutoff_time_aware.replace(tzinfo=None)
 
         result = await self._session.execute(
             select(NewsItem.company_id, func.count(NewsItem.id).label("count"))
@@ -183,7 +184,8 @@ class NotificationService:
         threshold: int = 5,
     ) -> List[Notification]:
         notifications: List[Notification] = []
-        cutoff_time = datetime.now(timezone.utc) - timedelta(hours=hours)
+        cutoff_time_aware = datetime.now(timezone.utc) - timedelta(hours=hours)
+        cutoff_time = cutoff_time_aware.replace(tzinfo=None)
 
         result = await self._session.execute(
             select(NewsItem.category, func.count(NewsItem.id).label("count"))

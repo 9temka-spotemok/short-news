@@ -3,6 +3,8 @@ Celery application configuration
 """
 
 import asyncio
+import warnings
+
 from celery import Celery
 from app.core.config import settings
 from app.core.database import AsyncSessionLocal
@@ -96,17 +98,20 @@ _BASE_BEAT_SCHEDULE = {
     },
 }
 
-try:
-    celery_app.conf.beat_schedule = asyncio.run(
+def _load_dynamic_schedule_sync() -> dict:
+    """Synchronously load dynamic beat schedule for Celery processes."""
+    return asyncio.run(
         load_effective_celery_schedule(AsyncSessionLocal, _BASE_BEAT_SCHEDULE)
     )
-except RuntimeError:
-    # Fallback when asyncio.run cannot be invoked (e.g., already within loop)
-    celery_app.conf.beat_schedule = _BASE_BEAT_SCHEDULE
-except Exception as exc:
-    import warnings
 
-    warnings.warn(f"Failed to load dynamic crawl schedule, using defaults: {exc}")
-    celery_app.conf.beat_schedule = _BASE_BEAT_SCHEDULE
+
+@celery_app.on_after_configure.connect
+def refresh_dynamic_schedule(sender, **kwargs):
+    """Update beat schedule after Celery has been configured."""
+    try:
+        sender.conf.beat_schedule = _load_dynamic_schedule_sync()
+    except Exception as exc:  # pragma: no cover
+        warnings.warn(f"Failed to load dynamic crawl schedule, using defaults: {exc}")
+
 
 celery_app.conf.timezone = "UTC"

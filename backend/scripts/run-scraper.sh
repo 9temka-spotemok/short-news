@@ -3,5 +3,6 @@ set -eu
 
 cd /app
 
-python scripts/scrape_all_companies.py "$@"
+PYTHON_BIN="$(command -v python3 || command -v python)"
+exec "$PYTHON_BIN" scripts/scrape_all_companies.py "$@"
 
