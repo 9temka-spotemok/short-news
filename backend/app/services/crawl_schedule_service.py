@@ -4,7 +4,7 @@ Adaptive crawl scheduling service.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple, Union
 from uuid import UUID
 
@@ -87,7 +87,7 @@ class CrawlScheduleService:
             enabled=enabled,
             priority=priority,
             metadata=metadata or {},
-            last_applied_at=datetime.utcnow(),
+            last_applied_at=datetime.now(timezone.utc),
         )
         stmt = stmt.on_conflict_do_update(
             index_elements=["scope", "scope_value"],
@@ -161,7 +161,7 @@ class CrawlScheduleService:
             profile_id=profile.id,
             schedule_id=schedule.id if schedule else None,
             status=CrawlStatus.RUNNING,
-            started_at=datetime.utcnow(),
+            started_at=datetime.now(timezone.utc),
         )
         self.db.add(run)
         profile.last_run_at = run.started_at
@@ -179,7 +179,7 @@ class CrawlScheduleService:
         error_message: Optional[str] = None,
     ) -> CrawlRun:
         """Update crawl run with final status and adjust profile counters."""
-        finish_time = datetime.utcnow()
+        finish_time = datetime.now(timezone.utc)
 
         run.finished_at = finish_time
         run.item_count = item_count
@@ -237,7 +237,7 @@ class CrawlScheduleService:
 
     async def reapply_schedule(self, schedule: CrawlSchedule) -> None:
         """Update last applied timestamp and notify background workers if needed."""
-        schedule.last_applied_at = datetime.utcnow()
+        schedule.last_applied_at = datetime.now(timezone.utc)
         await self.db.commit()
         logger.info(
             "Reapplied crawl schedule %s (scope=%s:%s)",

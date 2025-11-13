@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 from loguru import logger
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from app.core.database import get_db
 from app.services.telegram_service import telegram_service
@@ -26,7 +26,11 @@ _cache_expiry = {}
 def _get_cached_user_prefs(chat_id: str) -> Optional[UserPreferences]:
     """Get cached user preferences if not expired"""
     if chat_id in _user_prefs_cache and chat_id in _cache_expiry:
-        if datetime.utcnow() < _cache_expiry[chat_id]:
+        expiry = _cache_expiry[chat_id]
+        if expiry.tzinfo is None:
+            expiry = expiry.replace(tzinfo=timezone.utc)
+            _cache_expiry[chat_id] = expiry
+        if datetime.now(timezone.utc) < expiry:
             return _user_prefs_cache[chat_id]
         else:
             # Remove expired cache
@@ -37,7 +41,7 @@ def _get_cached_user_prefs(chat_id: str) -> Optional[UserPreferences]:
 def _cache_user_prefs(chat_id: str, user_prefs: UserPreferences):
     """Cache user preferences for 5 minutes"""
     _user_prefs_cache[chat_id] = user_prefs
-    _cache_expiry[chat_id] = datetime.utcnow().replace(microsecond=0) + timedelta(minutes=5)
+    _cache_expiry[chat_id] = datetime.now(timezone.utc).replace(microsecond=0) + timedelta(minutes=5)
 
 
 class TelegramWebhookUpdate(BaseModel):

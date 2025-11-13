@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from app.models import NewsTopic, SentimentLabel, SourceType, NewsItem
 from app.services.competitor_service import CompetitorAnalysisService
@@ -12,8 +12,9 @@ def _build_service() -> CompetitorAnalysisService:
 def test_build_conditions_without_filters_creates_minimal_clauses() -> None:
     service = _build_service()
     company_id = uuid.uuid4()
-    date_from = datetime.utcnow() - timedelta(days=7)
-    date_to = datetime.utcnow()
+    now = datetime.now(timezone.utc)
+    date_from = (now - timedelta(days=7)).replace(tzinfo=None)
+    date_to = now.replace(tzinfo=None)
 
     conditions = service._build_conditions(company_id, date_from, date_to, filters=None)
 
@@ -26,8 +27,9 @@ def test_build_conditions_without_filters_creates_minimal_clauses() -> None:
 def test_build_conditions_with_filters_adds_expected_clauses() -> None:
     service = _build_service()
     company_id = uuid.uuid4()
-    date_from = datetime.utcnow() - timedelta(days=30)
-    date_to = datetime.utcnow()
+    now = datetime.now(timezone.utc)
+    date_from = (now - timedelta(days=30)).replace(tzinfo=None)
+    date_to = now.replace(tzinfo=None)
     filters = {
         "topics": [NewsTopic.TECHNOLOGY, NewsTopic.SECURITY],
         "sentiments": [SentimentLabel.POSITIVE],

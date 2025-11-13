@@ -360,6 +360,72 @@ async def get_news_statistics_by_companies(
         )
 
 
+@router.get("/search", response_model=Dict[str, Any])
+async def search_news(
+    q: str = Query(..., min_length=1, description="Search query"),
+    category: Optional[NewsCategory] = Query(None, description="Filter by category"),
+    source_type: Optional[SourceType] = Query(None, description="Filter by source type"),
+    company_id: Optional[str] = Query(None, description="Filter by company ID"),
+    limit: int = Query(20, ge=1, le=100, description="Number of results to return"),
+    offset: int = Query(0, ge=0, description="Number of results to skip"),
+    facade: NewsFacade = Depends(get_news_facade),
+):
+    """
+    Search news items with advanced filtering
+
+    Performs full-text search across news titles, content, and summaries
+    with optional filtering by category, source type, and company.
+    """
+    logger.info(f"News search: query='{q}', category={category}, limit={limit}, offset={offset}")
+
+    try:
+        # Create search parameters
+        search_params = NewsSearchSchema(
+            query=q,
+            category=category,
+            source_type=source_type,
+            company_id=company_id,
+            limit=limit,
+            offset=offset
+        )
+
+        # Perform search
+        news_items, total_count = await facade.search_news(search_params)
+
+        # Convert to response format
+        items = [
+            serialize_news_item(item, include_activities=False)
+            for item in news_items
+        ]
+
+        return {
+            "query": q,
+            "items": items,
+            "total": total_count,
+            "limit": limit,
+            "offset": offset,
+            "has_more": offset + len(items) < total_count,
+            "filters": {
+                "category": category.value if category else None,
+                "source_type": source_type.value if source_type else None,
+                "company_id": company_id
+            }
+        }
+
+    except ValidationError as e:
+        logger.warning(f"Validation error in news search: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid search parameters: {e.message}"
+        )
+    except Exception as e:
+        logger.error(f"Failed to search news: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to search news items"
+        )
+
+
 @router.get("/{news_id}", response_model=Dict[str, Any])
 async def get_news_item(
     news_id: str,
@@ -439,74 +505,6 @@ async def get_news_item(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve news item"
         )
-
-
-@router.get("/search", response_model=Dict[str, Any])
-async def search_news(
-    q: str = Query(..., min_length=1, description="Search query"),
-    category: Optional[NewsCategory] = Query(None, description="Filter by category"),
-    source_type: Optional[SourceType] = Query(None, description="Filter by source type"),
-    company_id: Optional[str] = Query(None, description="Filter by company ID"),
-    limit: int = Query(20, ge=1, le=100, description="Number of results to return"),
-    offset: int = Query(0, ge=0, description="Number of results to skip"),
-    facade: NewsFacade = Depends(get_news_facade),
-):
-    """
-    Search news items with advanced filtering
-    
-    Performs full-text search across news titles, content, and summaries
-    with optional filtering by category, source type, and company.
-    """
-    logger.info(f"News search: query='{q}', category={category}, limit={limit}, offset={offset}")
-    
-    try:
-        # Create search parameters
-        search_params = NewsSearchSchema(
-            query=q,
-            category=category,
-            source_type=source_type,
-            company_id=company_id,
-            limit=limit,
-            offset=offset
-        )
-        
-        # Perform search
-        news_items, total_count = await facade.search_news(search_params)
-        
-        # Convert to response format
-        items = [
-            serialize_news_item(item, include_activities=False)
-            for item in news_items
-        ]
-        
-        return {
-            "query": q,
-            "items": items,
-            "total": total_count,
-            "limit": limit,
-            "offset": offset,
-            "has_more": offset + len(items) < total_count,
-            "filters": {
-                "category": category.value if category else None,
-                "source_type": source_type.value if source_type else None,
-                "company_id": company_id
-            }
-        }
-        
-    except ValidationError as e:
-        logger.warning(f"Validation error in news search: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid search parameters: {e.message}"
-        )
-    except Exception as e:
-        logger.error(f"Failed to search news: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to search news items"
-        )
-
-
 
 
 @router.get("/category/{category_name}", response_model=Dict[str, Any])

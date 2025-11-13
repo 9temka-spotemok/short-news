@@ -4,7 +4,7 @@ Models for adaptive crawl scheduling and source profiles.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 import enum
 from typing import Optional, Dict, Any
 
@@ -109,6 +109,11 @@ class SourceProfile(BaseModel):
     )
 
 
+def utcnow() -> datetime:
+    """Return current UTC time with timezone info."""
+    return datetime.now(timezone.utc)
+
+
 class CrawlRun(BaseModel):
     """History of crawl executions for monitoring, retries and analytics."""
 
@@ -117,7 +122,7 @@ class CrawlRun(BaseModel):
     profile_id = Column(UUID(as_uuid=True), ForeignKey("source_profiles.id", ondelete="CASCADE"), nullable=False, index=True)
     schedule_id = Column(UUID(as_uuid=True), ForeignKey("crawl_schedules.id", ondelete="SET NULL"))
     status = Column(Enum(CrawlStatus), nullable=False, default=CrawlStatus.SCHEDULED, index=True)
-    started_at = Column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    started_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
     finished_at = Column(DateTime(timezone=True))
     item_count = Column(Integer, nullable=False, default=0)
     change_detected = Column(Boolean, nullable=False, default=False)

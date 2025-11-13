@@ -17,7 +17,7 @@ from app.models import UserPreferences
 from app.services.digest_service import DigestService
 from app.services.telegram_service import telegram_service
 from sqlalchemy import select
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import pytz
 
 
@@ -254,7 +254,7 @@ def _is_user_due_now_precise(user_prefs: UserPreferences, period: str) -> bool:
     Precise time checking without time windows.
     Sends digest exactly at scheduled time with 1-hour buffer for reliability.
     """
-    now_utc = datetime.utcnow().replace(tzinfo=pytz.UTC)
+    now_utc = datetime.now(timezone.utc)
     user_tz = _parse_user_timezone(user_prefs)
     now_local = now_utc.astimezone(user_tz)
     
@@ -332,7 +332,7 @@ async def _mark_user_sent_now(db_session, user_prefs: UserPreferences) -> None:
     Update last sent time and save to database
     """
     cfg = dict(user_prefs.digest_custom_schedule or {})
-    cfg["last_sent_utc"] = datetime.utcnow().isoformat()
+    cfg["last_sent_utc"] = datetime.now(timezone.utc).isoformat()
     user_prefs.digest_custom_schedule = cfg
     
     try:
@@ -370,11 +370,11 @@ async def _send_channel_digest_async():
         digest_service = DigestService(db)
         
         # Get top news from last 24 hours
-        from datetime import datetime, timedelta
+        from datetime import datetime, timedelta, timezone
         from app.models import NewsItem
         from sqlalchemy import desc
         
-        date_from = datetime.utcnow() - timedelta(days=1)
+        date_from = (datetime.now(timezone.utc) - timedelta(days=1)).replace(tzinfo=None)
         result = await db.execute(
             select(NewsItem)
             .where(NewsItem.published_at >= date_from)
@@ -388,9 +388,10 @@ async def _send_channel_digest_async():
             return {"status": "success", "message": "No news to send"}
         
         # Format for Telegram
+        now_utc = datetime.now(timezone.utc)
         digest_data = {
             "date_from": date_from.isoformat(),
-            "date_to": datetime.utcnow().isoformat(),
+            "date_to": now_utc.isoformat(),
             "news_count": len(top_news),
             "categories": {},
             "format": "short"

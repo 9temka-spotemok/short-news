@@ -99,7 +99,7 @@ class DigestService:
             logger.warning("Unknown timezone: %s, using UTC", user_tz_name)
             user_tz = pytz.UTC
 
-        now_utc = datetime.utcnow().replace(tzinfo=pytz.UTC)
+        now_utc = datetime.now(timezone.utc)
         now_user = now_utc.astimezone(user_tz)
 
         if period == "daily":

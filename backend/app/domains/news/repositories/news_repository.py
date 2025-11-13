@@ -8,7 +8,7 @@ legacy ``NewsService``. Additional methods will be moved here iteratively.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, List, Tuple, Dict, Any
 from uuid import UUID
 
@@ -76,6 +76,12 @@ class NewsRepository:
     def _build_criteria(self, filters: NewsFilters) -> List:
         criteria = []
 
+        bind = getattr(self._session, "bind", None)
+        dialect_name = getattr(getattr(bind, "dialect", None), "name", None)
+        supports_full_text = bool(
+            dialect_name and dialect_name.lower().startswith("postgres")
+        )
+
         if filters.category:
             category_value = (
                 filters.category.value
@@ -108,7 +114,7 @@ class NewsRepository:
 
         if filters.search_query:
             like = f"%{filters.search_query}%"
-            if hasattr(NewsItem, "search_vector"):
+            if supports_full_text and hasattr(NewsItem, "search_vector"):
                 criteria.append(NewsItem.search_vector.match(filters.search_query))
             else:
                 criteria.append(
@@ -155,7 +161,7 @@ class NewsRepository:
         return result.scalar() or 0
 
     async def fetch_recent(self, hours: int = 24, limit: int = 10) -> List[NewsItem]:
-        cutoff = datetime.utcnow() - timedelta(hours=hours)
+        cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).replace(tzinfo=None)
         stmt = (
             select(NewsItem)
             .where(NewsItem.published_at >= cutoff)
@@ -246,7 +252,7 @@ class NewsRepository:
             if row[0]
         }
 
-        recent_cutoff = datetime.utcnow() - timedelta(hours=24)
+        recent_cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).replace(tzinfo=None)
         recent_result = await self._session.execute(
             select(func.count(NewsItem.id)).where(NewsItem.published_at >= recent_cutoff)
         )
@@ -297,7 +303,7 @@ class NewsRepository:
             if row[0]
         }
 
-        recent_cutoff = datetime.utcnow() - timedelta(hours=24)
+        recent_cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).replace(tzinfo=None)
         recent_result = await self._session.execute(
             select(func.count(NewsItem.id)).where(
                 id_filter,

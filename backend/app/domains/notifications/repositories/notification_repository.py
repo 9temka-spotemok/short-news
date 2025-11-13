@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 from uuid import UUID
 
@@ -41,7 +41,7 @@ class NotificationRecordRepository:
 
     async def mark_as_read(self, notification: Notification) -> None:
         notification.is_read = True
-        notification.read_at = datetime.utcnow()
+        notification.read_at = datetime.now(timezone.utc).replace(tzinfo=None)
         await self._session.commit()
 
     async def mark_all_as_read(self, user_id: UUID) -> int:
@@ -53,7 +53,10 @@ class NotificationRecordRepository:
                     Notification.is_read == False,
                 )
             )
-            .values(is_read=True, read_at=datetime.utcnow())
+            .values(
+                is_read=True,
+                read_at=datetime.now(timezone.utc).replace(tzinfo=None),
+            )
             .returning(Notification.id)
         )
         await self._session.commit()
