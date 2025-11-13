@@ -52,6 +52,7 @@ class Settings(BaseSettings):
     @field_validator(
         'SCRAPER_HEADLESS_ENABLED',
         'SCRAPER_SNAPSHOTS_ENABLED',
+        'SCRAPER_DETAIL_ENRICHMENT_ENABLED',
         'ENABLE_ANALYTICS_V2',
         'ENABLE_KNOWLEDGE_GRAPH',
         'CELERY_METRICS_ENABLED',
@@ -146,6 +147,10 @@ class Settings(BaseSettings):
     SCRAPER_PROXY_URL: Optional[str] = Field(default=None, description="HTTP proxy URL for scraper fallback requests")
     SCRAPER_SNAPSHOTS_ENABLED: bool = Field(default=True, description="Persist raw HTML snapshots for scraped pages")
     SCRAPER_SNAPSHOT_DIR: str = Field(default="storage/raw_snapshots", description="Directory to store raw HTML snapshots")
+    SCRAPER_DETAIL_ENRICHMENT_ENABLED: bool = Field(
+        default=True,
+        description="Fetch article detail page during ingestion to enrich title/summary",
+    )
     
     # Rate Limiting
     RATE_LIMIT_REQUESTS: int = Field(default=100, description="Rate limit requests per minute")

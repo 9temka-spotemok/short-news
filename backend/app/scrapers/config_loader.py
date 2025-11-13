@@ -151,6 +151,7 @@ class ScraperConfigRegistry:
                 id=f"default_{idx}",
                 urls=[url],
                 source_type="blog",
+                retry=SourceRetryConfig(attempts=0),
             )
             for idx, url in enumerate(unique_urls)
         ]

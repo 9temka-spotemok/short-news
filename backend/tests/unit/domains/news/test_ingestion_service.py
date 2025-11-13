@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from uuid import uuid4
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.exceptions import ValidationError
 from app.domains.news.services.ingestion_service import NewsIngestionService
 from app.models import Company, NewsItem
@@ -31,12 +33,22 @@ def patch_search_vector(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(NewsIngestionService, "_update_search_vector", _noop)
 
 
+@pytest.fixture(autouse=True)
+def disable_detail_enrichment(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        settings,
+        "SCRAPER_DETAIL_ENRICHMENT_ENABLED",
+        False,
+        raising=False,
+    )
+
+
 def _payload(**overrides) -> dict:
     data = {
         "title": "Sample news",
         "summary": "Summary",
         "content": "Content",
-        "source_url": "https://example.com/news",
+        "source_url": f"https://example.com/news/{uuid4()}",
         "source_type": SourceType.BLOG.value,
         "published_at": _utc_now().isoformat(),
         "priority_score": 0.6,
@@ -111,6 +123,62 @@ async def test_create_news_item_invalid_payload_raises(async_session: AsyncSessi
     with pytest.raises(ValidationError):
         await service.create_news_item(payload)
 
+
+@pytest.mark.asyncio
+async def test_create_news_item_enriches_from_detail_page(
+    async_session: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = NewsIngestionService(async_session)
+
+    detail_html = """
+    <html>
+        <head>
+            <meta property="og:title" content="Canonical Detail Title" />
+            <meta name="description" content="Detailed summary pulled from meta description." />
+        </head>
+        <body><h1>Fallback H1</h1></body>
+    </html>
+    """.strip()
+
+    class _StubResponse:
+        status_code = 200
+        text = detail_html
+
+    class _StubAsyncClient:
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        async def __aenter__(self) -> "_StubAsyncClient":
+            return self
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb) -> bool:
+            return False
+
+        async def get(self, url: str) -> _StubResponse:
+            return _StubResponse()
+
+    monkeypatch.setattr(
+        "app.domains.news.services.ingestion_service.httpx.AsyncClient",
+        _StubAsyncClient,
+    )
+    monkeypatch.setattr(
+        settings,
+        "SCRAPER_DETAIL_ENRICHMENT_ENABLED",
+        True,
+        raising=False,
+    )
+
+    payload = _payload(
+        title="List Title",
+        summary="short",
+        source_url="https://example.com/detail",
+    )
+
+    news_item = await service.create_news_item(payload)
+
+    assert news_item.title == "Canonical Detail Title"
+    assert news_item.summary.startswith("Detailed summary pulled from meta description.")
 
 
 

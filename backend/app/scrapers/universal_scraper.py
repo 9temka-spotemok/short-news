@@ -16,11 +16,16 @@ from urllib.parse import urljoin, urlparse
 
 import httpx
 from bs4 import BeautifulSoup
+from pydantic import ValidationError
 from loguru import logger
 
 from app.core.config import settings
 from app.models.news import NewsCategory
-from app.scrapers.config_loader import ScraperConfigRegistry, SourceConfig
+from app.scrapers.config_loader import (
+    ScraperConfigRegistry,
+    SourceConfig,
+    SourceRetryConfig,
+)
 from app.scrapers.headless import fetch_page_with_headless
 from app.scrapers.rate_limiter import RateLimiter
 
@@ -55,6 +60,17 @@ DEFAULT_ARTICLE_SELECTORS: Tuple[str, ...] = (
     '[class*="news"] a',
 )
 
+DISCOVERY_KEYWORDS: Tuple[str, ...] = (
+    "blog",
+    "news",
+    "press",
+    "stories",
+    "updates",
+    "insights",
+    "articles",
+    "resource",
+)
+
 
 class NeedsHeadless(RuntimeError):
     """Raised when a request is blocked and should be retried via headless browser."""
@@ -68,11 +84,18 @@ class UniversalBlogScraper:
         config_registry: Optional[ScraperConfigRegistry] = None,
         rate_limiter: Optional[RateLimiter] = None,
     ):
-        self.session = httpx.AsyncClient(
+        common_kwargs = dict(
             headers={"User-Agent": settings.SCRAPER_USER_AGENT},
             timeout=settings.SCRAPER_TIMEOUT,
             follow_redirects=True,
         )
+        self.session = httpx.AsyncClient(**common_kwargs)
+        self.proxy_session: Optional[httpx.AsyncClient] = None
+        if settings.SCRAPER_PROXY_URL:
+            self.proxy_session = httpx.AsyncClient(
+                proxies=settings.SCRAPER_PROXY_URL,
+                **common_kwargs,
+            )
         self.config_registry = config_registry or ScraperConfigRegistry()
         self.rate_limiter = rate_limiter or RateLimiter()
 
@@ -104,6 +127,12 @@ class UniversalBlogScraper:
         ]
         return patterns
 
+    def _detect_blog_url(self, website: str) -> List[str]:
+        """
+        Backwards-compatible wrapper around detect_blog_urls.
+        """
+        return self.detect_blog_urls(website)
+
     async def scrape_company_blog(
         self,
         company_name: str,
@@ -128,6 +157,37 @@ class UniversalBlogScraper:
             manual_url=news_page_url,
             overrides=source_overrides,
         )
+
+        discoveries: List[SourceConfig] = []
+        has_custom_sources = any(not cfg.id.startswith("default_") for cfg in source_configs)
+        if not has_custom_sources and website:
+            discovered_urls = await self._discover_candidate_sources(website)
+            if discovered_urls:
+                existing_urls = {
+                    str(url).rstrip("/")
+                    for cfg in source_configs
+                    for url in cfg.urls
+                }
+                for idx, candidate in enumerate(discovered_urls):
+                    normalized = candidate.rstrip("/")
+                    if normalized in existing_urls:
+                        continue
+                    try:
+                        discoveries.append(
+                            SourceConfig(
+                                id=f"discovered_{idx}",
+                                urls=[candidate],
+                                source_type="blog",
+                                retry=SourceRetryConfig(attempts=0),
+                                max_articles=max_articles,
+                            )
+                        )
+                    except ValidationError as exc:
+                        logger.debug(f"Skipping discovered url %s: %s", candidate, exc)
+                        continue
+                    existing_urls.add(normalized)
+                if discoveries:
+                    source_configs = discoveries + source_configs
 
         if not source_configs:
             logger.warning(f"No source configurations found for {company_name}")
@@ -353,8 +413,10 @@ class UniversalBlogScraper:
         return all_news
 
     async def close(self) -> None:
-        """Close HTTP session."""
+        """Close HTTP sessions."""
         await self.session.aclose()
+        if self.proxy_session:
+            await self.proxy_session.aclose()
 
     async def _scrape_source(
         self,
@@ -436,7 +498,8 @@ class UniversalBlogScraper:
                     max_requests=source_config.rate_limit.requests,
                     period=source_config.rate_limit.interval,
                 )
-                response = await self.session.get(url, timeout=timeout, proxies=proxy)
+                client = self.proxy_session if proxy else self.session
+                response = await client.get(url, timeout=timeout)
                 if self._requires_headless(response):
                     raise NeedsHeadless(f"Blocked by edge protection ({response.status_code})")
                 response.raise_for_status()
@@ -452,6 +515,18 @@ class UniversalBlogScraper:
                     if html:
                         return html, url
                 break
+            except httpx.HTTPStatusError as exc:
+                status = exc.response.status_code
+                logger.debug(f"Attempt {attempt + 1} failed for {url}: {exc}")
+                if status in (404, 410):
+                    logger.debug(f"Received {status} for {url}; not retrying further")
+                    break
+                if attempt + 1 < attempts:
+                    backoff = (source_config.retry.backoff_factor) ** attempt
+                    await asyncio.sleep(min(10, backoff))
+                else:
+                    logger.warning(f"Gave up fetching {url} after {attempts} attempts")
+                    break
             except (httpx.TimeoutException, httpx.HTTPError) as exc:
                 logger.debug(f"Attempt {attempt + 1} failed for {url}: {exc}")
                 if attempt + 1 < attempts:
@@ -641,4 +716,58 @@ class UniversalBlogScraper:
     @staticmethod
     def _slugify(value: str) -> str:
         return re.sub(r"[^a-zA-Z0-9\-]+", "-", value.lower()).strip("-")
+
+    async def _discover_candidate_sources(self, website: str, limit: int = 8) -> List[str]:
+        parsed = urlparse(website)
+        if not parsed.scheme or not parsed.netloc:
+            return []
+        try:
+            response = await self.session.get(website, timeout=settings.SCRAPER_TIMEOUT)
+            response.raise_for_status()
+        except (httpx.HTTPError, ValueError) as exc:
+            logger.debug(f"Could not auto-discover sources for %s: {exc}", website)
+            return []
+
+        soup = BeautifulSoup(response.text, "html.parser")
+        candidates: List[str] = []
+        seen: Set[str] = set()
+
+        for anchor in soup.find_all("a", href=True):
+            href = anchor["href"].strip()
+            if not href or href.startswith("#"):
+                continue
+
+            anchor_text = anchor.get_text(strip=True).lower()
+            href_lower = href.lower()
+            if not any(keyword in anchor_text or keyword in href_lower for keyword in DISCOVERY_KEYWORDS):
+                continue
+
+            full_url = urljoin(website, href)
+            full_parsed = urlparse(full_url)
+            if full_parsed.scheme not in ("http", "https"):
+                continue
+            if not self._is_same_domain(website, full_url):
+                continue
+
+            normalized = full_url.rstrip("/")
+            if normalized in seen:
+                continue
+
+            seen.add(normalized)
+            candidates.append(normalized)
+
+            if len(candidates) >= limit:
+                break
+
+        return candidates
+
+    @staticmethod
+    def _is_same_domain(base_url: str, target_url: str) -> bool:
+        base_netloc = urlparse(base_url).netloc
+        target_netloc = urlparse(target_url).netloc
+
+        if not base_netloc or not target_netloc:
+            return False
+
+        return target_netloc == base_netloc or target_netloc.endswith(f".{base_netloc}")
 

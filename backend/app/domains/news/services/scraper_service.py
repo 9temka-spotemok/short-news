@@ -75,10 +75,13 @@ class NewsScraperService:
         return ingested
 
 
-def _coerce_published_at(value: Optional[datetime]) -> str:
+def _coerce_published_at(value: Optional[datetime]) -> datetime:
     if isinstance(value, datetime):
-        dt = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+        dt = value
     else:
         dt = datetime.now(timezone.utc)
-    return dt.isoformat()
+
+    if dt.tzinfo is not None:
+        return dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt
 
