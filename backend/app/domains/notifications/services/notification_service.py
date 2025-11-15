@@ -198,7 +198,12 @@ class NotificationService:
         for category, news_count in trending_categories:
             if not category:
                 continue
-            user_prefs_list = await self._preferences.list_interested_in_category(category)
+            # Normalize category to lowercase to match enum values in database
+            # Enum values in PostgreSQL are stored as lowercase (e.g., 'product_update')
+            category_normalized = str(category).lower() if category else None
+            if not category_normalized:
+                continue
+            user_prefs_list = await self._preferences.list_interested_in_category(category_normalized)
 
             for user_prefs in user_prefs_list:
                 settings = await self._get_user_settings(user_prefs.user_id)
@@ -208,13 +213,13 @@ class NotificationService:
                 notification = await self.create_notification(
                     user_id=str(user_prefs.user_id),
                     notification_type=NotificationType.CATEGORY_TREND,
-                    title=f"Trending: {category.replace('_', ' ').title()}",
+                    title=f"Trending: {category_normalized.replace('_', ' ').title()}",
                     message=(
-                        f"{news_count} news items in {category.replace('_', ' ')} "
+                        f"{news_count} news items in {category_normalized.replace('_', ' ')} "
                         f"category in the last {hours} hours"
                     ),
                     data={
-                        "category": category,
+                        "category": category_normalized,
                         "news_count": news_count,
                         "hours": hours,
                     },

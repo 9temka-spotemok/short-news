@@ -9,7 +9,7 @@ import enum
 from sqlalchemy import Enum as SQLEnum
 
 from .base import BaseModel
-from .news import NewsCategory
+from .news import NewsCategory, news_category_enum
 
 
 class NotificationFrequency(enum.Enum):
@@ -39,7 +39,7 @@ class UserPreferences(BaseModel):
     
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     subscribed_companies = Column(ARRAY(UUID), default=list)
-    interested_categories = Column(ARRAY(Enum(NewsCategory)), default=list)
+    interested_categories = Column(ARRAY(news_category_enum), default=list)
     keywords = Column(ARRAY(String), default=list)
     notification_frequency = Column(SQLEnum('realtime', 'daily', 'weekly', 'never', name='notification_frequency'), default='daily')
     
