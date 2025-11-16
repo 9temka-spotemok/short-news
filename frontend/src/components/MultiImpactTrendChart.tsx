@@ -36,8 +36,8 @@ const MultiImpactTrendChart: React.FC<MultiImpactTrendChartProps> = ({ series, h
     const range = maxValue - minValue || 1
 
     const padding = {
-      top: 5,
-      bottom: 5,
+      top: 10,
+      bottom: 10,
       left: 10,
       right: 10
     }

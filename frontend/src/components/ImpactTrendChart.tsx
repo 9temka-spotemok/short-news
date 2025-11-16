@@ -31,8 +31,8 @@ const ImpactTrendChart = ({ snapshots, height = 200, onPointHover }: ImpactTrend
     paddingRight,
     viewBoxWidth
   } = useMemo(() => {
-    const paddingTop = 5
-    const paddingBottom = 5
+    const paddingTop = 10
+    const paddingBottom = 10
     const paddingLeft = 8
     const paddingRight = 8
     const viewBoxWidth = 100
