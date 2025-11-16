@@ -24,6 +24,20 @@ echo "User: $(id)"
 echo "Broker: $CELERY_BROKER_URL"
 echo "Backend: $CELERY_RESULT_BACKEND"
 
+# Apply database migrations before starting worker
+echo "Applying database migrations..."
+if command -v alembic &> /dev/null; then
+    alembic upgrade head || {
+        echo "WARNING: Failed to apply migrations. Worker will start anyway, but may encounter database errors."
+    }
+elif [ -f "/app/alembic.ini" ]; then
+    python -m alembic upgrade head || {
+        echo "WARNING: Failed to apply migrations. Worker will start anyway, but may encounter database errors."
+    }
+else
+    echo "WARNING: Alembic not found. Skipping migrations. Ensure migrations are applied separately."
+fi
+
 # Start Celery worker with proper settings
 exec celery -A app.celery_app worker \
     --loglevel=info \

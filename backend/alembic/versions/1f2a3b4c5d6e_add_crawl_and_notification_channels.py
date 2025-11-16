@@ -1,7 +1,7 @@
 """add crawl schedules and notification channel tables
 
 Revision ID: 1f2a3b4c5d6e
-Revises: f7a8b9c0d1e2
+Revises: 1b2c3d4e5f67
 Create Date: 2025-11-09 14:00:00.000000
 
 """
