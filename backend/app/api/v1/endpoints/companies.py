@@ -194,6 +194,23 @@ async def scan_company(
         # Scrape news with optional manual news page URL
         logger.info(f"Scraping news for {company_name}, news_page_url: {news_page_url}")
         source_overrides = request.get("sources")
+        
+        # Оптимизация: для ручного сканирования используем меньше статей (по умолчанию 10)
+        max_articles = request.get("max_articles", 10)
+        if max_articles > 50:
+            max_articles = 50  # Ограничение максимума
+        logger.info(f"Scanning with max_articles={max_articles}")
+
+        # Оптимизация: если указан news_page_url, используем его напрямую с минимальными задержками
+        if news_page_url and not source_overrides:
+            source_overrides = [{
+                "urls": [news_page_url],
+                "source_type": "blog",
+                "retry": {"attempts": 0},  # Без ретраев для скорости
+                "min_delay": 1.0,  # Уменьшенная задержка (вместо 5.0)
+                "max_articles": max_articles,
+            }]
+            logger.info(f"Using fast mode with news_page_url directly, min_delay=1.0")
 
         context = CompanyContext(
             id=None,
@@ -204,7 +221,8 @@ async def scan_company(
         provider = registry.get_provider(context)
         scraped_items = await provider.scrape_company(
             context,
-            max_articles=50,
+            max_articles=max_articles,
+            source_overrides=source_overrides,
         )
         news_items = [
             {
@@ -219,6 +237,21 @@ async def scan_company(
             }
             for item in scraped_items
         ]
+        
+        # Оптимизация: сортируем по дате (самые свежие первыми) и ограничиваем количество
+        # Статьи без даты идут в конец
+        def get_sort_key(item: Dict[str, Any]) -> datetime:
+            """Получить дату для сортировки, статьи без даты идут в конец"""
+            if item.get("published_at"):
+                try:
+                    return datetime.fromisoformat(item["published_at"].replace("Z", "+00:00"))
+                except (ValueError, AttributeError):
+                    return datetime.min
+            return datetime.min
+        
+        news_items.sort(key=get_sort_key, reverse=True)
+        # Убеждаемся, что не превышаем лимит после сортировки
+        news_items = news_items[:max_articles]
         
         # Analyze results
         categories = {}

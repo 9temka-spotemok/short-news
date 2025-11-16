@@ -447,3 +447,68 @@ async def recompute_change_event(
         }
     schema = CompetitorChangeEventSchema.model_validate(data)
     return schema.model_dump()
+
+
+@router.post("/ingest-pricing")
+async def ingest_pricing_page_endpoint(
+    request_data: dict = Body(...),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Запустить парсинг pricing страницы конкурента
+    
+    Body:
+    {
+        "company_id": "uuid",
+        "source_url": "https://example.com/pricing",
+        "source_type": "news_site"  // optional, default: "news_site"
+    }
+    """
+    from app.tasks.competitors import ingest_pricing_page
+    import uuid as uuid_lib
+    
+    company_id = request_data.get("company_id")
+    source_url = request_data.get("source_url")
+    source_type_str = request_data.get("source_type", "news_site")
+    
+    if not company_id or not source_url:
+        raise HTTPException(
+            status_code=400,
+            detail="company_id and source_url are required"
+        )
+    
+    try:
+        company_uuid = uuid_lib.UUID(company_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid company_id format")
+    
+    try:
+        source_type = SourceType(source_type_str)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid source_type: {source_type_str}. Must be one of: {[e.value for e in SourceType]}"
+        )
+    
+    try:
+        task = ingest_pricing_page.delay(
+            company_id=company_id,
+            source_url=source_url,
+            source_type=source_type.value
+        )
+        logger.info(
+            f"User {current_user.id} queued pricing ingestion for company {company_id} from {source_url}"
+        )
+        return {
+            "status": "queued",
+            "task_id": task.id,
+            "message": "Pricing page ingestion queued",
+            "company_id": company_id,
+            "source_url": source_url
+        }
+    except Exception as e:
+        logger.error(f"Failed to queue pricing ingestion: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to queue pricing ingestion: {str(e)}"
+        )
