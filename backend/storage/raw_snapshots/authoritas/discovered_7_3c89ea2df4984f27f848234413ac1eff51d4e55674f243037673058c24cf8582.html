@@ -1,0 +1,724 @@
+<!DOCTYPE html><!-- Last Published: Tue Nov 04 2025 07:55:08 GMT+0000 (Coordinated Universal Time) --><html data-wf-domain="www.authoritas.com" data-wf-page="63ee18223465deec64c3b70b" data-wf-site="6349278eb7be8fab772447b9" lang="en" data-wf-collection="63ee18223465de1cd1c3b6bf" data-wf-item-slug="i-analyzed-10-000-real-user-conversations-with-grok-ai---heres-what-i-found-the-rise-of-conversational-ai-search"><head><meta charset="utf-8"/><title></title><meta content="" name="description"/><meta content="" property="og:title"/><meta content="" property="og:description"/><meta content="https://cdn.prod.website-files.com/6349278eb7be8f9b302447d9/68c8071ff95c6b80de95a060_rsz_14query_length_distribution.png" property="og:image"/><meta content="" property="twitter:title"/><meta content="" property="twitter:description"/><meta content="https://cdn.prod.website-files.com/6349278eb7be8f9b302447d9/68c8071ff95c6b80de95a060_rsz_14query_length_distribution.png" property="twitter:image"/><meta property="og:type" content="website"/><meta content="summary_large_image" name="twitter:card"/><meta content="width=device-width, initial-scale=1" name="viewport"/><meta content="9YiDNd0N4KgfK3WFyfyn45tYFDzJlu6Ldhkw8ndQ3iM" name="google-site-verification"/><link href="https://cdn.prod.website-files.com/6349278eb7be8fab772447b9/css/newlotwww.webflow.shared.bce2edb4e.min.css" rel="stylesheet" type="text/css"/><link href="https://cdn.prod.website-files.com/6349278eb7be8fab772447b9/css/newlotwww.webflow.63ee18223465deec64c3b70b-4ae50b0a2.min.css" rel="stylesheet" type="text/css"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link href="https://fonts.gstatic.com" rel="preconnect" crossorigin="anonymous"/><script src="https://ajax.googleapis.com/ajax/libs/webfont/1.6.26/webfont.js" type="text/javascript"></script><script type="text/javascript">WebFont.load({  google: {    families: ["Inter:300,regular,500,600,700,800,900","Plus Jakarta Sans:300,regular,500,600,700,800"]  }});</script><script type="text/javascript">!function(o,c){var n=c.documentElement,t=" w-mod-";n.className+=t+"js",("ontouchstart"in o||o.DocumentTouch&&c instanceof DocumentTouch)&&(n.className+=t+"touch")}(window,document);</script><link href="https://cdn.prod.website-files.com/6349278eb7be8fab772447b9/63692ad37bdfadbfd5ab42e8_authoritas-favicon-32-32.png" rel="shortcut icon" type="image/x-icon"/><link href="https://cdn.prod.website-files.com/6349278eb7be8fab772447b9/63692b1562c38adc1e98b951_authoritas-favicon-256-256-webclip.png" rel="apple-touch-icon"/><link href="https://www.authoritas.com/blog/i-analyzed-10-000-real-user-conversations-with-grok-ai---heres-what-i-found-the-rise-of-conversational-ai-search" rel="canonical"/><style>
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+</style>
+
+<!-- Leadsy.ai Tag -->
+<script id="vtag-ai-js" async src="https://r2.leadsy.ai/tag.js" data-pid="U1BBsIWMPEXFT5wD" data-version="062024"></script>
+
+<!-- 
+  Script 1: Google Tag Consent Initialization
+  - Initializes the Google Tag consent mode.
+  - Defaults all storage types to 'denied' unless a value is saved in localStorage.
+-->
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+
+  if(localStorage.getItem('consentMode') === null){
+    gtag('consent', 'default', {
+      'ad_storage': 'denied',
+      'ad_user_data': 'denied',
+      'ad_personalization': 'denied',
+      'analytics_storage': 'denied',
+      'personalization_storage': 'denied',
+      'security_storage': 'denied',
+      'functionality_storage': 'denied',
+    });
+    gtag('set', 'ads_data_redaction', false);
+  } else {
+    gtag('consent', 'default', JSON.parse(localStorage.getItem('consentMode')));
+  }
+</script>
+
+<!-- 
+  Script 2: Source Tracking via URL Parameter or Referrer
+  - Checks for a `source` parameter in the URL.
+  - If not found, falls back to document.referrer.
+  - Stores result in a cookie for 90 days.
+-->
+<script>
+    function getUrlParameter(name) {
+        name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
+        const regex = new RegExp(`[\\?&]${name}=([^&#]*)`);
+        const results = regex.exec(location.search);
+        return results === null ? '' : decodeURIComponent(results.replace(/\+/g, ' '));
+    }
+
+    const urlSource = getUrlParameter('source');
+    const ninetyDaysInSeconds = 90 * 24 * 60 * 60;
+
+    if (urlSource) {
+        document.cookie = `source_tracker=${urlSource}; max-age=${ninetyDaysInSeconds}; path=/`;
+    } else {
+        const referrer = document.referrer;
+        if (referrer) {
+            document.cookie = `source_tracker=${referrer}; max-age=${ninetyDaysInSeconds}; path=/`;
+        }
+    }
+</script>
+
+<!-- 
+  Script 3: Populate Hidden Form Fields with Tracked Source
+  - Reads `source_tracker` cookie.
+  - Populates hidden fields based on whether it's a URL (referrer) or a value (URL param).
+-->
+<script>
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+    }
+
+    const urlParamField = document.getElementById('form_url_param');
+    const referrerField = document.getElementById('form_referrer');
+    const sourceTrackerCookie = getCookie('source_tracker');
+
+    if ((urlParamField || referrerField) && sourceTrackerCookie) {
+        if (sourceTrackerCookie.startsWith('http://') || sourceTrackerCookie.startsWith('https://')) {
+            if (referrerField) referrerField.value = sourceTrackerCookie;
+        } else {
+            if (urlParamField) urlParamField.value = sourceTrackerCookie;
+        }
+    }
+</script>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    function fillHiddenFields() {
+      const urlField = document.getElementById("form_url_param");
+      const refField = document.getElementById("form_referrer");
+
+      if (!urlField && !refField) return; // bail if form not present
+
+      const urlParams = new URLSearchParams(window.location.search);
+      urlField.value = urlParams.toString();
+      refField.value = document.referrer;
+    }
+
+    fillHiddenFields();
+  });
+</script>
+
+<!-- Google Tag Manager -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-W479QF');</script>
+<!-- End Google Tag Manager --><!-- Finsweet Attributes scripts for Table of Contents and Social Share -->
+<script defer src="https://cdn.jsdelivr.net/npm/@finsweet/attributes-toc@1/toc.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/@finsweet/attributes-socialshare@1/socialshare.js"></script>
+
+<script type="application/ld+json"> 
+{
+  "@context": "https://schema.org",
+  "@graph": [{
+      "@type": "Organization",
+      "legalName": "Analytics SEO Limited (Trading as Authoritas)",
+      "logo": "https://cdn.prod.website-files.com/6349278eb7be8fab772447b9/63ea0a3c74ecb79e008edf1a_Authoritas-logo-home.svg",
+      "url": "https://www.authoritas.com/",
+      "sameAs": [
+          "https://www.linkedin.com/company/authoritas/",
+          "http://www.youtube.com/c/Authoritas",
+          "https://www.facebook.com/authoritas/",
+          "https://twitter.com/Authoritas_com"
+      ]
+  },{
+      "@type": "BreadcrumbList",
+      "itemListElement": [{
+          "@type": "ListItem",
+          "position": "1",
+          "item": "https://www.authoritas.com/blog/",
+          "name": "blog"
+      },{
+          "@type": "ListItem", 
+          "position": 2, 
+          "name": "I Analyzed 10,000 Real User Conversations with Grok AI – Here&#39;s What I Found: The Rise of Conversational AI Search",
+          "item": "https://www.authoritas.com/blog/i-analyzed-10-000-real-user-conversations-with-grok-ai---heres-what-i-found-the-rise-of-conversational-ai-search"  
+      }]
+  },{
+      "@type": "Article",
+      "mainEntityOfPage": {
+        "@type": "WebPage",
+        "@id": "https://www.authoritas.com/blog/I Analyzed 10,000 Real User Conversations with Grok AI – Here&#39;s What I Found: The Rise of Conversational AI Search"
+      },
+      "headline": "I Analyzed 10,000 Real User Conversations with Grok AI – Here&#39;s What I Found: The Rise of Conversational AI Search",
+      "image": "https://cdn.prod.website-files.com/6349278eb7be8f9b302447d9/68c8071ff95c6b80de95a060_rsz_14query_length_distribution.png",
+      "datePublished": "Oct 17, 2025",
+      "dateModified": "Oct 17, 2025",
+      "author": {
+        "@type": "Person",
+        "name": "",
+        "sameAs": [
+        "",
+        "",
+        ""
+		  ]
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "Analytics SEO Limited (Trading as Authoritas)",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://cdn.prod.website-files.com/6349278eb7be8fab772447b9/63ea0a3c74ecb79e008edf1a_Authoritas-logo-home.svg"
+        }
+      },
+      "description": ""
+  }]
+}
+</script>
+<style>
+/* Table Styles for Blog Posts */
+.blog-post-content {
+    max-width: 100%;
+    overflow-x: hidden;
+    padding: 0 1rem; /* Add padding to the container */
+}
+
+.blog-post-content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.5rem auto; /* Center the table with vertical margin */
+    background-color: #ffffff;
+    border: 1px solid #d8d8d8;
+    border-radius: 6px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    table-layout: fixed;
+}
+
+/* Header Styles */
+.blog-post-content thead {
+    background-color: #e9f0f4;
+}
+
+.blog-post-content th {
+    padding: 1rem;
+    text-align: left;
+    font-weight: 600;
+    color: #0385ce;
+    border-bottom: 2px solid #039be5;
+    word-wrap: break-word;
+}
+
+/* Cell Styles */
+.blog-post-content td {
+    padding: 0.875rem 1rem;
+    color: #1a1a1a;
+    border-bottom: 1px solid #d8d8d8;
+    word-wrap: break-word;
+}
+
+/* Alternating Row Colors */
+.blog-post-content tbody tr:nth-child(even) {
+    background-color: #e9f0f4;
+}
+
+/* Hover Effect */
+.blog-post-content tbody tr:hover {
+    background-color: rgba(3, 133, 206, 0.05);
+}
+
+/* Responsive Styles */
+@media screen and (max-width: 767px) {
+    .blog-post-content {
+        position: relative;
+        padding: 0 1rem; /* Maintain padding on mobile */
+    }
+    
+    .blog-post-content table {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        max-width: calc(100vw - 2rem); /* Account for padding */
+        width: 100%;
+        margin: 1.5rem 0;
+    }
+    
+    .blog-post-content th,
+    .blog-post-content td {
+        white-space: nowrap;
+    }
+    
+    /* Scroll indicator */
+    .blog-post-content::after {
+        content: '→';
+        position: absolute;
+        right: 1.5rem; /* Adjusted for new padding */
+        top: 50%;
+        transform: translateY(-50%);
+        color: #888;
+        animation: scroll-hint 1.5s ease-in-out infinite;
+        pointer-events: none;
+        z-index: 1;
+    }
+}
+
+/* Scroll Hint Animation */
+@keyframes scroll-hint {
+    0% { opacity: 0; }
+    50% { opacity: 1; }
+    100% { opacity: 0; }
+}
+
+/* Optional: Style for small/caption text */
+.blog-post-content table caption {
+    margin-bottom: 0.75rem;
+    color: #888;
+    font-size: 0.875rem;
+    text-align: left;
+}
+</style></head><body><div class="page-wrapper overflow-visible"><div class="styles w-embed"><style>
+
+/* Snippet gets rid of top margin on first element in any rich text*/
+.w-richtext>:first-child {
+	margin-top: 0;
+}
+
+/* Snippet gets rid of bottom margin on last element in any rich text*/
+.w-richtext>:last-child, .w-richtext ol li:last-child, .w-richtext ul li:last-child {
+    margin-bottom: 0;
+}
+
+/* Snippet makes all link elements listed below to inherit color from their parent */
+a, 
+.w-tab-link,
+.w-nav-link,
+.w-dropdown-btn,
+.w-dropdown-toggle,
+.w-dropdown-link
+{
+color: inherit;
+}
+
+/* Snippet prevents all click and hover interaction with an element */
+.clickable-off {
+  pointer-events: none;
+}
+
+/* Snippet enables all click and hover interaction with an element */
+.clickable-on{
+  pointer-events: auto;
+}
+
+/* Snippet enables you to add class of div-square which creates and maintains a 1:1 dimension of a div.*/
+.div-square::after {
+  content: "";
+  display: block;
+  padding-bottom: 100%;
+}
+
+/*Hide focus outline for main content element*/
+    main:focus-visible {
+    outline: -webkit-focus-ring-color auto 0px;
+}
+
+/* Make sure containers never lose their center alignment*/
+.container-medium, .container-small, .container-large {
+  margin-right: auto !important;
+  margin-left: auto !important;
+}
+
+/*Reset selects, buttons, and links styles*/
+.w-input, .w-select, a {
+color: #0385ce;
+text-decoration: inherit;
+font-size: inherit;
+}
+
+/*Apply "..." After 3 lines of Text */
+.text-style-3lines {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+}
+
+/*Apply "..." After 2 lines of Text */
+.text-style-2lines {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+</style></div><div data-animation="default" class="navbar02_component w-nav" data-easing2="ease" fs-scrolldisable-element="smart-nav" data-easing="ease" data-collapse="medium" data-w-id="ec423caa-e551-c114-d410-46324733001a" role="banner" data-duration="400" id="top-nav"><div class="nav_bar-container"><a href="/" class="nav_bar-logo-link w-nav-brand"><img src="https://cdn.prod.website-files.com/6349278eb7be8fab772447b9/63ea0a3c74ecb79e008edf1a_Authoritas-logo-home.svg" loading="eager" width="240" height="53" alt="Authoritas logo" class="footer_bar-logo"/></a><nav role="navigation" class="nav_bar-menu w-nav-menu"><div class="navbar02_menu-left"><div data-hover="false" data-delay="300" class="navbar02_menu-dropdown w-dropdown"><div class="navbar02_dropdown-toggle w-dropdown-toggle"><div class="dropdown-icon-2 w-embed"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" stroke-width="1.67" stroke-linecap="round" stroke-linejoin="round"/>
+</svg></div><div>Tools</div></div><nav class="navbar02_dropdown-list w-dropdown-list"><div class="nav_bar-container"><div class="navbar02_dropdown-content"><div class="navbar02_dropdown-content-left"><div id="w-node-_9f539ae2-f2f7-3c36-0fc5-ee3de3e6f996-4733001a" class="navbar02_dropdown-link-list"><div class="nav_bar_dropdown-link"><div id="w-node-_9f539ae2-f2f7-3c36-0fc5-ee3de3e6f99b-4733001a" class="nav_bar_icon-wrapper"><div class="icon-1x1-xsmall text-color-primary600 w-embed"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><path d="M64 0C28.7 0 0 28.7 0 64v288c0 35.3 28.7 64 64 64h176l-10.7 32H160c-17.7 0-32 14.3-32 32s14.3 32 32 32h256c17.7 0 32-14.3 32-32s-14.3-32-32-32h-69.3L336 416h176c35.3 0 64-28.7 64-64V64c0-35.3-28.7-64-64-64H64zm448 64v224H64V64h448z" fill="Currentcolor"/></svg></div></div><div id="w-node-_9f539ae2-f2f7-3c36-0fc5-ee3de3e6f99d-4733001a" class="navbar02_item-right"><div class="margin-bottom margin-tiny"><div class="text-weight-semibold text-color-gray900">All-in-one SEO Platform </div></div><div class="text-size-small-2">Get an overview of our integrated <a href="/seo-platform">SEO Software platform</a> that helps you effortlessly manage all phases of an SEO project</div></div></div><div id="w-node-a8b11427-7826-4e1b-55cf-285eac779191-4733001a" class="nav_bar_dropdown-link"><div id="w-node-_9f539ae2-f2f7-3c36-0fc5-ee3de3e6f9a4-4733001a" class="nav_bar_icon-wrapper"><div class="icon-1x1-xsmall text-color-primary600 w-embed"><svg viewBox="0 0 552 512" xmlns="http://www.w3.org/2000/svg"><path d="M520 184.001C520 281.203 441.202 360 344 360c-11.22 0-22.19-1.062-32.827-3.069l-24.012 27.014A23.999 23.999 0 0 1 269.223 392H232v40c0 13.255-10.745 24-24 24h-40v40c0 13.255-10.745 24-24 24H32c-13.255 0-24-10.745-24-24v-78.059c0-6.365 2.529-12.47 7.029-16.971l161.802-161.802C171.108 221.814 168 203.271 168 184 168 86.798 246.797 8.001 343.999 8 441.488 7.999 520 86.511 520 184.001zM344 136c0 26.51 21.49 48 48 48s48-21.49 48-48-21.49-48-48-48-48 21.49-48 48z" stroke="Currentcolor" stroke-width="30" class="icons" stroke-linecap="round" stroke-linejoin="round" fill="Currentcolor" /></svg></div></div><div class="navbar02_item-right"><div class="margin-bottom margin-tiny"><div class="text-weight-semibold text-color-gray900">Keyword tools for SEO planning and performance tracking</div></div><div class="text-size-small-2 hide-mobile-landscape"><a href="/keyword-research-tool">Keyword Research</a> and <a href="/keyword-rankings">Keyword Ranking</a></div></div></div><div id="w-node-e5e73273-685d-06ad-1e0c-6d56e2bd9c80-4733001a" class="nav_bar_dropdown-link"><div class="nav_bar_icon-wrapper"><div class="icon-1x1-xsmall text-color-primary600 w-embed"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path d="M0 64c0-17.7 14.3-32 32-32h64c17.7 0 32 14.3 32 32v151.4L284.6 131c16-8.6 35.4 3 35.4 21.1v63.2L476.6 131c16-8.6 35.4 3 35.4 21.1V432c0 26.5-21.5 48-48 48H48c-26.5 0-48-21.5-48-48V64zm232 248c-8.8 0-16 7.2-16 16v48c0 8.8 7.2 16 16 16h48c8.8 0 16-7.2 16-16v-48c0-8.8-7.2-16-16-16h-48zM88 328v48c0 8.8 7.2 16 16 16h48c8.8 0 16-7.2 16-16v-48c0-8.8-7.2-16-16-16h-48c-8.8 0-16 7.2-16 16zm272-16c-8.8 0-16 7.2-16 16v48c0 8.8 7.2 16 16 16h48c8.8 0 16-7.2 16-16v-48c0-8.8-7.2-16-16-16h-48z" fill="Currentcolor"/></svg></div></div><div class="navbar02_item-right"><div class="margin-bottom margin-tiny"><div class="text-weight-semibold text-color-gray900">Big Data-driven tools for competitor analysis</div></div><div class="text-size-small-2 hide-mobile-landscape"><a href="/market-share">Market Share</a>, <a href="/visibility-explorer">Visibility Explorer</a> and <a href="/project-visibility">Project Visibility</a></div></div></div><div id="w-node-_9a041ece-b98b-2e26-12a1-bbe6413e1ec0-4733001a" class="nav_bar_dropdown-link"><div class="nav_bar_icon-wrapper"><div class="icon-1x1-xsmall text-color-primary600 w-embed"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><path d="M304 240V16.6c0-9 7-16.6 16-16.6 123.7 0 224 100.3 224 224 0 9-7.6 16-16.6 16H304zM32 272c0-121.3 90.1-221.7 207-237.7 9.2-1.3 17 6.1 17 15.4V288l156.5 156.5c6.7 6.7 6.2 17.7-1.5 23.1-39.2 28-87.2 44.4-139 44.4-132.5 0-240-107.4-240-240zm526.4 16c9.3 0 16.6 7.8 15.4 17-7.7 55.9-34.6 105.6-73.9 142.3-6 5.6-15.4 5.2-21.2-.7L320 288h238.4z" fill="Currentcolor"/></svg></div></div><div class="navbar02_item-right"><div class="margin-bottom margin-tiny"><div class="text-weight-semibold text-color-gray900">Planning tools for SEO strategy</div></div><div class="text-size-small-2"><a href="/content-strategy">SEO &amp; Content Strategy</a>, <a href="/seo-forecasting">Budgeting &amp; Forecasting</a> and <a href="/seo-project-management">Project Management</a></div></div></div><div id="w-node-_36646eac-e155-a612-c73e-b038d6f43dd0-4733001a" class="nav_bar_dropdown-link"><div class="nav_bar_icon-wrapper"><div class="icon-1x1-xsmall text-color-primary600 w-embed"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 288 300"><g fill="Currentcolor" class="icons"><path d="M285.75 116.798 240.96 89.91c.014-.144.02-.29.02-.44V4.43A4.428 4.428 0 0 0 236.553 0h-19.49a4.43 4.43 0 0 0 0 8.858h15.06v75.746l-39.605-23.776h20.414a4.43 4.43 0 0 0 0-8.858H178.48c-.215 0-.426.02-.634.05l-16.81-10.089h51.893a4.43 4.43 0 0 0 0-8.86h-66.143c-.157 0-.31.01-.464.025L123.724 19.53c-2.069-1.242-4.838-.549-6.079 1.518l-1.545 2.575H71.194a4.43 4.43 0 0 0-4.43 4.429v47.246a4.43 4.43 0 0 0 4.43 4.428H82.42L52.002 130.4V8.858h144.59a4.428 4.428 0 0 0 4.428-4.43A4.428 4.428 0 0 0 196.591 0H47.573a4.43 4.43 0 0 0-4.431 4.429v140.726L.925 215.48a4.43 4.43 0 0 0 1.517 6.077l129.623 77.813c.993.597 2.23.78 3.353.499l51.858-12.95a4.478 4.478 0 0 0 2.723-2.02l29.577-49.264h16.976a4.432 4.432 0 0 0 4.43-4.431v-31.229l46.285-77.1a4.43 4.43 0 0 0-1.517-6.078ZM87.73 70.868H75.625V32.482h35.158L87.737 70.869h-.007Zm55.914 217.816 11.67-19.439 19.442 11.67-3.207.8-27.905 6.97Zm88.479-61.908h-7.228l7.228-12.041v12.041Zm-47.438 49.768-28.608-17.173A4.43 4.43 0 0 0 150 260.89l-17.173 28.608L10.801 216.24 122.962 29.404l154.431 92.709-92.708 154.431Z"/><path d="m153.181 80.61 32.406 19.453a4.43 4.43 0 0 0 4.56-7.597L157.74 73.013a4.43 4.43 0 0 0-4.56 7.597Zm48.609 29.18 44.558 26.747c2.236 1.341 5.22.412 6.308-1.954.927-2.024.158-4.496-1.749-5.64l-44.559-26.75a4.43 4.43 0 0 0-4.559 7.597Zm-91.554-21.9 36.457 21.886a4.43 4.43 0 0 0 4.56-7.594l-36.457-21.886a4.43 4.43 0 0 0-4.56 7.595Zm126.08 65.358-68.861-41.34a4.43 4.43 0 0 0-4.56 7.597l68.862 41.337c2.236 1.341 5.223.412 6.308-1.955.929-2.023.16-4.495-1.75-5.64Zm-12.158 20.254-121.52-72.952a4.43 4.43 0 0 0-4.56 7.594l121.52 72.952c2.237 1.341 5.223.412 6.308-1.955.93-2.025.158-4.495-1.748-5.64ZM212 193.753l-93.165-55.927a4.428 4.428 0 1 0-4.56 7.594l93.165 55.93c2.236 1.34 5.223.412 6.308-1.955.93-2.026.158-4.498-1.748-5.642ZM73.762 148.652l72.912 43.769a4.43 4.43 0 0 0 4.56-7.594L78.32 141.055a4.43 4.43 0 0 0-4.56 7.597Zm126.079 65.355-32.405-19.453a4.428 4.428 0 0 0-6.077 1.518 4.426 4.426 0 0 0 1.518 6.076l32.405 19.453c2.236 1.344 5.223.412 6.308-1.955.927-2.023.158-4.495-1.749-5.64ZM61.604 168.903l28.353 17.022a4.428 4.428 0 0 0 6.08-1.517 4.428 4.428 0 0 0-1.52-6.077l-28.354-17.022a4.43 4.43 0 0 0-4.56 7.594Zm126.079 65.357-76.961-46.202a4.43 4.43 0 1 0-4.562 7.594l76.964 46.203c2.236 1.341 5.22.412 6.308-1.955.927-2.023.158-4.495-1.749-5.64Zm-12.158 20.254-121.52-72.951a4.43 4.43 0 0 0-4.56 7.594l121.52 72.952c2.234 1.34 5.221.412 6.306-1.955.93-2.023.16-4.495-1.746-5.64Zm-85.071-23.517-48.608-29.18a4.428 4.428 0 1 0-4.56 7.594l48.609 29.18a4.427 4.427 0 0 0 6.077-1.517 4.43 4.43 0 0 0-1.518-6.077Zm44.556 26.749-28.353-17.022a4.43 4.43 0 0 0-4.56 7.594l28.354 17.022c2.236 1.342 5.223.412 6.308-1.954.93-2.024.16-4.495-1.748-5.64Z"/></g></svg></div></div><div class="navbar02_item-right"><div class="margin-bottom margin-tiny"><div class="text-weight-semibold text-color-gray900">Content tools for creating and optimising</div></div><div class="text-size-small-2"><a href="/content-optimisation">Optimise content</a>, use <a href="/seo-content-assistant">AI to create content at scale</a> and <a href="/frequently-asked-question-explorer">research consumers&#x27; questions</a></div></div></div><div id="w-node-_498c2e82-9af5-3f3a-dc5e-cf52064f6a01-4733001a" class="nav_bar_dropdown-link"><div class="nav_bar_icon-wrapper"><div class="icon-1x1-xsmall text-color-primary600 w-embed"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><path d="M224 0c8.8 0 16 7.2 16 16v48h64c35.3 0 64 28.7 64 64v128c0 35.3-28.7 64-64 64H144c-35.3 0-64-28.7-64-64V128c0-35.3 28.7-64 64-64h64V16c0-8.8 7.2-16 16-16zM16 144c0-8.8 7.2-16 16-16s16 7.2 16 16v96c0 8.8-7.2 16-16 16s-16-7.2-16-16v-96zm400-16c8.8 0 16 7.2 16 16v96c0 8.8-7.2 16-16 16s-16-7.2-16-16v-96c0-8.8 7.2-16 16-16zm-256 64c17.7 0 32-14.3 32-32s-14.3-32-32-32-32 14.3-32 32 14.3 32 32 32zm160-32c0-17.7-14.3-32-32-32s-32 14.3-32 32 14.3 32 32 32 32-14.3 32-32zm-160 80c-8.8 0-16 7.2-16 16s7.2 16 16 16 16-7.2 16-16-7.2-16-16-16zm48 16c0 8.8 7.2 16 16 16s16-7.2 16-16-7.2-16-16-16-16 7.2-16 16zm80-16c-8.8 0-16 7.2-16 16s7.2 16 16 16 16-7.2 16-16-7.2-16-16-16zM96 352h256c53 0 96 43 96 96v32c0 17.7-14.3 32-32 32h-64v-64c0-17.7-14.3-32-32-32H128c-17.7 0-32 14.3-32 32v64H32c-17.7 0-32-14.3-32-32v-32c0-53 43-96 96-96zm80 112v48h-32v-48c0-8.8 7.2-16 16-16s16 7.2 16 16zm48-16c8.8 0 16 7.2 16 16v48h-32v-48c0-8.8 7.2-16 16-16zm80 16v48h-32v-48c0-8.8 7.2-16 16-16s16 7.2 16 16z" fill="Currentcolor"/></svg></div></div><div class="navbar02_item-right"><div class="margin-bottom margin-tiny"><div class="text-weight-semibold text-color-gray900">Technical SEO tools for website auditing</div></div><div class="text-size-small-2"><a href="/seo-crawler">Website crawler </a>and <a href="/page-experience">Core Web Vitals</a></div></div></div><div id="w-node-e25077c2-5561-e962-ce89-e1fb73738a32-4733001a" class="nav_bar_dropdown-link"><div class="nav_bar_icon-wrapper"><div class="icon-1x1-xsmall text-color-primary600 w-embed"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><path d="M544 32c17.7 0 32 14.3 32 32v384c0 17.7-14.3 32-32 32s-32-14.3-32-32V64c0-17.7 14.3-32 32-32zM64 190.3 480 64v384l-131.1-39.8C338.2 449.5 300.7 480 256 480c-53 0-96-43-96-96 0-11 1.9-21.7 5.3-31.5L64 321.7c-.9 16.9-14.9 30.3-32 30.3-17.7 0-32-14.3-32-32V192c0-17.7 14.3-32 32-32 17.1 0 31.1 13.4 32 30.3zm239 203.9-91.6-27.8c-2.1 5.4-3.3 11.4-3.3 17.6 0 26.5 21.5 48 48 48 23 0 42.2-16.2 46.9-37.8z" fill="Currentcolor"/></svg></div></div><div class="navbar02_item-right"><div class="margin-bottom margin-tiny"><div class="text-weight-semibold text-color-gray900">Outreach and link building tools for planning and executing campaigns</div></div><div class="text-size-small-2"><a href="/backlink-analysis">Backlink Analysis</a>, <a href="/influencer-discovery">Influencer Discovery</a> and <a href="/link-building">Link Building</a></div></div></div><div id="w-node-cf9e142f-cb8a-171c-8610-0e49616a8ab1-4733001a" class="nav_bar_dropdown-link"><div class="nav_bar_icon-wrapper"><div class="icon-1x1-xsmall text-color-primary600 w-embed"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path d="M500 89c13.8-11 16-31.2 5-45s-31.2-16-45-5L319.4 151.5 211.2 70.4c-11.7-8.8-27.8-8.5-39.2.6L12 199c-13.8 11-16 31.2-5 45s31.2 16 45 5l140.6-112.5 108.2 81.1c11.7 8.8 27.8 8.5 39.2-.6L500 89zM160 256v192c0 17.7 14.3 32 32 32s32-14.3 32-32V256c0-17.7-14.3-32-32-32s-32 14.3-32 32zM32 352v96c0 17.7 14.3 32 32 32s32-14.3 32-32v-96c0-17.7-14.3-32-32-32s-32 14.3-32 32zm288-64c-17.7 0-32 14.3-32 32v128c0 17.7 14.3 32 32 32s32-14.3 32-32V320c0-17.7-14.3-32-32-32zm96-32v192c0 17.7 14.3 32 32 32s32-14.3 32-32V256c0-17.7-14.3-32-32-32s-32 14.3-32 32z" fill="Currentcolor"/></svg></div></div><div class="navbar02_item-right"><div class="margin-bottom margin-tiny"><div class="text-weight-semibold text-color-gray900">SEO Reporting tools for tracking SEO campaigns</div></div><div class="text-size-small-2"><a href="/seo-reporting">Custom SEO Reports</a>, <a href="/seo-dashboards">SEO Dashboards</a>, <a href="/how-to-use-google-data-studio-for-seo">Google Data Studio, </a><a href="/how-to-use-google-big-query-for-seo">Big Query</a> and <a href="/seo-alerts">SEO Alerts</a></div></div></div><div class="nav_bar_dropdown-link"><div class="nav_bar_icon-wrapper"><div class="icon-1x1-xsmall text-color-primary600 w-embed"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><path d="M64 0C28.7 0 0 28.7 0 64v384c0 35.3 28.7 64 64 64h256c35.3 0 64-28.7 64-64V160H256c-17.7 0-32-14.3-32-32V0H64zm192 0v128h128L256 0zM153 289l-31 31 31 31c9.4 9.4 9.4 24.6 0 33.9s-24.6 9.4-33.9 0L71 337c-9.4-9.4-9.4-24.6 0-33.9l48-48c9.4-9.4 24.6-9.4 33.9 0s9.4 24.6 0 33.9zm112-34 48 48c9.4 9.4 9.4 24.6 0 33.9l-48 48c-9.4 9.4-24.6 9.4-33.9 0s-9.4-24.6 0-33.9l31-31-31-31c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0z" fill="Currentcolor"/></svg></div></div><div class="navbar02_item-right"><div class="margin-bottom margin-tiny"><div class="text-weight-semibold text-color-gray900">SEO Data &amp; Integrations</div></div><div class="text-size-small-2 hide-mobile-landscape"><a href="/seo-data-integrations">Google Analytics, Search Console, AdWords, Majestic and more</a></div></div></div><div class="nav_bar_dropdown-link"><div class="nav_bar_icon-wrapper"><div class="icon-1x1-xsmall text-color-primary600 w-embed"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path d="M320 488c0 9.5-5.6 18.1-14.2 21.9s-18.8 2.3-25.8-4.1l-80-72c-5.1-4.6-7.9-11-7.9-17.8s2.9-13.3 7.9-17.8l80-72c7-6.3 17.2-7.9 25.8-4.1S320 334.5 320 344v40h16c35.3 0 64-28.7 64-64V153.3c-28.3-12.3-48-40.5-48-73.3 0-44.2 35.8-80 80-80s80 35.8 80 80c0 32.8-19.7 61-48 73.3V320c0 70.7-57.3 128-128 128h-16v40zM456 80c0-13.3-10.7-24-24-24s-24 10.7-24 24 10.7 24 24 24 24-10.7 24-24zM192 24c0-9.5 5.6-18.1 14.2-21.9S225-.2 232 6.2l80 72c5.1 4.6 7.9 11 7.9 17.8s-2.9 13.3-7.9 17.8l-80 72c-7 6.3-17.2 7.9-25.8 4.1S192 177.5 192 168v-40h-16c-35.3 0-64 28.7-64 64v166.7c28.3 12.3 48 40.5 48 73.3 0 44.2-35.8 80-80 80S0 476.2 0 432c0-32.8 19.7-61 48-73.3V192c0-70.7 57.3-128 128-128h16V24zM56 432c0 13.3 10.7 24 24 24s24-10.7 24-24-10.7-24-24-24-24 10.7-24 24z" fill="Currentcolor"/></svg></div></div><div class="navbar02_item-right"><div class="margin-bottom margin-tiny"><div class="text-weight-semibold text-color-gray900">SEO APIs</div></div><div class="text-size-small-2"><a href="/keyword-ranking-api">SERPs API</a>, <a href="/platform-api">Platform API</a> and <a href="/content-page-structure-api">Content &amp; Page Structure API</a></div></div></div><div class="nav_bar_dropdown-link"><div class="nav_bar_icon-wrapper"><div class="icon-1x1-xsmall text-color-primary600 w-embed"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><path d="M64 0C28.7 0 0 28.7 0 64v384c0 35.3 28.7 64 64 64h256c35.3 0 64-28.7 64-64V160H256c-17.7 0-32-14.3-32-32V0H64zm192 0v128h128L256 0zM88 224h208c17.7 0 32 14.3 32 32v160c0 17.7-14.3 32-32 32H88c-17.7 0-32-14.3-32-32V256c0-17.7 14.3-32 32-32zm0 112h48v-48H88v48zm80 0h48v-48h-48v48zm80 0h48v-48h-48v48zm0 32v48h48v-48h-48zm-32 0h-48v48h48v-48zm-80 0H88v48h48v-48z" fill="Currentcolor"/></svg></div></div><div class="navbar02_item-right"><div class="margin-bottom margin-tiny"><div class="text-weight-semibold text-color-gray900">Google Sheets Plugin</div></div><div class="text-size-small-2 hide-mobile-landscape"><a href="/google-sheets-add-on-the-really-useful-keyword-tool">Get fresh keyword data in Google Sheets (No Code)</a></div></div></div><div class="nav_bar_dropdown-link"><div class="nav_bar_icon-wrapper"><div class="icon-1x1-xsmall text-color-primary600 w-embed"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><path d="M256 32h-74.8c-27.1 0-51.3 17.1-60.3 42.6L3.1 407.2c-2 5.8-3.1 12-3.1 18.2C0 455.5 24.5 480 54.6 480H256v-64c0-17.7 14.3-32 32-32s32 14.3 32 32v64h201.4c30.2 0 54.6-24.5 54.6-54.6 0-6.2-1.1-12.4-3.1-18.2L455.1 74.6C446 49.1 421.9 32 394.8 32H320v64c0 17.7-14.3 32-32 32s-32-14.3-32-32V32zm64 192v64c0 17.7-14.3 32-32 32s-32-14.3-32-32v-64c0-17.7 14.3-32 32-32s32 14.3 32 32z" fill="Currentcolor"/></svg></div></div><div class="navbar02_item-right"><div class="margin-bottom margin-tiny"><div class="text-weight-semibold text-color-gray900">SEO Product Roadmap</div></div><div class="text-size-small-2 hide-mobile-landscape"><a href="https://theoptimisers.authoritas.com/groups/5156108/feed">We update the platform every 2 weeks. Find out what&#x27;s coming next.</a></div></div></div></div></div><div class="navbar02_dropdown-content-right"><div class="navbar02_dropdown-content-wrapper"><div class="navbar02_dropdown-blog-item-wrapper"><div class="margin-bottom margin-large"><div class="navbar02_blog-item"><div class="navbar02_blog-image-wrapper"><div class="margin-bottom margin-small"><img alt="The Authoritas team" loading="eager" src="https://cdn.prod.website-files.com/6349278eb7be8fab772447b9/636922cbcbb8389fd222d71f_authoritas-team-small.avif" class="navbar02_blog-image"/></div></div><div class="navbar02_blog-content"><div class="margin-bottom margin-tiny"><div class="text-weight-semibold text-color-gray900">What are we working on now?</div></div><div class="text-size-small-2 text-style-2lines">We update the platform every 2 weeks. Find out what&#x27;s coming next.</div><div class="button-row-2"><div class="margin-bottom"><div class="button-wrapper"><a href="https://theoptimisers.authoritas.com/groups/5156108/feed" class="button-link-2 w-inline-block"><div class="button-icon w-embed"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><path d="M256 32h-74.8c-27.1 0-51.3 17.1-60.3 42.6L3.1 407.2c-2 5.8-3.1 12-3.1 18.2C0 455.5 24.5 480 54.6 480H256v-64c0-17.7 14.3-32 32-32s32 14.3 32 32v64h201.4c30.2 0 54.6-24.5 54.6-54.6 0-6.2-1.1-12.4-3.1-18.2L455.1 74.6C446 49.1 421.9 32 394.8 32H320v64c0 17.7-14.3 32-32 32s-32-14.3-32-32V32zm64 192v64c0 17.7-14.3 32-32 32s-32-14.3-32-32v-64c0-17.7 14.3-32 32-32s32 14.3 32 32z" fill="Currentcolor"/></svg></div><div class="text-block-5">Product Roadmap</div></a></div></div></div><div class="button-row-2"><div class="margin-top margin-small"><div class="button-wrapper"><a href="/seo-software-comparison" class="button-link-2 w-inline-block"><div class="button-icon w-embed"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><path d="M522.1 62.4c16.8-5.6 25.8-23.7 20.2-40.5S518.6-3.9 501.9 1.6l-113 37.7C375 15.8 349.3 0 320 0c-44.2 0-80 35.8-80 80 0 3 .2 5.9.5 8.8l-122.6 40.8c-16.8 5.6-25.8 23.7-20.2 40.5s23.7 25.8 40.5 20.2l135.5-45.2c4.5 3.2 9.3 5.9 14.4 8.2V480c0 17.7 14.3 32 32 32H512c17.7 0 32-14.3 32-32s-14.3-32-32-32H352V153.3c21-9.2 37.2-27 44.2-49l125.9-42zm-396.3 211c.4-.8 1.3-1.3 2.2-1.3s1.7.5 2.2 1.3L204.9 416H51.1l74.7-142.7zM128 224c-18.8 0-36 10.4-44.7 27L5.5 399.5c-3.1 5.8-6.1 14-5.5 23.8.7 12.1 4.8 35.2 24.8 55.1C45.1 498.6 77.8 512 128 512s82.9-13.4 103.2-33.5c20-20 24.2-43 24.8-55.1.6-9.8-2.5-18-5.5-23.8L172.7 251c-8.7-16.6-25.9-27-44.7-27zm384-80c.9 0 1.7.5 2.2 1.3L588.9 288H435.1l74.7-142.7c.4-.8 1.3-1.3 2.2-1.3zm-44.7-21-77.8 148.5c-3.1 5.8-6.1 14-5.5 23.8.7 12.1 4.8 35.2 24.8 55.1 20.3 20.2 53 33.6 103.2 33.6s82.9-13.4 103.2-33.5c20-20 24.2-43 24.8-55.1.6-9.8-2.5-18-5.5-23.8L556.7 123c-8.7-16.6-25.9-27-44.7-27s-36 10.4-44.7 27z" fill="Currentcolor"/></svg></div><div class="text-block-5">Compare us vs Other SEO Tools</div></a></div></div></div></div></div></div></div></div><div class="navbar02_dropdown-right-overlay-absolute"></div></div></div></div><div class="navbar03_bottom-bar"><div class="navbar03_bottom-bar-background"></div><div class="navbar03_container"><div class="navbar03_bottom-bar-left"><a href="/demo" class="button-link-2 w-inline-block"><div class="button-icon w-embed"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path d="M256 448c141.4 0 256-93.1 256-208S397.4 32 256 32 0 125.1 0 240c0 45.1 17.7 86.8 47.7 120.9-1.9 24.5-11.4 46.3-21.4 62.9-5.5 9.2-11.1 16.6-15.2 21.6-2.1 2.5-3.7 4.4-4.9 5.7-.6.6-1 1.1-1.3 1.4l-.3.3c-4.6 4.6-5.9 11.4-3.4 17.4 2.5 6 8.3 9.9 14.8 9.9 28.7 0 57.6-8.9 81.6-19.3 22.9-10 42.4-21.9 54.3-30.6 31.8 11.5 67 17.9 104.1 17.9zM128 272c-17.7 0-32-14.3-32-32s14.3-32 32-32 32 14.3 32 32-14.3 32-32 32zm128 0c-17.7 0-32-14.3-32-32s14.3-32 32-32 32 14.3 32 32-14.3 32-32 32zm160-32c0 17.7-14.3 32-32 32s-32-14.3-32-32 14.3-32 32-32 32 14.3 32 32z" fill="Currentcolor"/></svg></div><div class="nav_cta-links">Book my demo</div></a><a href="/pricing" class="button-link-2 w-inline-block"><div class="button-icon w-embed"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path d="M256 512c141.4 0 256-114.6 256-256S397.4 0 256 0 0 114.6 0 256s114.6 256 256 256zm20.8-378.4v14.2c9.7 1.2 19.4 3.9 29 6.6 1.9.5 3.7 1 5.6 1.6 11.5 3.2 18.3 15.1 15.1 26.6s-15.1 18.2-26.6 15.1c-1.5-.4-3.1-.9-4.7-1.3-7-2-14-3.9-21.1-5.3-13.2-2.5-28.5-1.3-40.8 4-11 4.8-20.1 16.4-7.6 24.4 9.8 6.3 21.8 9.5 33.2 12.6 2.4.6 4.7 1.3 7 1.9 15.6 4.4 35.5 10.1 50.4 20.3 19.4 13.3 28.5 34.9 24.2 58.1-4.1 22.4-19.7 37.1-38.4 44.7-7.8 3.2-16.3 5.2-25.2 6.2v15.2c0 11.9-9.7 21.6-21.6 21.6s-21.6-9.7-21.6-21.6v-17.4c-14.5-3.3-28.7-7.9-42.8-12.5-11.3-3.7-17.5-16-13.7-27.3s16-17.5 27.3-13.7c2.5.8 5 1.7 7.5 2.5 11.3 3.8 22.9 7.7 34.5 9.6 17 2.5 30.6 1 39.5-2.6 12-4.8 17.7-19.1 5.9-27.1-10.1-6.9-22.6-10.3-34.5-13.5-2.3-.6-4.5-1.2-6.8-1.9-15.1-4.3-34-9.6-48.2-18.7-19.5-12.5-29.4-33.3-25.2-56.4 4-21.8 21-36.3 39-44.1 5.5-2.4 11.4-4.3 17.5-5.7v-16.1c0-11.9 9.7-21.6 21.6-21.6s21.6 9.7 21.6 21.6z" fill="Currentcolor"/></svg></div><div class="nav_cta-links">Pricing</div></a><a href="https://youtu.be/53BBlyQSkxs" target="_blank" class="button-link-2 is-hidden w-inline-block"><div class="button-icon w-embed"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M10.0003 18.3332C14.6027 18.3332 18.3337 14.6022 18.3337 9.99984C18.3337 5.39746 14.6027 1.6665 10.0003 1.6665C5.39795 1.6665 1.66699 5.39746 1.66699 9.99984C1.66699 14.6022 5.39795 18.3332 10.0003 18.3332Z" stroke="currentColor" stroke-width="1.66667" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M7.91699 7.47095C7.91699 7.07321 7.91699 6.87434 8.00011 6.76332C8.07254 6.66657 8.18342 6.60603 8.30397 6.59742C8.44231 6.58754 8.6096 6.69508 8.94416 6.91016L12.878 9.43905C13.1683 9.62569 13.3135 9.719 13.3636 9.83766C13.4074 9.94134 13.4074 10.0583 13.3636 10.162C13.3135 10.2807 13.1683 10.374 12.878 10.5606L8.94416 13.0895C8.6096 13.3046 8.44231 13.4121 8.30397 13.4023C8.18342 13.3936 8.07254 13.3331 8.00011 13.2364C7.91699 13.1253 7.91699 12.9265 7.91699 12.5287V7.47095Z" stroke="currentColor" stroke-width="1.66667" stroke-linecap="round" stroke-linejoin="round"/>
+</svg></div><div class="nav_cta-links">Watch demo</div></a><a href="https://www.authoritas.com/ai-tracker-comparison" class="button-link-2 w-inline-block"><div class="button-icon w-embed"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><path d="M522.1 62.4c16.8-5.6 25.8-23.7 20.2-40.5S518.6-3.9 501.9 1.6l-113 37.7C375 15.8 349.3 0 320 0c-44.2 0-80 35.8-80 80 0 3 .2 5.9.5 8.8l-122.6 40.8c-16.8 5.6-25.8 23.7-20.2 40.5s23.7 25.8 40.5 20.2l135.5-45.2c4.5 3.2 9.3 5.9 14.4 8.2V480c0 17.7 14.3 32 32 32H512c17.7 0 32-14.3 32-32s-14.3-32-32-32H352V153.3c21-9.2 37.2-27 44.2-49l125.9-42zm-396.3 211c.4-.8 1.3-1.3 2.2-1.3s1.7.5 2.2 1.3L204.9 416H51.1l74.7-142.7zM128 224c-18.8 0-36 10.4-44.7 27L5.5 399.5c-3.1 5.8-6.1 14-5.5 23.8.7 12.1 4.8 35.2 24.8 55.1C45.1 498.6 77.8 512 128 512s82.9-13.4 103.2-33.5c20-20 24.2-43 24.8-55.1.6-9.8-2.5-18-5.5-23.8L172.7 251c-8.7-16.6-25.9-27-44.7-27zm384-80c.9 0 1.7.5 2.2 1.3L588.9 288H435.1l74.7-142.7c.4-.8 1.3-1.3 2.2-1.3zm-44.7-21-77.8 148.5c-3.1 5.8-6.1 14-5.5 23.8.7 12.1 4.8 35.2 24.8 55.1 20.3 20.2 53 33.6 103.2 33.6s82.9-13.4 103.2-33.5c20-20 24.2-43 24.8-55.1.6-9.8-2.5-18-5.5-23.8L556.7 123c-8.7-16.6-25.9-27-44.7-27s-36 10.4-44.7 27z" fill="Currentcolor"/></svg></div><div class="nav_cta-links">Compare us vs Other AI Search Tools</div></a><a href="https://v7.authoritas.com/v8/frontend/auth/sign-up" class="button-link-2 w-inline-block"><div class="button-icon w-embed"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><path d="M320 32c0-9.9-4.5-19.2-12.3-25.2S289.8-1.4 280.2 1L100.3 46C79 51.3 64 70.5 64 92.5V448H32c-17.7 0-32 14.3-32 32s14.3 32 32 32h288V32zm-64 224c0 17.7-10.7 32-24 32s-24-14.3-24-32 10.7-32 24-32 24 14.3 24 32zm96-128h96v384h96c17.7 0 32-14.3 32-32s-14.3-32-32-32h-32V128c0-35.3-28.7-64-64-64h-96v64z" fill="Currentcolor"/></svg></div><div class="nav_cta-links">Start for free</div></a></div><div class="navbar03_bottom-bar-right"></div></div></div></nav></div><a href="https://www.authoritas.com/app/pricing" class="navbar02_link w-nav-link">Pricing</a><div data-hover="false" data-delay="300" data-w-id="9f539ae2-f2f7-3c36-0fc5-ee3de3e6fa23" class="nav_bar_menu-dropdown w-dropdown"><div class="nav_bar_dropdown-toggle w-dropdown-toggle"><div class="dropdown-icon-2 w-embed"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" stroke-width="1.67" stroke-linecap="round" stroke-linejoin="round"/>
+</svg></div><div>Resources</div></div><nav class="nav_bar_dropdown-list w-dropdown-list"><div class="nav_bar_dropdown-link-list"><a href="/blog" class="nav_bar_dropdown-link w-inline-block"><div class="nav_bar_icon-wrapper"><div class="icon-1x1-xsmall text-color-primary600 w-embed"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path d="M192 32c0 17.7 14.3 32 32 32 123.7 0 224 100.3 224 224 0 17.7 14.3 32 32 32s32-14.3 32-32C512 128.9 383.1 0 224 0c-17.7 0-32 14.3-32 32zm0 96c0 17.7 14.3 32 32 32 70.7 0 128 57.3 128 128 0 17.7 14.3 32 32 32s32-14.3 32-32c0-106-86-192-192-192-17.7 0-32 14.3-32 32zm-96 16c0-26.5-21.5-48-48-48S0 117.5 0 144v224c0 79.5 64.5 144 144 144s144-64.5 144-144-64.5-144-144-144h-16v96h16c26.5 0 48 21.5 48 48s-21.5 48-48 48-48-21.5-48-48V144z"/ fill="Currentcolor"></svg></div></div><div class="nav_bar_item-right"><div class="margin-bottom margin-tiny"><div class="text-weight-semibold text-color-gray900">Blog</div></div><div class="text-size-small-2">SEO Platform updates, SEO research studies and expert articles</div></div></a><a href="/tea-time-seo" class="nav_bar_dropdown-link w-inline-block"><div class="nav_bar_icon-wrapper"><div class="icon-1x1-xsmall text-color-primary600 w-embed"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><path d="M144 64v50.7c0 8.5-3.4 16.6-9.4 22.6l-29.3 29.3c-6 6-9.4 14.1-9.4 22.6V256c0 17.7 14.3 32 32 32h64c17.7 0 32-14.3 32-32v-66.7c0-8.5-3.4-16.6-9.4-22.6l-29.3-29.3c-6-6-9.4-14.1-9.4-22.6V64H448c70.7 0 128 57.3 128 128s-57.3 128-128 128h-32v32c0 53-43 96-96 96H128c-53 0-96-43-96-96V96c0-17.7 14.3-32 32-32h80zm272 192h32c35.3 0 64-28.7 64-64s-28.7-64-64-64h-32v128z" fill="Currentcolor"/></svg></div></div><div class="nav_bar_item-right"><div class="margin-bottom margin-tiny"><div class="text-weight-semibold text-color-gray900">Tea-Time SEO Shows</div></div><div class="text-size-small-2">Watch recordings of over 75 expert SEO live streams</div></div></a><a href="https://www.youtube.com/c/authoritas" target="_blank" class="nav_bar_dropdown-link w-inline-block"><div class="nav_bar_icon-wrapper"><div class="icon-1x1-xsmall text-color-primary600 w-embed"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><path d="M549.655 124.083c-6.281-23.65-24.787-42.276-48.284-48.597C458.781 64 288 64 288 64S117.22 64 74.629 75.486c-23.497 6.322-42.003 24.947-48.284 48.597-11.412 42.867-11.412 132.305-11.412 132.305s0 89.438 11.412 132.305c6.281 23.65 24.787 41.5 48.284 47.821C117.22 448 288 448 288 448s170.78 0 213.371-11.486c23.497-6.321 42.003-24.171 48.284-47.821 11.412-42.867 11.412-132.305 11.412-132.305s0-89.438-11.412-132.305zm-317.51 213.508V175.185l142.739 81.205-142.739 81.201z" fill="Currentcolor"/></svg></div></div><div class="nav_bar_item-right"><div class="margin-bottom margin-tiny"><div class="text-weight-semibold text-color-gray900">Video tutorials</div></div><div class="text-size-small-2">Learn how to get the most out of our platform with these handy videos</div></div></a><a href="/seo-ai-research-whitepapers" class="nav_bar_dropdown-link w-inline-block"><div class="nav_bar_icon-wrapper"><div class="icon-1x1-xsmall text-color-primary600 w-embed"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><path class="fa-secondary" opacity=".4" d="M48 88l0 270.7c9.8-4.3 20.6-6.7 32-6.7l320 0 0-304L88 48C65.9 48 48 65.9 48 88zm80 83.2c0-32.7 26.5-59.2 59.2-59.2l2.4 0c15.9 0 31.2 6.2 42.7 17.2l7.7 7.4 7.7-7.4c11.5-11 26.8-17.2 42.7-17.2l2.4 0c32.7 0 59.2 26.5 59.2 59.2c0 16.1-6.6 31.5-18.2 42.7l-82.8 79.6L240 304.1l-11.1-10.7-82.8-79.6c-11.6-11.2-18.2-26.6-18.2-42.7z"/><path class="fa-primary" d="M0 88C0 39.4 39.4 0 88 0L424 0l24 0 0 24 0 352 0 24-24 0-8 0 0 64 8 0 24 0 0 48-24 0L80 512c-44.2 0-80-35.8-80-80c0-2.7 .1-5.4 .4-8L0 424 0 88zM80 400c-17.7 0-32 14.3-32 32s14.3 32 32 32l288 0 0-64L80 400zM48 358.7c9.8-4.3 20.6-6.7 32-6.7l320 0 0-304L88 48C65.9 48 48 65.9 48 88l0 270.7zm80-187.5c0-32.7 26.5-59.2 59.2-59.2l2.4 0c15.9 0 31.2 6.2 42.7 17.2l7.7 7.4 7.7-7.4c11.5-11 26.8-17.2 42.7-17.2l2.4 0c32.7 0 59.2 26.5 59.2 59.2c0 16.1-6.6 31.5-18.2 42.7l-82.8 79.6L240 304.1l-11.1-10.7-82.8-79.6c-11.6-11.2-18.2-26.6-18.2-42.7z" fill="Currentcolor"/></svg></div></div><div class="nav_bar_item-right"><div class="margin-bottom margin-tiny"><div class="text-weight-semibold text-color-gray900">Whitepapers</div></div><div class="text-size-small-2">Original research papers on SEO, Ai Search &amp; Large Language Models</div></div></a><a href="/seo-industry-reports" class="nav_bar_dropdown-link w-inline-block"><div class="nav_bar_icon-wrapper"><div class="icon-1x1-xsmall text-color-primary600 w-embed"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><path d="M64 0C28.7 0 0 28.7 0 64v384c0 35.3 28.7 64 64 64h256c35.3 0 64-28.7 64-64V160H256c-17.7 0-32-14.3-32-32V0H64zm192 0v128h128L256 0zm40 320h-88c-8.8 0-16-7.2-16-16v-88c0-8.8 7.2-16.1 16-14.9 53.5 7.1 95.9 49.5 103 103 1.2 8.8-6.1 16-14.9 16zm-136-90v106c0 8.8 7.2 16 16 16h106c10.1 0 17.7 9.3 14.1 18.8C278.9 415.9 235.2 448 184 448c-66.3 0-120-53.7-120-120 0-51.2 32.1-94.9 77.2-112.2 9.5-3.6 18.8 4 18.8 14.1z" fill="Currentcolor"/></svg></div></div><div class="nav_bar_item-right"><div class="margin-bottom margin-tiny"><div class="text-weight-semibold text-color-gray900">SEO Market Reports</div></div><div class="text-size-small-2">Get a free big-data driven analysis of your industry</div></div></a><a href="/ultimate-seo-guides" class="nav_bar_dropdown-link w-inline-block"><div class="nav_bar_icon-wrapper"><div class="icon-1x1-xsmall text-color-primary600 w-embed"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path d="M256 512c141.4 0 256-114.6 256-256S397.4 0 256 0 0 114.6 0 256s114.6 256 256 256zm50.7-186.9-144.3 55.5c-19.4 7.5-38.5-11.6-31-31l55.5-144.3c3.3-8.5 9.9-15.1 18.4-18.4l144.3-55.5c19.4-7.5 38.5 11.6 31 31l-55.5 144.3c-3.2 8.5-9.9 15.1-18.4 18.4zM288 256c0-17.7-14.3-32-32-32s-32 14.3-32 32 14.3 32 32 32 32-14.3 32-32z" fill="Currentcolor"/></svg></div></div><div class="nav_bar_item-right"><div class="margin-bottom margin-tiny"><div class="text-weight-semibold text-color-gray900">Ultimate SEO Guides</div></div><div class="text-size-small-2">Free in-depth guides covering all aspects of SEO and Content Marketing</div></div></a><a href="/seo-software-rfp-template" class="nav_bar_dropdown-link w-inline-block"><div class="nav_bar_icon-wrapper"><div class="icon-1x1-xsmall text-color-primary600 w-embed"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><path d="M48 0C21.5 0 0 21.5 0 48v416c0 26.5 21.5 48 48 48h352c26.5 0 48-21.5 48-48V48c0-26.5-21.5-48-48-48H48zm16 112c0-8.8 7.2-16 16-16h32c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16H80c-8.8 0-16-7.2-16-16v-32zm0 256c0-8.8 7.2-16 16-16h32c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16H80c-8.8 0-16-7.2-16-16v-32zm144 0h160c8.8 0 16 7.2 16 16s-7.2 16-16 16H208c-8.8 0-16-7.2-16-16s7.2-16 16-16zm-16-240c0-8.8 7.2-16 16-16h160c8.8 0 16 7.2 16 16s-7.2 16-16 16H208c-8.8 0-16-7.2-16-16zm16 112h160c8.8 0 16 7.2 16 16s-7.2 16-16 16H208c-8.8 0-16-7.2-16-16s7.2-16 16-16zm-52.7-27.3c6.2 6.2 6.2 16.4 0 22.6l-48 48c-6.2 6.2-16.4 6.2-22.6 0l-24-24c-6.2-6.2-6.2-16.4 0-22.6s16.4-6.2 22.6 0L96 249.4l36.7-36.7c6.2-6.2 16.4-6.2 22.6 0z" fill="Currentcolor"/></svg></div></div><div class="nav_bar_item-right"><div class="margin-bottom margin-tiny"><div class="text-weight-semibold text-color-gray900">SEO Templates</div></div><div class="text-size-small-2">Free templates you can use to complete common SEO tasks</div></div></a></div></nav></div><div data-hover="false" data-delay="300" class="nav_bar_menu-dropdown w-dropdown"><div class="nav_bar_dropdown-toggle w-dropdown-toggle"><div class="dropdown-icon-2 w-embed"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" stroke-width="1.67" stroke-linecap="round" stroke-linejoin="round"/>
+</svg></div><div>About Us</div></div><nav class="nav_bar_dropdown-list w-dropdown-list"><div class="nav_bar_dropdown-link-list"><a href="/about" class="nav_bar_dropdown-link w-inline-block"><div class="nav_bar_icon-wrapper"><div class="icon-1x1-xsmall text-color-primary600 w-embed"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><path d="M144 160c44.2 0 80-35.8 80-80S188.2 0 144 0 64 35.8 64 80s35.8 80 80 80zm368 0c44.2 0 80-35.8 80-80S556.2 0 512 0s-80 35.8-80 80 35.8 80 80 80zM0 298.7C0 310.4 9.6 320 21.3 320h214.1c-26.6-23.5-43.3-57.8-43.3-96 0-7.6.7-15 1.9-22.3-13.6-6.3-28.7-9.7-44.6-9.7h-42.7C47.8 192 0 239.8 0 298.7zM320 320c24 0 45.9-8.8 62.7-23.3 2.5-3.7 5.2-7.3 8-10.7 2.7-3.3 5.7-6.1 9-8.3C410 262.3 416 243.9 416 224c0-53-43-96-96-96s-96 43-96 96 43 96 96 96zm65.4 60.2c-10.3-5.9-18.1-16.2-20.8-28.2H261.3C187.7 352 128 411.7 128 485.3c0 14.7 11.9 26.7 26.7 26.7h300.5c-2.1-5.2-3.2-10.9-3.2-16.4v-3c-1.3-.7-2.7-1.5-4-2.3l-2.6 1.5c-16.8 9.7-40.5 8-54.7-9.7-4.5-5.6-8.6-11.5-12.4-17.6l-.1-.2-.1-.2-2.4-4.1-.1-.2-.1-.2c-3.4-6.2-6.4-12.6-9-19.3-8.2-21.2 2.2-42.6 19-52.3l2.7-1.5v-4.6l-2.7-1.5zM533.3 192h-42.6c-15.9 0-31 3.5-44.6 9.7 1.3 7.2 1.9 14.7 1.9 22.3 0 17.4-3.5 33.9-9.7 49 2.5.9 4.9 2 7.1 3.3l2.6 1.5c1.3-.8 2.6-1.6 4-2.3v-3c0-19.4 13.3-39.1 35.8-42.6 7.9-1.2 16-1.9 24.2-1.9s16.3.6 24.2 1.9c22.5 3.5 35.8 23.2 35.8 42.6v3c1.3.7 2.7 1.5 4 2.3l2.6-1.5c16.8-9.7 40.5-8 54.7 9.7 2.3 2.8 4.5 5.8 6.6 8.7-2.1-57.1-49-102.7-106.6-102.7zm91.3 163.9c6.3-3.6 9.5-11.1 6.8-18-2.1-5.5-4.6-10.8-7.4-15.9l-2.3-4c-3.1-5.1-6.5-9.9-10.2-14.5-4.6-5.7-12.7-6.7-19-3L574.4 311c-8.9-7.6-19.1-13.6-30.4-17.6v-21c0-7.3-4.9-13.8-12.1-14.9-6.5-1-13.1-1.5-19.9-1.5s-13.4.5-19.9 1.5c-7.2 1.1-12.1 7.6-12.1 14.9v21c-11.2 4-21.5 10-30.4 17.6l-18.2-10.5c-6.3-3.6-14.4-2.6-19 3-3.7 4.6-7.1 9.5-10.2 14.6l-2.3 3.9c-2.8 5.1-5.3 10.4-7.4 15.9-2.6 6.8.5 14.3 6.8 17.9l18.2 10.5c-1 5.7-1.6 11.6-1.6 17.6s.6 11.9 1.6 17.5l-18.2 10.5c-6.3 3.6-9.5 11.1-6.8 17.9 2.1 5.5 4.6 10.7 7.4 15.8l2.4 4.1c3 5.1 6.4 9.9 10.1 14.5 4.6 5.7 12.7 6.7 19 3l18.2-10.2c8.9 7.6 19.2 13.6 30.4 17.6v21c0 7.3 4.9 13.8 12.1 14.9 6.5 1 13.1 1.5 19.9 1.5s13.4-.5 19.9-1.5c7.2-1.1 12.1-7.6 12.1-14.9v-21c11.2-4 21.5-10 30.4-17.6l18.2 10.5c6.3 3.6 14.4 2.6 19-3 3.7-4.6 7.1-9.4 10.1-14.5l2.4-4.2c2.8-5.1 5.3-10.3 7.4-15.8 2.6-6.8-.5-14.3-6.8-17.9l-18.2-10.5c1-5.7 1.6-11.6 1.6-17.5s-.6-11.9-1.6-17.6l18.2-10.5zM552 384c0 22.1-17.9 40-40 40s-40-17.9-40-40 17.9-40 40-40 40 17.9 40 40z" fill="Currentcolor"/></svg></div></div><div class="nav_bar_item-right"><div class="margin-bottom margin-tiny"><div class="text-weight-semibold text-color-gray900">Our story</div></div><div class="text-size-small-2">The latest industry news, updates and info.</div></div></a><a href="/jobs" class="nav_bar_dropdown-link w-inline-block"><div class="nav_bar_icon-wrapper"><div class="icon-1x1-xsmall text-color-primary600 w-embed"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Pro 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license (Commercial License) Copyright 2022 Fonticons, Inc.--><path d="M320 32c0-9.9-4.5-19.2-12.3-25.2S289.8-1.4 280.2 1L100.3 46C79 51.3 64 70.5 64 92.5V448H32c-17.7 0-32 14.3-32 32s14.3 32 32 32h288V32zm-64 224c0 17.7-10.7 32-24 32s-24-14.3-24-32 10.7-32 24-32 24 14.3 24 32zm96-128h96v384h96c17.7 0 32-14.3 32-32s-14.3-32-32-32h-32V128c0-35.3-28.7-64-64-64h-96v64z" fill="Currentcolor"/></svg></div></div><div class="nav_bar_item-right"><div class="margin-bottom margin-tiny"><div class="text-weight-semibold text-color-gray900">Careers</div></div><div class="text-size-small-2">Learn how our customers are making big changes.</div></div></a><a href="/contact" class="nav_bar_dropdown-link w-inline-block"><div class="nav_bar_icon-wrapper"><div class="icon-1x1-xsmall text-color-primary600 w-embed"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><path d="M64 32C28.7 32 0 60.7 0 96v320c0 35.3 28.7 64 64 64h448c35.3 0 64-28.7 64-64V96c0-35.3-28.7-64-64-64H64zm80 256h64c44.2 0 80 35.8 80 80 0 8.8-7.2 16-16 16H80c-8.8 0-16-7.2-16-16 0-44.2 35.8-80 80-80zm96-96c0 35.3-28.7 64-64 64s-64-28.7-64-64 28.7-64 64-64 64 28.7 64 64zm128-32h128c8.8 0 16 7.2 16 16s-7.2 16-16 16H368c-8.8 0-16-7.2-16-16s7.2-16 16-16zm0 64h128c8.8 0 16 7.2 16 16s-7.2 16-16 16H368c-8.8 0-16-7.2-16-16s7.2-16 16-16zm0 64h128c8.8 0 16 7.2 16 16s-7.2 16-16 16H368c-8.8 0-16-7.2-16-16s7.2-16 16-16z" fill="Currentcolor"/></svg></div></div><div class="nav_bar_item-right"><div class="margin-bottom margin-tiny"><div class="text-weight-semibold text-color-gray900">Contact Us</div></div><div class="text-size-small-2">Get up and running on new features and techniques.</div></div></a><a href="https://help.authoritas.com/en/" target="_blank" class="nav_bar_dropdown-link w-inline-block"><div class="nav_bar_icon-wrapper"><div class="icon-1x1-xsmall text-color-primary600 w-embed"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><path d="M0 64C0 28.7 28.7 0 64 0h288c35.3 0 64 28.7 64 64v192c0 35.3-28.7 64-64 64H202.7l-81.1 60.8c-4.8 3.6-11.3 4.2-16.8 1.5S96 374.1 96 368v-48H64c-35.3 0-64-28.7-64-64V64zm256 288h96c53 0 96-43 96-96V128h128c35.3 0 64 28.7 64 64v192c0 35.3-28.7 64-64 64h-32v48c0 6.1-3.4 11.6-8.8 14.3s-11.9 2.1-16.8-1.5L437.3 448H320c-35.3 0-64-28.7-64-64v-32zM136.2 92.4l-.4 1c-3.7 10.4 1.8 21.8 12.2 25.5s21.8-1.8 25.5-12.2l.4-1c.9-2.7 3.5-4.4 6.3-4.4h48.5c7 0 12.6 5.7 12.6 12.6 0 4.5-2.4 8.7-6.3 10.9l-37 21.3c-6.2 3.6-10 10.2-10 17.3v11.2c0 11 9 20 20 20 10.9 0 19.8-8.8 20-19.6l26.9-15.4c16.3-9.4 26.4-26.8 26.4-45.6 0-29.1-23.6-52.6-52.6-52.6h-48.5c-19.8 0-37.4 12.4-44 31.1zM234.7 248c0-14.7-11.9-26.7-26.7-26.7s-26.7 11.9-26.7 26.7 11.9 26.7 26.7 26.7 26.7-11.9 26.7-26.7z" fill="Currentcolor"/></svg></div></div><div class="nav_bar_item-right"><div class="margin-bottom margin-tiny"><div class="text-weight-semibold text-color-gray900">Help and support</div></div><div class="text-size-small-2">Learn, fix a problem, and get answers to your questions.</div></div></a></div></nav></div><div data-hover="false" data-delay="300" class="nav_bar_menu-dropdown w-dropdown"><div class="nav_bar_dropdown-toggle w-dropdown-toggle"><div class="dropdown-icon-2 w-embed"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" stroke-width="1.67" stroke-linecap="round" stroke-linejoin="round"/>
+</svg></div><div>Use Cases</div></div><nav class="nav_bar_dropdown-list w-dropdown-list"><div class="nav_bar_dropdown-link-list"><a href="/case-studies" class="nav_bar_dropdown-link w-inline-block"><div class="nav_bar_icon-wrapper"><div class="icon-1x1-xsmall text-color-primary600 w-embed"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><path d="M0 64C0 28.7 28.7 0 64 0h288c35.3 0 64 28.7 64 64v192c0 35.3-28.7 64-64 64H202.7l-81.1 60.8c-4.8 3.6-11.3 4.2-16.8 1.5S96 374.1 96 368v-48H64c-35.3 0-64-28.7-64-64V64zm256 288h96c53 0 96-43 96-96V128h128c35.3 0 64 28.7 64 64v192c0 35.3-28.7 64-64 64h-32v48c0 6.1-3.4 11.6-8.8 14.3s-11.9 2.1-16.8-1.5L437.3 448H320c-35.3 0-64-28.7-64-64v-32zM136.2 92.4l-.4 1c-3.7 10.4 1.8 21.8 12.2 25.5s21.8-1.8 25.5-12.2l.4-1c.9-2.7 3.5-4.4 6.3-4.4h48.5c7 0 12.6 5.7 12.6 12.6 0 4.5-2.4 8.7-6.3 10.9l-37 21.3c-6.2 3.6-10 10.2-10 17.3v11.2c0 11 9 20 20 20 10.9 0 19.8-8.8 20-19.6l26.9-15.4c16.3-9.4 26.4-26.8 26.4-45.6 0-29.1-23.6-52.6-52.6-52.6h-48.5c-19.8 0-37.4 12.4-44 31.1zM234.7 248c0-14.7-11.9-26.7-26.7-26.7s-26.7 11.9-26.7 26.7 11.9 26.7 26.7 26.7 26.7-11.9 26.7-26.7z" fill="Currentcolor"/></svg></div></div><div class="nav_bar_item-right"><div class="margin-bottom margin-tiny"><div class="text-weight-semibold text-color-gray900">Case Studies</div></div><div class="text-size-small-2">Learn, fix a problem, and get answers to your questions.</div></div></a><a href="/seo-for-ecommerce" class="nav_bar_dropdown-link w-inline-block"><div class="nav_bar_icon-wrapper"><div class="icon-1x1-xsmall text-color-primary600 w-embed"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><path d="M64 24C64 10.7 74.7 0 88 0h72c11.5 0 21.4 8.2 23.6 19.5L186 32h419.8c21.2 0 36.5 20.3 30.8 40.7l-54 192c-3.9 13.8-16.5 23.3-30.8 23.3h-317l9.1 48H552c13.3 0 24 10.7 24 24s-10.7 24-24 24H224c-11.5 0-21.4-8.2-23.6-19.5L140.1 48H88c-13.3 0-24-10.7-24-24zm224 440c0 26.5-21.5 48-48 48s-48-21.5-48-48 21.5-48 48-48 48 21.5 48 48zm240 48c-26.5 0-48-21.5-48-48s21.5-48 48-48 48 21.5 48 48-21.5 48-48 48zM24 96h80c13.3 0 24 10.7 24 24s-10.7 24-24 24H24c-13.3 0-24-10.7-24-24s10.7-24 24-24zm0 80h96c13.3 0 24 10.7 24 24s-10.7 24-24 24H24c-13.3 0-24-10.7-24-24s10.7-24 24-24zm0 80h112c13.3 0 24 10.7 24 24s-10.7 24-24 24H24c-13.3 0-24-10.7-24-24s10.7-24 24-24z" fill="Currentcolor"/></svg></div></div><div class="nav_bar_item-right"><div class="margin-bottom margin-tiny"><div class="text-weight-semibold text-color-gray900">eCommerce SEO</div></div><div class="text-size-small-2">Optimising eCommerce stores is our speciality</div></div></a><a href="/enterprise-solutions" class="nav_bar_dropdown-link w-inline-block"><div class="nav_bar_icon-wrapper"><div class="icon-1x1-xsmall text-color-primary600 w-embed"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path d="M0 64c0-17.7 14.3-32 32-32h64c17.7 0 32 14.3 32 32v151.4L284.6 131c16-8.6 35.4 3 35.4 21.1v63.2L476.6 131c16-8.6 35.4 3 35.4 21.1V432c0 26.5-21.5 48-48 48H48c-26.5 0-48-21.5-48-48V64zm232 248c-8.8 0-16 7.2-16 16v48c0 8.8 7.2 16 16 16h48c8.8 0 16-7.2 16-16v-48c0-8.8-7.2-16-16-16h-48zM88 328v48c0 8.8 7.2 16 16 16h48c8.8 0 16-7.2 16-16v-48c0-8.8-7.2-16-16-16h-48c-8.8 0-16 7.2-16 16zm272-16c-8.8 0-16 7.2-16 16v48c0 8.8 7.2 16 16 16h48c8.8 0 16-7.2 16-16v-48c0-8.8-7.2-16-16-16h-48z" fill="Currentcolor"/></svg></div></div><div class="nav_bar_item-right"><div class="margin-bottom margin-tiny"><div class="text-weight-semibold text-color-gray900">Enterprise SEO</div></div><div class="text-size-small-2">Learn how MNEs use our data for international SEO</div></div></a><a href="/agency-solutions" class="nav_bar_dropdown-link w-inline-block"><div class="nav_bar_icon-wrapper"><div class="icon-1x1-xsmall text-color-primary600 w-embed"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><path d="M184 88c0 30.9-25.1 56-56 56s-56-25.1-56-56 25.1-56 56-56 56 25.1 56 56zM64 245.7c-10 11.2-16 26.1-16 42.3s6 31.1 16 42.3v-84.6zm144.4-49.3C178.7 222.7 160 261.2 160 304c0 34.3 12 65.8 32 90.5V416c0 17.7-14.3 32-32 32H96c-17.7 0-32-14.3-32-32v-26.8C26.2 371.2 0 332.7 0 288c0-61.9 50.1-112 112-112h32c24 0 46.2 7.5 64.4 20.3zM448 416v-21.5c20-24.7 32-56.2 32-90.5 0-42.8-18.7-81.3-48.4-107.7C449.8 183.5 472 176 496 176h32c61.9 0 112 50.1 112 112 0 44.7-26.2 83.2-64 101.2V416c0 17.7-14.3 32-32 32h-64c-17.7 0-32-14.3-32-32zM568 88c0 30.9-25.1 56-56 56s-56-25.1-56-56 25.1-56 56-56 56 25.1 56 56zm8 157.7v84.7c10-11.3 16-26.1 16-42.3s-6-31.1-16-42.3zM320 160c-35.3 0-64-28.7-64-64s28.7-64 64-64 64 28.7 64 64-28.7 64-64 64zm-80 144c0 16.2 6 31 16 42.3v-84.6c-10 11.3-16 26.1-16 42.3zm144-42.3v84.7c10-11.3 16-26.1 16-42.3s-6-31.1-16-42.3zm64 42.3c0 44.7-26.2 83.2-64 101.2V448c0 17.7-14.3 32-32 32h-64c-17.7 0-32-14.3-32-32v-42.8c-37.8-18-64-56.5-64-101.2 0-61.9 50.1-112 112-112h32c61.9 0 112 50.1 112 112z" fill="Currentcolor"/></svg></div></div><div class="nav_bar_item-right"><div class="margin-bottom margin-tiny"><div class="text-weight-semibold text-color-gray900">SEO Agencies</div></div><div class="text-size-small-2">Run more successful SEO campaigns in less time</div></div></a><a href="/agency-partner-programme" class="nav_bar_dropdown-link w-inline-block"><div class="nav_bar_icon-wrapper"><div class="icon-1x1-xsmall text-color-primary600 w-embed"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><path d="M184 88c0 30.9-25.1 56-56 56s-56-25.1-56-56 25.1-56 56-56 56 25.1 56 56zM64 245.7c-10 11.2-16 26.1-16 42.3s6 31.1 16 42.3v-84.6zm144.4-49.3C178.7 222.7 160 261.2 160 304c0 34.3 12 65.8 32 90.5V416c0 17.7-14.3 32-32 32H96c-17.7 0-32-14.3-32-32v-26.8C26.2 371.2 0 332.7 0 288c0-61.9 50.1-112 112-112h32c24 0 46.2 7.5 64.4 20.3zM448 416v-21.5c20-24.7 32-56.2 32-90.5 0-42.8-18.7-81.3-48.4-107.7C449.8 183.5 472 176 496 176h32c61.9 0 112 50.1 112 112 0 44.7-26.2 83.2-64 101.2V416c0 17.7-14.3 32-32 32h-64c-17.7 0-32-14.3-32-32zM568 88c0 30.9-25.1 56-56 56s-56-25.1-56-56 25.1-56 56-56 56 25.1 56 56zm8 157.7v84.7c10-11.3 16-26.1 16-42.3s-6-31.1-16-42.3zM320 160c-35.3 0-64-28.7-64-64s28.7-64 64-64 64 28.7 64 64-28.7 64-64 64zm-80 144c0 16.2 6 31 16 42.3v-84.6c-10 11.3-16 26.1-16 42.3zm144-42.3v84.7c10-11.3 16-26.1 16-42.3s-6-31.1-16-42.3zm64 42.3c0 44.7-26.2 83.2-64 101.2V448c0 17.7-14.3 32-32 32h-64c-17.7 0-32-14.3-32-32v-42.8c-37.8-18-64-56.5-64-101.2 0-61.9 50.1-112 112-112h32c61.9 0 112 50.1 112 112z" fill="Currentcolor"/></svg></div></div><div class="nav_bar_item-right"><div class="margin-bottom margin-tiny"><div class="text-weight-semibold text-color-gray900">Agency Partner Programme</div></div><div class="text-size-small-2">Collaborate on data-driven AI and SEO research</div></div></a><a href="/seo-process" class="nav_bar_dropdown-link w-inline-block"><div class="nav_bar_icon-wrapper"><div class="icon-1x1-xsmall text-color-primary600 w-embed"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path d="M256 512c141.4 0 256-114.6 256-256S397.4 0 256 0 0 114.6 0 256s114.6 256 256 256zm113-303L241 337c-9.4 9.4-24.6 9.4-33.9 0l-64-64c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l47 47L335 175c9.4-9.4 24.6-9.4 33.9 0s9.4 24.6 0 33.9z" fill="Currentcolor"/></svg></div></div><div class="nav_bar_item-right"><div class="margin-bottom margin-tiny"><div class="text-weight-semibold text-color-gray900">The 6 Stage SEO Process</div></div><div class="text-size-small-2">Using technology to optimise your optimisation process</div></div></a><a href="/seo-data-api-solutions" class="nav_bar_dropdown-link tbd-later w-inline-block"><div class="nav_bar_icon-wrapper"><div class="icon-1x1-xsmall text-color-primary600 w-embed"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><path d="M448 80v48c0 44.2-100.3 80-224 80S0 172.2 0 128V80C0 35.8 100.3 0 224 0s224 35.8 224 80zm-54.8 134.7c20.8-7.4 39.9-16.9 54.8-28.6V288c0 44.2-100.3 80-224 80S0 332.2 0 288V186.1c14.9 11.8 34 21.2 54.8 28.6C99.7 230.7 159.5 240 224 240s124.3-9.3 169.2-25.3zM0 346.1c14.9 11.8 34 21.2 54.8 28.6C99.7 390.7 159.5 400 224 400s124.3-9.3 169.2-25.3c20.8-7.4 39.9-16.9 54.8-28.6V432c0 44.2-100.3 80-224 80S0 476.2 0 432v-85.9z" fill="Currentcolor"/></svg></div></div><div class="nav_bar_item-right"><div class="margin-bottom margin-tiny"><div class="text-weight-semibold text-color-gray900">Big Data for SEO</div></div><div class="text-size-small-2">Cool stuff you can build with our SEO and SERPs APIs</div></div></a></div></nav></div></div><div class="nav_bar-menu-right"><div class="nav_bar-button-wrapper"><a href="https://ldx.authoritas.com/auth/login" class="button_landing_page is-login w-inline-block"><div>Login</div></a><a href="/demo" class="button_landing_page w-inline-block"><div>Book my Demo</div></a></div></div></nav><div class="nav_bar-menu-button w-nav-button"><div class="menu-icon_component"><div class="menu-icon_line-top"></div><div class="menu-icon_line-middle"><div class="menu-icon_line-middle-inner"></div></div><div class="menu-icon_line-bottom"></div></div></div></div></div><main class="main-wrapper"><section class="section-blog-post"><div class="page-padding"><div class="container-large is_blog"><div class="padding-vertical padding-xlarge"><div class="blog_list-wrapper"><div class="layout-centered"><div class="max-width-small"><a href="/blog-category/marketing" class="section-title is-white">Marketing</a><div class="margin-top margin-small"><h1 class="blog-content-heading1">I Analyzed 10,000 Real User Conversations with Grok AI – Here&#x27;s What I Found: The Rise of Conversational AI Search</h1><div class="margin-top margin-medium"></div></div></div><div class="blog_post-share-wrapper"><div class="blog_post-time-wrapper"><div class="blog_date">September 15, 2025</div><div class="blog_text-divider">•</div><div class="blog_reading-time w-dyn-bind-empty"></div></div><div class="social-media_component-blog-sharing"><div fs-socialshare-element="Facebook" class="social-media_link"><img src="https://cdn.prod.website-files.com/6349278eb7be8fab772447b9/63eb4df4b9604287289586be_square-facebook.svg" loading="lazy" height="30" width="30" alt="facebook icon"/></div><a fs-socialshare-element="twitter" href="#" class="social-media_link w-inline-block"><img src="https://cdn.prod.website-files.com/6349278eb7be8fab772447b9/634a79c990db01cff14e00a8_twitter.svg" loading="lazy" width="30" height="30" alt="Twitter Logo" fs-socialshare-element="Twitter"/></a><a fs-socialshare-element="linkedin" href="#" class="social-media_link w-inline-block"><img src="https://cdn.prod.website-files.com/6349278eb7be8fab772447b9/634a79c8007b7f8e1973193f_linkedin.svg" loading="lazy" width="30" height="30" alt="LinkedIn Logo" fs-socialshare-element="Linkedin"/></a><a fs-socialshare-element="reddit" href="#" class="social-media_link w-inline-block"><img src="https://cdn.prod.website-files.com/6349278eb7be8fab772447b9/63eb4df470fa5fef3f6f9389_reddit.svg" loading="lazy" fs-socialshare-element="reddit" alt="reddit icon"/></a><a fs-socialshare-element="forum" href="#" class="social-media_link w-inline-block"><img src="https://cdn.prod.website-files.com/6349278eb7be8fab772447b9/634a79c94241cc3903ddbd48_users-rays-duotone.svg" loading="lazy" alt="The Optimisers  - SEO Community Logo" height="30"/></a></div></div></div><div class="margin-bottom margin-tiny"><div class="blog_content-wrapper"><div class="blog_image-wrapper"><div class="content-block"><img loading="eager" width="Auto" height="Auto" src="https://cdn.prod.website-files.com/6349278eb7be8f9b302447d9/68c8071ff95c6b80de95a060_rsz_14query_length_distribution.png" alt="I Analyzed 10,000 Real User Conversations with Grok AI – Here&#x27;s What I Found: The Rise of Conversational AI Search" sizes="100vw" srcset="https://cdn.prod.website-files.com/6349278eb7be8f9b302447d9/68c8071ff95c6b80de95a060_rsz_14query_length_distribution-p-500.png 500w, https://cdn.prod.website-files.com/6349278eb7be8f9b302447d9/68c8071ff95c6b80de95a060_rsz_14query_length_distribution-p-800.png 800w, https://cdn.prod.website-files.com/6349278eb7be8f9b302447d9/68c8071ff95c6b80de95a060_rsz_14query_length_distribution-p-1080.png 1080w, https://cdn.prod.website-files.com/6349278eb7be8f9b302447d9/68c8071ff95c6b80de95a060_rsz_14query_length_distribution.png 1600w" class="blog_thumbnail-image is-header_image"/></div></div><div class="blog_content"><div class="blog_list-wrapper w-dyn-list"><div role="list" class="blog_author-current w-dyn-items"><div role="listitem" class="blog_post-author-wrapper w-dyn-item"><div class="blog_post-author-bio"><div class="author_post-wrapper"><img loading="lazy" alt="" src="https://cdn.prod.website-files.com/6349278eb7be8f9b302447d9/68c7f2add6693ad3318d0532_images.jpeg" class="blog_author-image"/></div><a href="/authors/tejaswi-suresh" class="author_name-wrapper w-inline-block"><div class="author-name">Tejaswi Suresh</div></a><div class="author_collection-social"><div class="w-layout-grid author_social-share"><a aria-label="twitter" id="w-node-c394d411-6390-e3a3-6fc5-fda915a6334e-64c3b70b" href="#" class="button-secondary-gray is-button-small icon-only is-authors-tiny w-inline-block w-condition-invisible"><div class="button-icon-2 text-color-gray400 w-embed"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M6.2896 18.1256C13.8368 18.1256 17.9648 11.8728 17.9648 6.45035C17.9648 6.27275 17.9648 6.09595 17.9528 5.91995C18.7559 5.33908 19.4491 4.61986 20 3.79595C19.2512 4.12795 18.4567 4.34558 17.6432 4.44155C18.4998 3.92879 19.141 3.1222 19.4472 2.17195C18.6417 2.64996 17.7605 2.98681 16.8416 3.16795C16.2229 2.5101 15.4047 2.07449 14.5135 1.92852C13.6223 1.78256 12.7078 1.93438 11.9116 2.3605C11.1154 2.78661 10.4819 3.46326 10.109 4.28574C9.73605 5.10822 9.64462 6.03067 9.8488 6.91035C8.21741 6.82852 6.62146 6.40455 5.16455 5.66596C3.70763 4.92737 2.4223 3.89067 1.392 2.62315C0.867274 3.52648 0.70656 4.59584 0.942583 5.6135C1.17861 6.63117 1.79362 7.52061 2.6624 8.10075C2.00936 8.08162 1.37054 7.90545 0.8 7.58715V7.63915C0.800259 8.58653 1.12821 9.50465 1.72823 10.2378C2.32824 10.9709 3.16338 11.474 4.092 11.6616C3.4879 11.8263 2.85406 11.8504 2.2392 11.732C2.50151 12.5472 3.01202 13.2602 3.69937 13.7711C4.38671 14.282 5.21652 14.5654 6.0728 14.5816C5.22203 15.2503 4.24776 15.7447 3.20573 16.0366C2.16369 16.3284 1.07435 16.4119 0 16.2824C1.87653 17.4865 4.05994 18.1253 6.2896 18.1224" fill="currentColor"/>
+</svg></div></a><a aria-label="blog" id="w-node-c394d411-6390-e3a3-6fc5-fda915a63350-64c3b70b" href="#" class="button-secondary-gray is-button-small icon-only is-authors-tiny w-inline-block w-condition-invisible"><div class="button-icon-2 text-color-gray400 w-embed"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path d="M192 32c0 17.7 14.3 32 32 32 123.7 0 224 100.3 224 224 0 17.7 14.3 32 32 32s32-14.3 32-32C512 128.9 383.1 0 224 0c-17.7 0-32 14.3-32 32zm0 96c0 17.7 14.3 32 32 32 70.7 0 128 57.3 128 128 0 17.7 14.3 32 32 32s32-14.3 32-32c0-106-86-192-192-192-17.7 0-32 14.3-32 32zm-96 16c0-26.5-21.5-48-48-48S0 117.5 0 144v224c0 79.5 64.5 144 144 144s144-64.5 144-144-64.5-144-144-144h-16v96h16c26.5 0 48 21.5 48 48s-21.5 48-48 48-48-21.5-48-48V144z"/ fill="Currentcolor"></svg></div></a><a aria-label="linkedin" id="w-node-c394d411-6390-e3a3-6fc5-fda915a63352-64c3b70b" href="https://cy.linkedin.com/in/pseo" target="_blank" class="button-secondary-gray is-button-small icon-only is-authors-tiny w-inline-block"><div class="button-icon-2 text-color-gray400 w-embed"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g clip-path="url(#clip0_3774_70975)">
+<path d="M18.5236 0H1.47639C1.08483 0 0.709301 0.155548 0.432425 0.432425C0.155548 0.709301 0 1.08483 0 1.47639V18.5236C0 18.9152 0.155548 19.2907 0.432425 19.5676C0.709301 19.8445 1.08483 20 1.47639 20H18.5236C18.9152 20 19.2907 19.8445 19.5676 19.5676C19.8445 19.2907 20 18.9152 20 18.5236V1.47639C20 1.08483 19.8445 0.709301 19.5676 0.432425C19.2907 0.155548 18.9152 0 18.5236 0ZM5.96111 17.0375H2.95417V7.48611H5.96111V17.0375ZM4.45556 6.1625C4.11447 6.16058 3.7816 6.05766 3.49895 5.86674C3.21629 5.67582 2.99653 5.40544 2.8674 5.08974C2.73826 4.77404 2.70554 4.42716 2.77336 4.09288C2.84118 3.7586 3.0065 3.4519 3.24846 3.21148C3.49042 2.97107 3.79818 2.80772 4.13289 2.74205C4.4676 2.67638 4.81426 2.71133 5.12913 2.84249C5.44399 2.97365 5.71295 3.19514 5.90205 3.47901C6.09116 3.76288 6.19194 4.09641 6.19167 4.4375C6.19488 4.66586 6.15209 4.89253 6.06584 5.104C5.97959 5.31547 5.85165 5.50742 5.68964 5.66839C5.52763 5.82936 5.33487 5.95607 5.12285 6.04096C4.91083 6.12585 4.68389 6.16718 4.45556 6.1625ZM17.0444 17.0458H14.0389V11.8278C14.0389 10.2889 13.3847 9.81389 12.5403 9.81389C11.6486 9.81389 10.7736 10.4861 10.7736 11.8667V17.0458H7.76667V7.49306H10.6583V8.81667H10.6972C10.9875 8.22917 12.0042 7.225 13.5556 7.225C15.2333 7.225 17.0458 8.22083 17.0458 11.1375L17.0444 17.0458Z" fill="currentColor"/>
+</g>
+<defs>
+<clipPath id="clip0_3774_70975">
+<rect width="20" height="20" fill="white"/>
+</clipPath>
+</defs>
+</svg></div></a></div></div></div></div></div></div><section class="fs-toc_example"><div class="fs-toc_sidebar is-mobile"><h2 class="heading-style-h4 is-toc">Contents</h2><div class="fs-toc_link-content"><div class="fs-toc_link-wrapper is-h2"><a href="#" class="fs-toc_link w-inline-block"><div class="fs-toc_label"><strong>-</strong></div><div fs-toc-element="link" class="chapter_heading-h2">Example H2</div></a><div fs-toc-element="ix-trigger" id="w-node-b8c2e4bd-131b-ec08-c9c3-57ebd75690c2-64c3b70b" class="fs-toc_h-trigger"></div><div class="fs-toc_link-wrapper is-h3"><a href="#" class="fs-toc_link is-h3 w-inline-block"><div class="fs-toc_label">-</div><div fs-toc-element="link" class="chapter_heading-h3">Example H3</div></a></div></div></div></div><div class="fs-toc_rich-text"><div fs-toc-element="contents" class="blog-post-content w-richtext"><p>I wanted to understand how people really interact with Grok AI. I analyzed 10,000 real user conversations that were indexed by Google from Grok&#x27;s platform after conversations that were shared in an apparent bug on the platform that exposed conversations shared publicly. </p><p>These conversations reveal thousands of actual questions, prompts, and interactions people have with Grok AI. After processing and analyzing this data, <strong>I discovered fascinating patterns that signal a fundamental shift in how users approach AI-powered search and conversation.</strong></p><p>This dataset represents a decent sized sample (but still only a sample) of the millions of AI interactions happening daily with Grok. But even this sample reveals something crucial: users aren&#x27;t just asking questions anymore. They&#x27;re having conversations, giving complex instructions, and treating AI as a collaborative partner rather than a simple search tool.</p><p>The results confirm what many of us have suspected: we&#x27;re not just dealing with a smarter search engine; we&#x27;re witnessing the emergence of a new paradigm where conversational AI becomes the primary interface for information discovery and task completion.</p><p>‍</p><h2><strong>The Big Picture: From Search Queries to Conversational Interactions</strong></h2><p>‍</p><figure class="w-richtext-align-center w-richtext-figure-type-image"><div><img src="https://cdn.prod.website-files.com/6349278eb7be8f9b302447d9/68c7f377b402251fd5b4c1a1_f039ab00.png" loading="lazy" alt=""/></div></figure><p>‍</p><p>The first thing that jumps out from this chart is how fundamentally different Grok users are from traditional search engine users. We&#x27;re not just looking at a simple distribution curve here – we&#x27;re seeing a <strong>bimodal revolution</strong> that reveals two completely distinct ways people are interacting with AI.</p><p>On the left side, we see the familiar pattern: over 5,000 ultra-short queries (0-5 words) that look like traditional search behavior. These are your classic &quot;What is...&quot; and &quot;How to...&quot; questions that users fire off when they need quick facts. But here&#x27;s where it gets interesting – there&#x27;s a massive gap in the middle, and then suddenly we hit a second peak of 600-700 questions that are 60-85 words long. These aren&#x27;t just longer questions; they&#x27;re <strong>conversational interactions</strong> where users are providing context, explaining their situation, and treating Grok like a knowledgeable discussion partner rather than a search box.</p><p>‍</p><p>The answer distribution tells an equally compelling story. Grok isn&#x27;t just giving one-size-fits-all responses – it&#x27;s demonstrating <strong>adaptive intelligence</strong> by matching response complexity to question complexity. We see a clear pattern: quick, direct answers (0-10 words) for simple queries, and then a massive spike of comprehensive explanations (270-330 words) for complex questions. This isn&#x27;t just good AI design; it&#x27;s evidence that users are successfully communicating their needs to the AI and getting appropriately detailed responses back.</p><p>‍</p><p>What this chart reveals is that we&#x27;re witnessing the <strong>death of the simple query</strong> and the birth of something entirely new. The average question length of 30.2 words represents a 300% increase in complexity compared to traditional search engines. Users aren&#x27;t just asking questions anymore – they&#x27;re having conversations, building context, and expecting the AI to understand nuance and provide comprehensive responses. This bimodal distribution suggests we&#x27;re moving toward a future where AI serves as both a quick reference tool and a conversational partner, fundamentally changing how we discover and process information.</p><p>‍</p><p><strong>Dashboard of Key Metrics</strong></p><p>‍</p><div class="w-embed"><!-- Webflow Embed: Conversation Metrics Table -->
+<div style="overflow-x:auto;">
+  <table style="width:100%; border-collapse:collapse;">
+    <thead>
+      <tr style="background:#f8f8f8;">
+        <th style="border:1px solid #ddd; padding:12px; text-align:left;">Metric</th>
+        <th style="border:1px solid #ddd; padding:12px; text-align:left;">Value</th>
+        <th style="border:1px solid #ddd; padding:12px; text-align:left;">Insight</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="border:1px solid #ddd; padding:12px;">Total Conversations Analyzed</td>
+        <td style="border:1px solid #ddd; padding:12px;">10,000</td>
+        <td style="border:1px solid #ddd; padding:12px;">A sample dataset revealing emerging conversational AI behaviors</td>
+      </tr>
+      <tr>
+        <td style="border:1px solid #ddd; padding:12px;">Average Question Length (Words)</td>
+        <td style="border:1px solid #ddd; padding:12px;">30.2</td>
+        <td style="border:1px solid #ddd; padding:12px;">Users are providing detailed instructions, treating Grok as a collaborator</td>
+      </tr>
+      <tr>
+        <td style="border:1px solid #ddd; padding:12px;">Median Question Length (Words)</td>
+        <td style="border:1px solid #ddd; padding:12px;">56.48</td>
+        <td style="border:1px solid #ddd; padding:12px;">A mix of concise commands and detailed requests shows versatility</td>
+      </tr>
+      <tr>
+        <td style="border:1px solid #ddd; padding:12px;">Average Answer Length (Words)</td>
+        <td style="border:1px solid #ddd; padding:12px;">189.5</td>
+        <td style="border:1px solid #ddd; padding:12px;">Grok provides comprehensive, detailed responses beyond simple answers</td>
+      </tr>
+      <tr>
+        <td style="border:1px solid #ddd; padding:12px;">Primary Intent</td>
+        <td style="border:1px solid #ddd; padding:12px;">Informational (91.8%)</td>
+        <td style="border:1px solid #ddd; padding:12px;">Users seek knowledge and facts through conversation</td>
+      </tr>
+    </tbody>
+  </table>
+</div></div><p>‍</p><p>This data signals a fundamental shift. Users aren&#x27;t just looking for information; they&#x27;re engaging in dialogue, seeking explanations, and building understanding through conversation.</p><p>‍</p><h3><strong>Deep Dive: What Are Users Actually Doing with Grok?</strong></h3><p>A granular analysis of the conversation logs reveals fascinating patterns, particularly in how users approach different types of interactions.</p><figure class="w-richtext-align-center w-richtext-figure-type-image"><div><img src="https://cdn.prod.website-files.com/6349278eb7be8f9b302447d9/68c7f5ad24ac0da127886e0f_28322b4e.png" loading="lazy" alt=""/></div></figure><p>This chart reveals something profound about how users are actually engaging with Grok – and it&#x27;s not what you might expect. The data shows a <strong>stark reality</strong>: users aren&#x27;t just asking questions anymore; they&#x27;re conducting sophisticated information-seeking conversations that go far beyond simple keyword queries.</p><p>The most striking finding is the overwhelming dominance of Open-ended questions (What, Why, How, When, Where, Who) – a staggering 8,313 instances out of 10,000 total conversations. These aren&#x27;t your typical &quot;What is...&quot; searches; they&#x27;re complex, open-ended inquiries like &quot;What do you think about the implications of AI development on...&quot; or &quot;How would you approach solving this problem when...&quot; Users are treating Grok as a knowledgeable discussion partner, not just a search engine.</p><p>‍</p><p>But here&#x27;s where it gets really interesting – the <strong>Yes/No questions</strong> at 1,578 instances reveal something crucial about user behaviour. These aren&#x27;t simple binary queries; they&#x27;re sophisticated confirmations and validations like &quot;Is it true that...&quot; or &quot;Can you confirm that...&quot; Users are actively seeking to verify information and build understanding through dialogue, not just get quick answers.</p><p>‍</p><p>What&#x27;s most telling is what&#x27;s <strong><em>missing</em></strong> from this chart. Commands (12 instances), Requests (9), and Comparisons (8) are almost negligible, while user explanations are completely absent (0). </p><p>‍</p><p>This isn&#x27;t because users can&#x27;t give commands or make comparisons – it&#x27;s because they&#x27;re choosing not to. They&#x27;re leveraging Grok&#x27;s core strength: <strong>conversational knowledge and reasoning</strong> rather than treating it as a simple command-and-response system.</p><p>‍</p><p>This distribution reveals that we&#x27;re witnessing the birth of a new form of information discovery where users engage in sophisticated dialogue rather than transactional exchanges. The 83.8% dominance of Wh- questions shows users expect comprehensive, nuanced responses that go beyond simple facts. They&#x27;re not just asking &quot;What is X?&quot; – they&#x27;re asking &quot;What do you think about X in the context of Y, and how does that relate to Z?&quot; This is conversational AI at its most sophisticated, and it&#x27;s fundamentally changing how we approach information discovery.</p><p>‍</p><div class="w-embed"><!-- Webflow Embed: Query Categories Table -->
+<div style="overflow-x:auto;">
+  <table style="width:100%; border-collapse:collapse;">
+    <thead>
+      <tr style="background:#f8f8f8;">
+        <th style="border:1px solid #ddd; padding:12px; text-align:left;">Category</th>
+        <th style="border:1px solid #ddd; padding:12px; text-align:left;">Sub-Category</th>
+        <th style="border:1px solid #ddd; padding:12px; text-align:left;">Query Examples</th>
+        <th style="border:1px solid #ddd; padding:12px; text-align:left;">Percentage</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="border:1px solid #ddd; padding:12px;">Informational</td>
+        <td style="border:1px solid #ddd; padding:12px;">Fact-finding</td>
+        <td style="border:1px solid #ddd; padding:12px;">"What is...", "How does...", "Explain..."</td>
+        <td style="border:1px solid #ddd; padding:12px;">91.8%</td>
+      </tr>
+      <tr>
+        <td style="border:1px solid #ddd; padding:12px;">Conversational</td>
+        <td style="border:1px solid #ddd; padding:12px;">Discussion, Opinion</td>
+        <td style="border:1px solid #ddd; padding:12px;">"What do you think about...", "I believe that..."</td>
+        <td style="border:1px solid #ddd; padding:12px;">3.7%</td>
+      </tr>
+      <tr>
+        <td style="border:1px solid #ddd; padding:12px;">Creative</td>
+        <td style="border:1px solid #ddd; padding:12px;">Content Generation</td>
+        <td style="border:1px solid #ddd; padding:12px;">"Write a...", "Create a...", "Generate..."</td>
+        <td style="border:1px solid #ddd; padding:12px;">2.2%</td>
+      </tr>
+      <tr>
+        <td style="border:1px solid #ddd; padding:12px;">Technical</td>
+        <td style="border:1px solid #ddd; padding:12px;">Problem-solving</td>
+        <td style="border:1px solid #ddd; padding:12px;">"Fix this code...", "Debug...", "How to implement..."</td>
+        <td style="border:1px solid #ddd; padding:12px;">0.6%</td>
+      </tr>
+      <tr>
+        <td style="border:1px solid #ddd; padding:12px;">Transactional</td>
+        <td style="border:1px solid #ddd; padding:12px;">Action-oriented</td>
+        <td style="border:1px solid #ddd; padding:12px;">"Buy...", "Find...", "Compare..."</td>
+        <td style="border:1px solid #ddd; padding:12px;">0.8%</td>
+      </tr>
+      <tr>
+        <td style="border:1px solid #ddd; padding:12px;">Navigational</td>
+        <td style="border:1px solid #ddd; padding:12px;">Location-based</td>
+        <td style="border:1px solid #ddd; padding:12px;">"Where is...", "Find...", "Locate..."</td>
+        <td style="border:1px solid #ddd; padding:12px;">0.8%</td>
+      </tr>
+    </tbody>
+  </table>
+</div></div><p>‍</p><h3><strong>Topic Analysis: What Are People Really Talking About?</strong></h3><p>The conversation topics reveal a diverse range of interests, with some surprising patterns emerging.</p><figure class="w-richtext-align-center w-richtext-figure-type-image"><div><img src="https://cdn.prod.website-files.com/6349278eb7be8f9b302447d9/68c7fe475e67b7822178491c_36d65d4e.png" loading="lazy" alt=""/></div></figure><p><strong>Top Conversation Topics</strong></p><p>‍</p><div class="w-embed"><!-- Webflow Embed: Topic Categories Table -->
+<div style="overflow-x:auto;">
+  <table style="width:100%; border-collapse:collapse;">
+    <thead>
+      <tr style="background:#f8f8f8;">
+        <th style="border:1px solid #ddd; padding:12px; text-align:left;">Topic Category</th>
+        <th style="border:1px solid #ddd; padding:12px; text-align:left;">Percentage</th>
+        <th style="border:1px solid #ddd; padding:12px; text-align:left;">Key Themes</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="border:1px solid #ddd; padding:12px;">Technology &amp; Software</td>
+        <td style="border:1px solid #ddd; padding:12px;">55.2%</td>
+        <td style="border:1px solid #ddd; padding:12px;">AI development, programming, software tools, digital innovation</td>
+      </tr>
+      <tr>
+        <td style="border:1px solid #ddd; padding:12px;">Automotive &amp; Transportation</td>
+        <td style="border:1px solid #ddd; padding:12px;">23.9%</td>
+        <td style="border:1px solid #ddd; padding:12px;">Electric vehicles, automotive technology, transportation solutions</td>
+      </tr>
+      <tr>
+        <td style="border:1px solid #ddd; padding:12px;">Legal &amp; Professional</td>
+        <td style="border:1px solid #ddd; padding:12px;">3.5%</td>
+        <td style="border:1px solid #ddd; padding:12px;">Legal advice, professional development, compliance topics</td>
+      </tr>
+      <tr>
+        <td style="border:1px solid #ddd; padding:12px;">Education &amp; Academia</td>
+        <td style="border:1px solid #ddd; padding:12px;">3.0%</td>
+        <td style="border:1px solid #ddd; padding:12px;">Learning strategies, academic research, educational technology</td>
+      </tr>
+      <tr>
+        <td style="border:1px solid #ddd; padding:12px;">Finance &amp; Business</td>
+        <td style="border:1px solid #ddd; padding:12px;">2.9%</td>
+        <td style="border:1px solid #ddd; padding:12px;">Investment strategies, business development, cryptocurrency, market analysis</td>
+      </tr>
+      <tr>
+        <td style="border:1px solid #ddd; padding:12px;">Consumer Goods &amp; Retail</td>
+        <td style="border:1px solid #ddd; padding:12px;">1.9%</td>
+        <td style="border:1px solid #ddd; padding:12px;">Product reviews, shopping advice, consumer trends</td>
+      </tr>
+      <tr>
+        <td style="border:1px solid #ddd; padding:12px;">Entertainment &amp; Media</td>
+        <td style="border:1px solid #ddd; padding:12px;">0.9%</td>
+        <td style="border:1px solid #ddd; padding:12px;">Movies, music, celebrities, gaming, streaming content</td>
+      </tr>
+      <tr>
+        <td style="border:1px solid #ddd; padding:12px;">Healthcare &amp; Medical</td>
+        <td style="border:1px solid #ddd; padding:12px;">0.7%</td>
+        <td style="border:1px solid #ddd; padding:12px;">Mental health discussions, medical information, wellness topics</td>
+      </tr>
+      <tr>
+        <td style="border:1px solid #ddd; padding:12px;">Uncategorized</td>
+        <td style="border:1px solid #ddd; padding:12px;">8.0%</td>
+        <td style="border:1px solid #ddd; padding:12px;">Social media, personal topics, non-English, misc</td>
+      </tr>
+    </tbody>
+  </table>
+</div></div><p>‍</p><p>If you want to understand what truly captivates Grok users, this chart is your Rosetta Stone. It&#x27;s not just a distribution; it&#x27;s a <strong>stark revelation</strong> of where the real intellectual energy is flowing within Grok conversations. What immediately jumps out is the overwhelming, almost monopolistic, dominance of one particular sector.</p><p>‍</p><p><strong>The Uncontested Reign of Technology &amp; Software</strong></p><p>‍</p><p>With a staggering 55.12% conversations, <strong>Technology &amp; Software</strong> isn&#x27;t just a leading topic; it&#x27;s the <strong>epicenter of Grok&#x27;s universe</strong>. This isn&#x27;t surprising when you consider Grok&#x27;s nature as an AI, often attracting users who are themselves tech-savvy or seeking solutions within the digital realm. From coding challenges and software development queries to discussions on AI ethics and emerging tech trends, Grok is clearly being leveraged as a powerful, on-demand technical consultant. This dominance underscores Grok&#x27;s current perceived utility and its user base&#x27;s primary interests.</p><p>‍</p><p><strong>The Second Tier and Niche Engagements</strong></p><p>Trailing significantly, but still a substantial player, is Automotive &amp; Transportation with 25.9% of  conversations. This suggests a strong interest in vehicle technology, logistics, and perhaps even the future of autonomous driving – a natural extension of the tech focus and reflecting the interests of the owner of X. </p><p>‍</p><p>However, beyond these two giants, the landscape shifts dramatically. Categories like Legal Professional, Education Academia, and Finance Business show moderate, yet comparatively niche, engagement. At the lower end, Consumer Goods Retail, Entertainment Media, and Healthcare Medical barely register, indicating either less user interest in these areas or that Grok is not yet perceived as a go-to resource for these specific domains. This distribution paints a clear picture: Grok is currently a specialist, not a generalist, in the eyes of its users, with a strong bias towards technical and forward-looking discussions.</p><p>‍</p><h3><strong>Question Types: The Anatomy of AI Conversations</strong></h3><p>Analyzing the structure of questions reveals how users are adapting their communication style for AI interactions.</p><p>‍</p><figure class="w-richtext-align-center w-richtext-figure-type-image"><div><img src="https://cdn.prod.website-files.com/6349278eb7be8f9b302447d9/68c7ffadabe53bcabb13eccf_9f5d24b9.png" loading="lazy" alt=""/></div></figure><p>This chart reveals something fascinating about the emotional landscape of AI conversations – and it&#x27;s not what you might expect. The data shows a <strong>stark neutrality</strong> that speaks volumes about how users are approaching Grok: not as an emotional companion, but as a <strong>sophisticated analytical tool</strong>.</p><p>‍</p><p>The most striking finding is the overwhelming dominance of <strong>neutral sentiment</strong> – a staggering 86.1% of all conversations. This isn&#x27;t indifference; it&#x27;s evidence of users engaging with Grok in a <strong>deliberately analytical mode</strong>. They&#x27;re not looking for emotional support or validation; they&#x27;re seeking facts, explanations, and reasoned analysis. This neutrality suggests users are treating Grok as a knowledgeable discussion partner rather than a conversational partner, approaching interactions with the same objective mindset they&#x27;d bring to a research session or technical consultation.</p><p>‍</p><p>But here&#x27;s where it gets really interesting – the <strong>positive sentiment</strong> at 11.6% reveals something crucial about user satisfaction. These aren&#x27;t just happy users; they&#x27;re users who are genuinely <strong>engaged and appreciative</strong> of Grok&#x27;s capabilities. The positive sentiment likely reflects moments when Grok provides particularly insightful answers, solves complex problems, or delivers exactly the kind of comprehensive response users are seeking. It&#x27;s the satisfaction of getting quality information and analysis.</p><p>‍</p><p>What&#x27;s most telling is the <strong>minimal negative sentiment</strong> at just 2.2%. This isn&#x27;t because users are being polite to an AI; it&#x27;s because Grok is successfully meeting user expectations. The low negative sentiment suggests that when users engage with Grok, they&#x27;re generally getting what they came for – whether that&#x27;s quick facts, detailed explanations, or thoughtful analysis. This distribution reveals that we&#x27;re witnessing the <strong>birth of a new form of human-AI interaction</strong> where users approach AI with analytical precision rather than emotional investment, and the AI responds with consistent, high-quality information delivery.</p><figure class="w-richtext-align-center w-richtext-figure-type-image"><div><img src="https://cdn.prod.website-files.com/6349278eb7be8f9b302447d9/68c8002a55b38292e4e7e5ee_549b2715.png" loading="lazy" alt=""/></div></figure><p><strong>Insight 1: The Death of the Simple Query</strong></p><p>The data reveals a fundamental shift in user behavior. The average question length of 30.2 words shows users are moving away from simple keyword queries to complex, context-rich interactions. This represents a 300% increase in query complexity compared to traditional search engines.</p><p><strong>Insight 2: The Rise of AI as a Discussion Partner</strong></p><p>Unlike traditional search engines where users expect immediate answers, Grok users are engaging in multi-turn conversations. The 3.7% conversational intent might seem small, but when combined with the 91.8% informational intent, it reveals users are treating AI as a knowledgeable discussion partner rather than a simple information retrieval system.</p><p><strong>Insight 3: The Technology Echo Chamber</strong></p><p>The 60% dominance of technology and software topics reveals something profound: early AI adopters are primarily tech-savvy users who are using Grok to discuss and explore cutting-edge technology topics. This creates a feedback loop where AI conversations become increasingly technical and sophisticated.</p><p><strong>Insight 4: The Neutrality Mindset</strong></p><p>The 86.1% neutral sentiment is both expected and surprising. While it shows users approach AI with an analytical mindset, it also reveals that users are not yet fully comfortable expressing strong emotions or opinions in AI conversations. This suggests we&#x27;re still in the early adoption phase of conversational AI.</p><p><strong>Insight 5: The Question Complexity Revolution</strong></p><p>The 83.8% dominance of Open-ended questions reveals users are asking sophisticated, open-ended questions that require nuanced understanding and contextual responses. This is fundamentally different from traditional search, where users typically ask simple, direct questions.</p><p><strong>Conclusion: The Conversational AI Era is Here</strong></p><p>The data from our analysis of 10,000 Grok conversations is clear: the way users interact with AI is undergoing a radical transformation. The line between search, conversation, and collaboration is blurring. For content creators, marketers, and business leaders, the challenge is to move beyond optimizing for keywords and start optimising for conversations.</p><p>The winners in this new era will be those who:</p><ul role="list"><li>Create content that facilitates natural conversation</li><li>Provide nuanced perspectives and expert analysis</li><li>Structure information for context-aware interactions</li><li>Develop content that supports multi-turn discussions</li><li>Measure and optimise for conversational engagement</li><li>Prioritise technical depth and expertise</li><li>Build AI-friendly information architectures</li></ul><p>By understanding these patterns and implementing conversational AI optimisation strategies, we can not only survive but thrive in this new paradigm. The future of AI interaction is here, and it&#x27;s asking us to do more than just provide answers; it&#x27;s asking us to engage in meaningful conversation.</p><p>The data reveals we&#x27;re not just witnessing the evolution of search; we&#x27;re witnessing the birth of a new form of human-AI collaboration that will fundamentally change how we discover, process, and apply information.We always try and share our research data where we can and this is no different. There’s no PII data in here, but if you are interested in getting your hands on these 10,000 Grok conversations then you can do so here. <a href="https://docs.google.com/spreadsheets/d/1hYFSqvSSDQ5zYBD97r2sM71q1mh2RXb7ylZH5VTsW_k/edit?usp=sharing"><strong>Download</strong></a><strong> a sample set of Grok Human : AI Conversations</strong>.</p><p>‍</p></div></div></section></div></div></div><div class="blog_post-share-wrapper"><div class="social-media_component-blog-sharing"><div fs-socialshare-element="Facebook" class="social-media_link"><img src="https://cdn.prod.website-files.com/6349278eb7be8fab772447b9/63eb4df4b9604287289586be_square-facebook.svg" loading="lazy" height="30" width="30" alt="facebook icon"/></div><a fs-socialshare-element="twitter" href="#" class="social-media_link w-inline-block"><img src="https://cdn.prod.website-files.com/6349278eb7be8fab772447b9/634a79c990db01cff14e00a8_twitter.svg" loading="lazy" width="30" height="30" alt="Twitter Logo" fs-socialshare-element="Twitter"/></a><a fs-socialshare-element="linkedin" href="#" class="social-media_link w-inline-block"><img src="https://cdn.prod.website-files.com/6349278eb7be8fab772447b9/634a79c8007b7f8e1973193f_linkedin.svg" loading="lazy" width="30" height="30" alt="LinkedIn Logo" fs-socialshare-element="Linkedin"/></a><a fs-socialshare-element="reddit" href="#" class="social-media_link w-inline-block"><img src="https://cdn.prod.website-files.com/6349278eb7be8fab772447b9/63eb4df470fa5fef3f6f9389_reddit.svg" loading="lazy" fs-socialshare-element="reddit" alt="reddit icon"/></a><a fs-socialshare-element="forum" href="#" class="social-media_link w-inline-block"><img src="https://cdn.prod.website-files.com/6349278eb7be8fab772447b9/634a79c94241cc3903ddbd48_users-rays-duotone.svg" loading="lazy" alt="The Optimisers  - SEO Community Logo" height="30"/></a></div></div></div></div></div></div></section><section id="cta-std" class="section-cta5"><div class="page-padding"><div class="container-large"><div class="padding-vertical padding-xlarge"><div class="cta5_component"><div class="cta5_content-wrapper"><h2>We&#x27;re ready for AI Overviews. Are you?</h2><div class="margin-top margin-small"><p>The rollout of AIOs will create unprecedented risks to your hard earned organic traffic, as well as new opportunities to succeed.<br/><br/>You need to be ready.  The only question is, whether you want to be ready now or later?</p></div><div class="button-row"><a href="/demo" class="button_landing_page is-black w-button">Get AIO Ready Today</a><a href="/seo-platform" class="button_landing_page is-outlined-white w-button">Learn more</a></div></div><div class="ratio-box _4-3"><div class="content-block"><img src="https://cdn.prod.website-files.com/6349278eb7be8fab772447b9/6696468fa2bd144dc389c89c_Authoritas%20AI-Overview%20Rank%20Tracker%20SERP%20Comparison.avif" loading="lazy" width="Auto" height="Auto" alt="AI Overvieew rank tracking software screenshot of the SERPs" srcset="https://cdn.prod.website-files.com/6349278eb7be8fab772447b9/6696468fa2bd144dc389c89c_Authoritas%20AI-Overview%20Rank%20Tracker%20SERP%20Comparison-p-500.avif 500w, https://cdn.prod.website-files.com/6349278eb7be8fab772447b9/6696468fa2bd144dc389c89c_Authoritas%20AI-Overview%20Rank%20Tracker%20SERP%20Comparison.avif 960w" sizes="(max-width: 960px) 100vw, 960px" class="cta5_image"/></div></div></div></div></div></div></section><div class="section-blog-featured"><div class="page-padding"><div class="container-large"><div class="padding-vertical padding-xsmall"><div class="margin-bottom margin-large"><div class="max-width-small"><h2><span class="text-span-primary">Related articles</span></h2></div></div><div class="margin-bottom margin-large"><div class="blog_component"><div class="blog_list-wrapper w-dyn-list"><div class="empty-message w-dyn-empty"></div></div></div></div><div class="blog-item-embed w-embed"><!-- These styles helps to limit number of lines in BLOG TITLE AND SUMMARY -->
+
+<style>
+.blog_summary {
+   overflow: hidden;
+   text-overflow: ellipsis;
+   display: -webkit-box;
+   -webkit-line-clamp: 5; /* number of lines to show */
+   -webkit-box-orient: vertical;
+}
+.blog_item-title {
+   overflow: hidden;
+   text-overflow: ellipsis;
+   display: -webkit-box;
+   -webkit-line-clamp: 3; /* number of lines to show */
+   -webkit-box-orient: vertical;
+}
+</style></div></div></div></div><div class="subscribe-form2_component w-form"><div class="margin-top margin-small"><div class="caption">Stay updated by subscribing to our newsletter and blog.</div></div><form id="wf-form-Newsletter-Sub-Form" name="wf-form-Newsletter-Sub-Form" data-name="Newsletter Sub Form" method="get" data-webflow-hubspot-api-form-url="https://hubspotonwebflow.com/api/forms/42c0e144-b210-4bec-ad20-bb3bb176ddfa" class="subscribe-form2_row" data-wf-page-id="63ee18223465deec64c3b70b" data-wf-element-id="fe4dde1d-2abc-ba55-6a23-f55570918dd8"><input class="subscribe-form2_form-input w-node-fe4dde1d-2abc-ba55-6a23-f55570918dd9-70918dd7 w-input" data-wfhsfieldname="FormTextInput-2" maxlength="256" name="First-Name" data-name="First Name" placeholder="First Name" type="text" id="First-Name" required=""/><input class="subscribe-form2_form-input w-node-b76c0b8c-387d-adf6-9a2e-6738fdcae995-70918dd7 w-input" data-wfhsfieldname="FormTextInput-3" maxlength="256" name="Last-Name" data-name="Last Name" placeholder="Last Name" type="text" id="Last-Name" required=""/><input class="subscribe-form2_form-input w-input" data-wfhsfieldname="FormTextInput-4" maxlength="256" name="Email" data-name="Email" placeholder="Email address" type="email" id="Email" required=""/><div id="w-node-b00cb7d4-1440-b4ea-1cd3-e3b11f61ffc3-70918dd7" class="w-form-formrecaptcha recaptcha g-recaptcha g-recaptcha-error g-recaptcha-disabled g-recaptcha-invalid-key"></div><input type="submit" data-wait="Please wait..." class="subscribe-form2_button w-button" value="Submit"/><input type="hidden" name="hutk" value=""/><input type="hidden" name="ipAddress" value=""/><input type="hidden" name="pageUri" value=""/><input type="hidden" name="pageId" value=""/><input type="hidden" name="pageName" value=""/><input type="hidden" name="0-1_lead_source" data-hubspot-form-id="f8872078-0846-48be-8c7a-7d3bac5ea1bb" value=""/><input type="hidden" name="0-1_lead_source" data-hubspot-form-id="f8872078-0846-48be-8c7a-7d3bac5ea1bb" value=""/><input type="hidden" name="0-1_lead_source" data-hubspot-form-id="f8872078-0846-48be-8c7a-7d3bac5ea1bb" value=""/></form><div class="form-message-success w-form-done"><div>Thank you! Your submission has been received!</div></div><div class="form-message-error w-form-fail"><div>Oops! Something went wrong.</div></div></div></div></main><aside class="footer1_component"><div class="page-padding"><div class="container-large"><div class="padding-vertical padding-xlarge"><div class="footer1_layout"><div id="w-node-e8e4b290-b292-ddb8-c2f6-a5be93efed8f-93efed8a" class="footer1_brand-wrapper"><div class="footer_logo-wrapper"><img src="https://cdn.prod.website-files.com/6349278eb7be8fab772447b9/64085cfa4d8dae8fedca302b_Authoritas-logo-home.svg" loading="lazy" width="240" height="53" alt="Authoritas logo" class="footer_bar-logo"/></div><div class="margin-top margin-small"><p class="text-size-medium">We offer battle-tested SEO &amp; AI Search software platforms, data, tools and APIs for SEO teams optimising leading brand and eCommerce sites.</p></div><div class="margin-top margin-medium"><div class="social-media_component"><a area-label="facebook" href="https://www.facebook.com/authoritas/" target="_blank" class="social-media_link w-inline-block"><img src="https://cdn.prod.website-files.com/6349278eb7be8fab772447b9/634a79c837a653723c7b9cdc_facebook.svg" loading="lazy" width="30" height="30" alt="Facebook Logo"/></a><a area-label="twitter" href="https://twitter.com/Authoritas_com" class="social-media_link w-inline-block"><img src="https://cdn.prod.website-files.com/6349278eb7be8fab772447b9/634a79c990db01cff14e00a8_twitter.svg" loading="lazy" width="30" height="30" alt="Twitter Logo" id="w-node-ff290f40-f9f4-b36a-1082-7fb1036917fc-93efed8a"/></a><a area-label="LinkedIn" href="https://www.linkedin.com/company/authoritas" class="social-media_link w-inline-block"><img src="https://cdn.prod.website-files.com/6349278eb7be8fab772447b9/634a79c8007b7f8e1973193f_linkedin.svg" loading="lazy" width="30" height="30" alt="LinkedIn Logo"/></a><a area-label="Instagram" href="https://www.youtube.com/c/authoritas" class="social-media_link w-inline-block"><img src="https://cdn.prod.website-files.com/6349278eb7be8fab772447b9/634a79c96668dd06697a76b5_youtube.svg" loading="lazy" width="30" height="30" alt="YouTube Logo" id="w-node-ab72261e-e074-19dc-ac53-b5ee85216cdc-93efed8a"/></a><a area-label="forum" href="https://theoptimisers.authoritas.com/" target="_blank" class="social-media_link w-inline-block"><img src="https://cdn.prod.website-files.com/6349278eb7be8fab772447b9/634a79c94241cc3903ddbd48_users-rays-duotone.svg" loading="lazy" width="30" height="30" alt="The Optimisers  - SEO Community Logo" id="w-node-_3e7f2dc7-9164-4fc9-37ea-4a318d993660-93efed8a"/></a></div></div></div><div class="footer1_link-column"><h2 class="footer-column-title">Pages</h2><div class="footer-link-list"><a href="/" class="footer-link">Home</a><a href="/about" class="footer-link">About</a><a href="/seo-platform" class="footer-link">Platform Overview</a><a href="/blog" class="footer-link">Blog</a><a href="/demo" class="footer-link">Book a demo</a><a href="/contact" class="footer-link">Contact Us</a></div></div><div class="footer1_link-column"><h2 class="footer-column-title">Resources</h2><div class="footer-link-list"><a href="https://help.authoritas.com/en/" class="footer-link">Help Centre</a><a href="/ultimate-seo-guides" class="footer-link">SEO Guides</a><a href="/tea-time-seo" class="footer-link">SEO Webinars</a><a href="/seo-industry-reports" class="footer-link">Industry Reports</a><a href="/case-studies" class="footer-link">Case Studies</a></div></div><div class="footer1_link-column"><h2 class="footer-column-title">Company</h2><div class="footer-link-list"><a href="mailto:support@authoritas.com?subject=Support%20enquiry%20from%20authoritas.com%20(footer)" class="footer-link">support@authoritas.com</a><a href="tel:+442089774465" class="footer-link">+44 (0)208 977 4465</a><a href="/privacy-policy" class="footer-link">Privacy Policy</a><a href="/terms-and-conditions" class="footer-link">Terms &amp; Conditions</a></div></div></div><div class="footer-last-text"><div class="footer-last-text_wrapper"><div>© Analytics SEO Limited (t/a Authoritas)</div></div><a href="#top-nav" aria-label="top-nav" class="back-to-top_icon-wrapper w-inline-block"><div class="navbar02_icon-wrapper"><div class="back-to-top_icon w-embed"><svg xmlns="http://www.w3.org/2000/svg" width="131" height="150" viewBox="0 0 336 384"><path d="M48 24C21.523 24 0 45.523 0 72v240c0 26.477 21.523 48 48 48h240c26.477 0 48-21.523 48-48V72c0-26.477-21.523-48-48-48Zm128.477 63.523 84 84c3.449 3.454 4.421 8.625 2.625 13.051C261.3 189 256.875 192 252 192h-48v72c0 13.273-10.727 24-24 24h-24c-13.273 0-24-10.727-24-24v-72H84c-4.875 0-9.227-2.926-11.102-7.426s-.824-9.676 2.625-13.05l84-84c4.653-4.649 12.301-4.649 16.954 0Zm0 0" style="stroke:none;fill-rule:nonzero;fill:#000;fill-opacity:1" fill="currentColor"/></svg></div></div></a></div></div></div></div><div class="cw-cookies"><div id="cw-cookie-banner" class="cw-cookie_banner"><div class="cw-cookie_content"><h3>Cookie Settings</h3><p>We use cookies to provide you with the best possible experience. They also allow us to analyze user behavior in order to constantly improve the website for you.</p><a href="#">See our Privacy Policy</a><div class="cw-cookie_buttons"><button id="cw-btn-reject-all" class="cw-button_secondary"><div>Reject all</div></button><button data-w-id="331097fe-a6a3-e571-854d-2a2c5c7d575a" class="cw-button_secondary"><div>I want to choose</div></button><button id="cw-btn-accept-all" class="cw-button_primary"><div>Accept All</div></button></div><div id="cw-cookie-options" class="cw-cookie_selection"><div class="w-form"><form id="email-form" name="email-form" data-name="Email Form" method="get" class="cw-cookie_options" data-wf-page-id="63ee18223465deec64c3b70b" data-wf-element-id="331097fe-a6a3-e571-854d-2a2c5c7d5762"><label class="w-checkbox cw-cookie_checkbox"><div class="w-checkbox-input w-checkbox-input--inputType-custom cw-cookie_checkbox-check w--redirected-checked"></div><input type="checkbox" name="Necessary" id="consent-necessary" data-name="Necessary" style="opacity:0;position:absolute;z-index:-1" checked=""/><span class="w-form-label" for="Necessary">Functionality</span></label><label class="w-checkbox cw-cookie_checkbox"><div class="w-checkbox-input w-checkbox-input--inputType-custom cw-cookie_checkbox-check w--redirected-checked"></div><input type="checkbox" name="Analytics" id="consent-analytics" data-name="Analytics" style="opacity:0;position:absolute;z-index:-1" checked=""/><span class="w-form-label" for="Analytics">Analytics Storage</span></label><label class="w-checkbox cw-cookie_checkbox"><div class="w-checkbox-input w-checkbox-input--inputType-custom cw-cookie_checkbox-check w--redirected-checked"></div><input type="checkbox" name="Marketing" id="consent-ad-marketing" data-name="Marketing" style="opacity:0;position:absolute;z-index:-1" checked=""/><span class="w-form-label" for="Marketing">Ad Storage</span></label><label class="w-checkbox cw-cookie_checkbox"><div class="w-checkbox-input w-checkbox-input--inputType-custom cw-cookie_checkbox-check w--redirected-checked"></div><input type="checkbox" name="Preferences" id="consent-ad-user" data-name="Preferences" style="opacity:0;position:absolute;z-index:-1" checked=""/><span class="w-form-label" for="Preferences">Ad User Data</span></label><label class="w-checkbox cw-cookie_checkbox"><div class="w-checkbox-input w-checkbox-input--inputType-custom cw-cookie_checkbox-check w--redirected-checked"></div><input type="checkbox" name="Preferences" id="consent-ad-personalization" data-name="Preferences" style="opacity:0;position:absolute;z-index:-1" checked=""/><span class="w-form-label" for="Preferences">Ad Personalisation</span></label><label class="w-checkbox cw-cookie_checkbox"><div class="w-checkbox-input w-checkbox-input--inputType-custom cw-cookie_checkbox-check w--redirected-checked"></div><input type="checkbox" name="Preferences" id="consent-personalization" data-name="Preferences" style="opacity:0;position:absolute;z-index:-1" checked=""/><span class="w-form-label" for="Preferences">Personalization Storage</span></label><label class="w-checkbox cw-cookie_checkbox"><div class="w-checkbox-input w-checkbox-input--inputType-custom cw-cookie_checkbox-check w--redirected-checked"></div><input type="checkbox" name="Preferences" id="consent-security" data-name="Preferences" style="opacity:0;position:absolute;z-index:-1" checked=""/><span class="w-form-label" for="Preferences">Security Storage</span></label></form><div class="w-form-done"><div>Thank you! Your submission has been received!</div></div><div class="w-form-fail"><div>Oops! Something went wrong while submitting the form.</div></div></div><button id="cw-btn-accept-some" class="cw-button_secondary"><div>Accept selection</div></button></div></div></div><div id="cw-cookie-icon" class="cw-cookie_icon"><div class="cw-cookie_icon-img w-embed"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M12 22.0001C10.6167 22.0001 9.31667 21.7374 8.1 21.2121C6.88333 20.6868 5.825 19.9744 4.925 19.0751C4.025 18.1751 3.31267 17.1168 2.788 15.9001C2.26333 14.6834 2.00067 13.3834 2 12.0001C2 10.7501 2.24167 9.5251 2.725 8.3251C3.20833 7.1251 3.88333 6.0541 4.75 5.1121C5.61667 4.17077 6.65833 3.41243 7.875 2.8371C9.09167 2.26177 10.425 1.97443 11.875 1.9751C12.225 1.9751 12.5833 1.99177 12.95 2.0251C13.3167 2.05843 13.6917 2.11677 14.075 2.2001C13.925 2.9501 13.975 3.65843 14.225 4.3251C14.475 4.99177 14.85 5.54577 15.35 5.9871C15.85 6.4291 16.446 6.73343 17.138 6.9001C17.83 7.06677 18.5423 7.0251 19.275 6.7751C18.8417 7.75843 18.9043 8.7001 19.463 9.6001C20.0217 10.5001 20.8507 10.9668 21.95 11.0001C21.9667 11.1834 21.9793 11.3541 21.988 11.5121C21.9967 11.6701 22.0007 11.8411 22 12.0251C22 13.3918 21.7373 14.6791 21.212 15.8871C20.6867 17.0951 19.9743 18.1534 19.075 19.0621C18.175 19.9708 17.1167 20.6874 15.9 21.2121C14.6833 21.7368 13.3833 21.9994 12 22.0001ZM10.5 10.0001C10.9167 10.0001 11.271 9.8541 11.563 9.5621C11.855 9.2701 12.0007 8.9161 12 8.5001C12 8.08343 11.854 7.7291 11.562 7.4371C11.27 7.1451 10.916 6.99943 10.5 7.0001C10.0833 7.0001 9.729 7.1461 9.437 7.4381C9.145 7.7301 8.99933 8.0841 9 8.5001C9 8.91677 9.146 9.2711 9.438 9.5631C9.73 9.8551 10.084 10.0008 10.5 10.0001ZM8.5 15.0001C8.91667 15.0001 9.271 14.8541 9.563 14.5621C9.855 14.2701 10.0007 13.9161 10 13.5001C10 13.0834 9.854 12.7291 9.562 12.4371C9.27 12.1451 8.916 11.9994 8.5 12.0001C8.08333 12.0001 7.729 12.1461 7.437 12.4381C7.145 12.7301 6.99933 13.0841 7 13.5001C7 13.9168 7.146 14.2711 7.438 14.5631C7.73 14.8551 8.084 15.0008 8.5 15.0001ZM15 16.0001C15.2833 16.0001 15.521 15.9041 15.713 15.7121C15.905 15.5201 16.0007 15.2828 16 15.0001C16 14.7168 15.904 14.4791 15.712 14.2871C15.52 14.0951 15.2827 13.9994 15 14.0001C14.7167 14.0001 14.479 14.0961 14.287 14.2881C14.095 14.4801 13.9993 14.7174 14 15.0001C14 15.2834 14.096 15.5211 14.288 15.7131C14.48 15.9051 14.7173 16.0008 15 16.0001ZM12 20.0001C14.0333 20.0001 15.8377 19.3001 17.413 17.9001C18.9883 16.5001 19.8507 14.7168 20 12.5501C19.1667 12.1834 18.5123 11.6834 18.037 11.0501C17.5617 10.4168 17.241 9.70843 17.075 8.9251C15.7917 8.74177 14.6917 8.19177 13.775 7.2751C12.8583 6.35843 12.2917 5.25843 12.075 3.9751C10.7417 3.94177 9.57067 4.18343 8.562 4.7001C7.55333 5.21677 6.712 5.87943 6.038 6.6881C5.362 7.4961 4.853 8.3751 4.511 9.3251C4.169 10.2751 3.99867 11.1668 4 12.0001C4 14.2168 4.779 16.1044 6.337 17.6631C7.895 19.2218 9.78267 20.0008 12 20.0001Z" fill="black"/>
+</svg></div></div><div class="cw-cookie_script w-embed w-script"><!-- Cookie Consent Mode by Code & Wander -->
+<script>
+	// Check selection
+  document.getElementById('cw-cookie-icon').addEventListener('click', function() {
+  	setConsentCheckboxes();
+    hideOptions();
+  	document.getElementById('cw-cookie-banner').style.display = 'block';
+  })
+  
+  // Hide Cookie Banner
+  function hideBanner() {
+    document.getElementById('cw-cookie-banner').style.display = 'none';
+  }
+  
+  // Hide more options
+  function hideOptions() {
+  	document.getElementById('cw-cookie-options').style.height = '0px';
+  }
+	
+  // If consentMode has not been set, show Cookie Banner
+  if(localStorage.getItem('consentMode') === null) {
+  	document.getElementById('cw-cookie-banner').style.display = 'block';
+  }
+  
+  //Logic to populate the preferences
+  function setConsentCheckboxes() {
+  	uncheckAllConsentCheckboxes();
+  	
+    const consentModeString = localStorage.getItem('consentMode');
+
+  	if (consentModeString) {
+    	const consentMode = JSON.parse(consentModeString);
+      
+        const consentMapping = {
+          'functionality_storage': 'consent-necessary',
+          'ad_storage': 'consent-ad-marketing',
+          'analytics_storage': 'consent-analytics',
+          'ad_user_data': 'consent-ad-user',
+          'ad_personalization': 'consent-ad-personalization',
+          'personalization_storage': 'consent-personalization',
+          'security_storage': 'consent-security',
+        };
+
+        Object.entries(consentMapping).forEach(([storageKey, checkboxId]) => {
+          const checkbox = document.getElementById(checkboxId);
+
+         if (checkbox) {
+            const isChecked = consentMode[storageKey] === 'granted';
+            checkbox.checked = isChecked;
+
+            const checkboxDiv = checkbox.previousElementSibling;
+            if (checkboxDiv) {
+              if (isChecked) {
+                checkboxDiv.classList.add('w--redirected-checked');
+              } else {
+                checkboxDiv.classList.remove('w--redirected-checked');
+              }
+            }
+          }
+    	});
+  	}
+	}
+  
+  //Logic to uncheck all checkboxes
+  function uncheckAllConsentCheckboxes() {
+  	['consent-analytics', 'consent-ad-personalization', 'consent-ad-marketing', 'consent-ad-user', 'consent-personalization', 'consent-security'].forEach(checkboxId => {
+    	const checkbox = document.getElementById(checkboxId);
+    	if (checkbox) {
+      checkbox.checked = false;
+      
+        const checkboxDiv = checkbox.previousElementSibling;
+        if (checkboxDiv && checkboxDiv.classList.contains('w--redirected-checked')) {
+          checkboxDiv.classList.remove('w--redirected-checked');
+        }
+    	}	
+  	});
+	}
+
+  // Logic to update the preferences
+  document.getElementById('cw-btn-accept-all').addEventListener('click', function() {
+    setConsent({
+      necessary: true,
+      analytics: true,
+      adpersonalized: true,
+      admarketing: true,
+      aduser: true,
+      personalized: true,
+      security: true,
+    });
+    hideBanner();
+  });
+
+  document.getElementById('cw-btn-accept-some').addEventListener('click', function() {
+    setConsent({
+      necessary: true,
+      analytics: document.getElementById('consent-analytics').checked,
+      adpersonalized: document.getElementById('consent-ad-personalization').checked,
+      admarketing: document.getElementById('consent-ad-marketing').checked,
+      aduser: document.getElementById('consent-ad-user').checked,
+      personalized: document.getElementById('consent-personalization').checked,
+      security: document.getElementById('consent-security').checked,
+    });
+    hideBanner();
+  });
+
+  document.getElementById('cw-btn-reject-all').addEventListener('click', function() {
+    setConsent({
+      necessary: true,
+      analytics: false,
+      adpersonalized: false,
+      admarketing: false,
+      aduser: false,
+      personalized: false,
+      security: false
+    });
+    hideBanner();
+  }); 
+  
+  // Map the preferences to Google Consent Mode 
+  function setConsent(consent) {
+    const consentMode = {
+      'functionality_storage': consent.necessary ? 'granted' : 'denied',
+      'ad_user_data': consent.aduser ? 'granted' : 'denied',
+      'ad_storage': consent.admarketing ? 'granted' : 'denied',
+      'analytics_storage': consent.analytics ? 'granted' : 'denied',
+      'ad_personalization': consent.adpersonalized ? 'granted' : 'denied',
+      'personalization_storage': consent.personalized ? 'granted' : 'denied',
+      'security_storage': consent.security ? 'granted' : 'denied',
+    };
+    gtag('consent', 'update', consentMode);  
+    localStorage.setItem('consentMode', JSON.stringify(consentMode));
+  }
+  
+</script></div></div></aside></div><script src="https://d3e54v103j8qbb.cloudfront.net/js/jquery-3.5.1.min.dc5e7f18c8.js?site=6349278eb7be8fab772447b9" type="text/javascript" integrity="sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0=" crossorigin="anonymous"></script><script src="https://cdn.prod.website-files.com/6349278eb7be8fab772447b9/js/webflow.dc275adf.a4b1be7b3af45952.js" type="text/javascript"></script><script>
+document.addEventListener("DOMContentLoaded", function () {
+  // Helper: get cookie by name
+  function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(";").shift();
+  }
+
+  function fillHiddenFields() {
+    const urlField = document.getElementById("form_url_param");
+    const refField = document.getElementById("form_referrer");
+
+    if (!urlField || !refField) {
+      console.warn("⚠️ Hidden fields not found yet");
+      return false;
+    }
+
+    // 1. Try cookie first
+    const sourceTrackerCookie = getCookie("source_tracker");
+    if (sourceTrackerCookie) {
+      if (sourceTrackerCookie.startsWith("http://") || sourceTrackerCookie.startsWith("https://")) {
+        refField.value = sourceTrackerCookie;
+      } else {
+        urlField.value = sourceTrackerCookie;
+      }
+    }
+
+    // 2. Always set fresh values as backup
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.toString()) urlField.value = urlParams.toString();
+    if (document.referrer) refField.value = document.referrer;
+
+    console.log("✅ Hidden fields set:", {
+      url_param: urlField.value,
+      referrer: refField.value,
+    });
+
+    return true;
+  }
+
+  // Run immediately after DOM ready
+  if (!fillHiddenFields()) {
+    // Retry a few times in case Webflow injected forms late
+    let retries = 0;
+    const interval = setInterval(() => {
+      if (fillHiddenFields() || retries > 10) clearInterval(interval);
+      retries++;
+    }, 500);
+  }
+});
+</script>
+
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-W479QF"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) --><script src="https://hubspotonwebflow.com/assets/js/form-124.js" type="text/javascript" integrity="sha384-bjyNIOqAKScdeQ3THsDZLGagNN56B4X2Auu9YZIGu+tA/PlggMk4jbWruG/P6zYj" crossorigin="anonymous"></script></body></html>

@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+    <title>Chosenly Blog: Insights &amp; Strategies for AI Search Optimization</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <link rel="preload" as="style" href="/blog/assets/built/screen.css?v=6775c3d711">
+    <link rel="preload" as="script" href="/blog/assets/built/source.js?v=6775c3d711">
+    
+    <link rel="preload" as="font" type="font/woff2" href="/blog/assets/fonts/inter-roman.woff2?v=6775c3d711" crossorigin="anonymous">
+<style>
+    @font-face {
+        font-family: "Inter";
+        font-style: normal;
+        font-weight: 100 900;
+        font-display: optional;
+        src: url(/blog/assets/fonts/inter-roman.woff2?v=6775c3d711) format("woff2");
+        unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+    }
+</style>
+
+    <link rel="stylesheet" type="text/css" href="/blog/assets/built/screen.css?v=6775c3d711">
+
+    <style>
+        :root {
+            --background-color: #ffffff
+        }
+    </style>
+
+    <script>
+        /* The script for calculating the color contrast has been taken from
+        https://gomakethings.com/dynamically-changing-the-text-color-based-on-background-color-contrast-with-vanilla-js/ */
+        var accentColor = getComputedStyle(document.documentElement).getPropertyValue('--background-color');
+        accentColor = accentColor.trim().slice(1);
+
+        if (accentColor.length === 3) {
+            accentColor = accentColor[0] + accentColor[0] + accentColor[1] + accentColor[1] + accentColor[2] + accentColor[2];
+        }
+
+        var r = parseInt(accentColor.substr(0, 2), 16);
+        var g = parseInt(accentColor.substr(2, 2), 16);
+        var b = parseInt(accentColor.substr(4, 2), 16);
+        var yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+        var textColor = (yiq >= 128) ? 'dark' : 'light';
+
+        document.documentElement.className = `has-${textColor}-text`;
+    </script>
+
+    <meta name="description" content="Stay ahead in AI-driven discovery with Chosenly’s blog—covering AI Search Optimization (AISO), LLM SEO, GEO tools, prompt tracking, and actionable strategies to help B2B brands show up in LLMs.">
+    <link rel="icon" href="https://chosenly.com/blog/content/images/size/w256h256/2025/08/Chosenly-logo-square.jpeg" type="image/jpeg">
+    <link rel="canonical" href="https://chosenly.com/blog/">
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    <link rel="next" href="https://chosenly.com/blog/page/2/">
+    
+    <meta property="og:site_name" content="Chosenly Blog: Insights &amp; Strategies for AI Search Optimization">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Chosenly Blog: Insights &amp; Strategies for AI Search Optimization">
+    <meta property="og:description" content="Stay ahead in AI-driven discovery with Chosenly’s blog—covering AI Search Optimization (AISO), LLM SEO, GEO tools, prompt tracking, and actionable strategies to help B2B brands show up in LLMs.">
+    <meta property="og:url" content="https://chosenly.com/blog/">
+    <meta property="og:image" content="https://chosenly.com/blog/content/images/2025/08/Chosenly.com-report-is-actionable.jpg">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Chosenly Blog: Insights &amp; Strategies for AI Search Optimization">
+    <meta name="twitter:description" content="Stay ahead in AI-driven discovery with Chosenly’s blog—covering AI Search Optimization (AISO), LLM SEO, GEO tools, prompt tracking, and actionable strategies to help B2B brands show up in LLMs.">
+    <meta name="twitter:url" content="https://chosenly.com/blog/">
+    <meta name="twitter:image" content="https://chosenly.com/blog/content/images/2025/08/Chosenly.com-report-is-actionable.jpg">
+    <meta property="og:image:width" content="868">
+    <meta property="og:image:height" content="446">
+    
+    <script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "publisher": {
+        "@type": "Organization",
+        "name": "Chosenly Blog: Insights &amp; Strategies for AI Search Optimization",
+        "url": "https://chosenly.com/blog/",
+        "logo": {
+            "@type": "ImageObject",
+            "url": "https://chosenly.com/blog/content/images/2025/08/Chosenly-Logo-Black.png"
+        }
+    },
+    "url": "https://chosenly.com/blog/",
+    "name": "Chosenly Blog: Insights & Strategies for AI Search Optimization",
+    "image": {
+        "@type": "ImageObject",
+        "url": "https://chosenly.com/blog/content/images/2025/08/Chosenly.com-report-is-actionable.jpg",
+        "width": 868,
+        "height": 446
+    },
+    "mainEntityOfPage": "https://chosenly.com/blog/",
+    "description": "Stay ahead in AI-driven discovery with Chosenly’s blog—covering AI Search Optimization (AISO), LLM SEO, GEO tools, prompt tracking, and actionable strategies to help B2B brands show up in LLMs."
+}
+    </script>
+
+    <meta name="generator" content="Ghost 6.0">
+    <link rel="alternate" type="application/rss+xml" title="Chosenly Blog: Insights &amp; Strategies for AI Search Optimization" href="https://chosenly.com/blog/rss/">
+    
+    <script defer src="https://cdn.jsdelivr.net/ghost/sodo-search@~1.8/umd/sodo-search.min.js" data-key="1ebfecb69e92541401c360e5f7" data-styles="https://cdn.jsdelivr.net/ghost/sodo-search@~1.8/umd/main.css" data-sodo-search="https://chosenly.com/blog/" data-locale="en" crossorigin="anonymous"></script>
+    
+    <link href="https://chosenly.com/blog/webmentions/receive/" rel="webmention">
+    <script defer src="/blog/public/cards.min.js?v=6775c3d711"></script><style>:root {--ghost-accent-color: #FF1A75;}</style>
+    <link rel="stylesheet" type="text/css" href="/blog/public/cards.min.css?v=6775c3d711">
+    <!-- Google Tag Manager -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-TZQVJMRT');</script>
+<!-- End Google Tag Manager -->
+
+<!-- Global Schema Markup -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://chosenly.com/#website",
+      "url": "https://chosenly.com/",
+      "name": "Chosenly",
+      "description": "AI Search Optimization software that helps B2B brands show up (and get chosen) in ChatGPT and other LLMs.",
+      "inLanguage": "en"
+    },
+    {
+      "@type": "Organization",
+      "@id": "https://chosenly.com/#organization",
+      "name": "Chosenly",
+      "url": "https://chosenly.com/",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://framerusercontent.com/images/TYhYlTf6MuXXk1eIZgTP4Vr0I.svg"
+      },
+      "sameAs": [
+        "https://www.youtube.com/@Chosenly-com",
+        "https://www.linkedin.com/company/chosenly/"
+      ],
+      "description": "Chosenly is an AI Search Optimization (AISO) platform that shows where you do—and don’t—appear in LLM answers, fixes misinformation, and helps win high-intent mentions that drive pipeline."
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://chosenly.com/#app",
+      "name": "Chosenly",
+      "url": "https://chosenly.com/",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Web",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://chosenly.com/",
+        "priceCurrency": "USD"
+      },
+      "publisher": { "@id": "https://chosenly.com/#organization" },
+      "description": "Actionable AISO platform for B2B teams to improve visibility and recommendations across ChatGPT, Perplexity, Claude, and Gemini."
+    },
+    {
+      "@type": "Blog",
+      "@id": "https://chosenly.com/blog/#blog",
+      "name": "Chosenly Blog",
+      "url": "https://chosenly.com/blog/",
+      "publisher": { "@id": "https://chosenly.com/#organization" }
+    }
+  ]
+}
+</script>
+<!-- End Global Schema Markup -->
+
+    <link rel="preconnect" href="https://fonts.bunny.net"><link rel="stylesheet" href="https://fonts.bunny.net/css?family=cardo:400,700|fira-sans:400,500,600"><style>:root {--gh-font-heading: Cardo;--gh-font-body: Fira Sans;}</style>
+
+</head>
+<body class="home-template gh-font-heading-cardo gh-font-body-fira-sans has-sans-title has-sans-body">
+
+<div class="gh-viewport">
+    
+    <header id="gh-navigation" class="gh-navigation is-left-logo gh-outer">
+    <div class="gh-navigation-inner gh-inner">
+
+        <div class="gh-navigation-brand">
+            <a class="gh-navigation-logo is-title" href="https://chosenly.com/blog">
+                    <img src="https://chosenly.com/blog/content/images/2025/08/Chosenly-Logo-Black.png" alt="Chosenly Blog: Insights &amp; Strategies for AI Search Optimization">
+            </a>
+            <button class="gh-search gh-icon-button" aria-label="Search this site" data-ghost-search>
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" width="20" height="20"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg></button>            <button class="gh-burger gh-icon-button" aria-label="Menu">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 256 256"><path d="M224,128a8,8,0,0,1-8,8H40a8,8,0,0,1,0-16H216A8,8,0,0,1,224,128ZM40,72H216a8,8,0,0,0,0-16H40a8,8,0,0,0,0,16ZM216,184H40a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16Z"></path></svg>                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 256 256"><path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"></path></svg>            </button>
+        </div>
+
+        <nav class="gh-navigation-menu">
+            <ul class="nav">
+    <li class="nav-go-back-to-the-chosenly-website"><a href="https://chosenly.com">Go back to the Chosenly website</a></li>
+</ul>
+
+        </nav>
+
+        <div class="gh-navigation-actions">
+                    <button class="gh-search gh-icon-button" aria-label="Search this site" data-ghost-search>
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" width="20" height="20"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg></button>        </div>
+
+    </div>
+</header>
+
+    
+
+        <section class="gh-header is-highlight has-image gh-outer">
+
+
+    <div class="gh-header-inner gh-inner">
+
+            <div class="gh-header-left">
+                    <article class="gh-card post no-image">
+    <a class="gh-card-link" href="/blog/how-to-rank-on-gemini-in-2025-full-guide-2025/">
+        <div class="gh-card-wrapper">
+            <h3 class="gh-card-title is-title">How to Rank on Gemini in 2025: Full Guide</h3>
+                    <p class="gh-card-excerpt is-body">There is a persistent disconnect that many teams are feeling. You can execute the traditional playbook - technical SEO, authority building, and disciplined content and still fail to appear when Gemini is asked to recommend vendors. That gap is not a mirage. Traditional SEO rewards signals of popularity; Gemini prioritizes</p>
+            <footer class="gh-card-meta">
+<!--
+             -->
+                    <span class="gh-card-author">By Gunnika Gupta</span>
+                    <time class="gh-card-date" datetime="2025-10-10">10 Oct 2025</time>
+                <!--
+         --></footer>
+        </div>
+    </a>
+</article>
+            </div>
+            <div class="gh-header-middle">
+                    <article class="gh-card post no-image">
+    <a class="gh-card-link" href="/blog/how-to-rank-on-claude-proven-tactics-to-get-featured-in-claudes-ai-answers/">
+        <div class="gh-card-wrapper">
+            <h3 class="gh-card-title is-title">How to Rank on Claude: Proven Tactics to Get Featured in Claude’s AI Answers</h3>
+                    <p class="gh-card-excerpt is-body">Let’s be honest: nobody woke up one morning thinking, “I need to figure out how to rank on Claude.” But here we are. Buyers now open Claude before they open Google. They type questions they’d normally ask a peer, a Slack group, or a consultant. They don’t</p>
+            <footer class="gh-card-meta">
+<!--
+             -->
+                    <span class="gh-card-author">By Gunnika Gupta</span>
+                    <time class="gh-card-date" datetime="2025-09-25">25 Sep 2025</time>
+                <!--
+         --></footer>
+        </div>
+    </a>
+</article>
+                    <article class="gh-card post no-image">
+    <a class="gh-card-link" href="/blog/the-top-generative-engine-optimization-services-agencies-of-2025/">
+        <div class="gh-card-wrapper">
+            <h3 class="gh-card-title is-title">The Top Generative Engine Optimization Services Agencies of 2025</h3>
+                    <p class="gh-card-excerpt is-body">Generative search is no longer a “future trend.” It&#39;s here, shaping how buyers shortlist and evaluate vendors. With ChatGPT, Gemini, Claude, and Perplexity becoming decision-making copilots, companies that fail to optimise for AI search risk disappearing from consideration altogether.
+
+That’s why generative engine optimisation services (GEO) are</p>
+            <footer class="gh-card-meta">
+<!--
+             -->
+                    <span class="gh-card-author">By Gunnika Gupta</span>
+                    <time class="gh-card-date" datetime="2025-09-19">19 Sep 2025</time>
+                <!--
+         --></footer>
+        </div>
+    </a>
+</article>
+                    <article class="gh-card post no-image">
+    <a class="gh-card-link" href="/blog/introducing-sourcesync-see-which-seo-keyword-drives-pipeline-in-hubspot-finally/">
+        <div class="gh-card-wrapper">
+            <h3 class="gh-card-title is-title">Introducing SourceSync: See Which SEO Keyword Drives Pipeline in HubSpot (Finally!)</h3>
+                    <p class="gh-card-excerpt is-body">Most B2B marketers face the same frustration: HubSpot shows you where your contacts come from… but not which keywords are driving MQLs, SQLs, or pipeline.
+
+Without a revenue-based feedback loop, your SEO remains disconnected from what actually drives the pipeline.
+
+At Spear Growth, we’ve had the unfair advantage for</p>
+            <footer class="gh-card-meta">
+<!--
+             -->
+                    <span class="gh-card-author">By Rushabh Patel</span>
+                    <time class="gh-card-date" datetime="2025-09-18">18 Sep 2025</time>
+                <!--
+         --></footer>
+        </div>
+    </a>
+</article>
+            </div>
+            <div class="gh-header-right">
+                    <div class="gh-featured-feed">
+                            <article class="gh-card post no-image">
+    <a class="gh-card-link" href="/blog/generative-engine-optimization-strategies-how-to-show-up-on-llms-full-guide/">
+        <div class="gh-card-wrapper">
+            <h3 class="gh-card-title is-title">Generative engine optimization strategies: How to show up on LLMs (full guide)</h3>
+                    <p class="gh-card-excerpt is-body">AI search is no longer a side experiment. It is fast becoming a core part of how B2B buyers evaluate vendors. In the last year, many marketing leaders have opened their CRM dashboards and spotted something surprising: conversions attributed to ChatGPT, Perplexity, or Gemini. At the same time, their Google</p>
+            <footer class="gh-card-meta">
+<!--
+             -->
+                    <span class="gh-card-author">By Gunnika Gupta</span>
+                    <time class="gh-card-date" datetime="2025-09-12">12 Sep 2025</time>
+                <!--
+         --></footer>
+        </div>
+    </a>
+</article>
+                            <article class="gh-card post featured no-image">
+    <a class="gh-card-link" href="/blog/top-generative-engine-optimisation-tools/">
+        <div class="gh-card-wrapper">
+            <h3 class="gh-card-title is-title">Top 10 AI Generative Engine Optimisation Tools in 2025 [Research paper]</h3>
+                    <p class="gh-card-excerpt is-body">Tool
+Multi-Region &amp; Multi-Product Line Support
+Bias &amp; Hallucination Detection
+Enterprise Security Standards
+Role-Based Access Control
+Dedicated Success Team
+
+
+
+
+Chosenly
+Yes
+Yes
+Coming Soon
+No
+Yes
+
+
+Profound
+Partial (only Multi-Region)
+No Proof
+Yes
+Yes
+Yes
+
+
+Hall
+No Proof
+No Proof
+No Proof
+Yes
+Yes
+
+
+AthenaHQ
+Partial (only Multi-Region)
+Yes
+No</p>
+            <footer class="gh-card-meta">
+<!--
+             -->
+                    <span class="gh-card-author">By Ishaan Shakunt</span>
+                    <time class="gh-card-date" datetime="2025-08-19">19 Aug 2025</time>
+                <!--
+         --></footer>
+        </div>
+    </a>
+</article>
+                            <article class="gh-card post no-image">
+    <a class="gh-card-link" href="/blog/ai-search-optimization-vs-seo-what-you-need-to-know/">
+        <div class="gh-card-wrapper">
+            <h3 class="gh-card-title is-title">AI Search Optimization vs SEO: What You Need to Know in 2025</h3>
+                    <p class="gh-card-excerpt is-body">If you’ve been staring at your Google Search Console and wondering why impressions are climbing but clicks are dropping, you’re not alone. Marketers everywhere are having the same uncomfortable conversation in pipeline review meetings:
+
+“Our traffic is down… but wait, revenue isn’t down. What’s happening?”
+
+It’</p>
+            <footer class="gh-card-meta">
+<!--
+             -->
+                    <span class="gh-card-author">By Gunnika Gupta</span>
+                    <time class="gh-card-date" datetime="2025-08-14">14 Aug 2025</time>
+                <!--
+         --></footer>
+        </div>
+    </a>
+</article>
+                            <article class="gh-card post no-image">
+    <a class="gh-card-link" href="/blog/best-ai-rank-tracking-tools/">
+        <div class="gh-card-wrapper">
+            <h3 class="gh-card-title is-title">Best AI Rank Tracking Tools for 2025</h3>
+                    <p class="gh-card-excerpt is-body">If you&#39;re a B2B marketer who&#39;s starting to see traffic and conversions from ChatGPT, Perplexity, or Gemini, you&#39;re not alone. In fact, more and more marketing teams are logging into Google Analytics or CRM dashboards and asking:
+
+“Why are we suddenly getting traffic from</p>
+            <footer class="gh-card-meta">
+<!--
+             -->
+                    <span class="gh-card-author">By Gunnika Gupta</span>
+                    <time class="gh-card-date" datetime="2025-08-12">12 Aug 2025</time>
+                <!--
+         --></footer>
+        </div>
+    </a>
+</article>
+                            <article class="gh-card post no-image">
+    <a class="gh-card-link" href="/blog/how-to-track-llm-traffic-measure-ai-search-visibility-brand-impact/">
+        <div class="gh-card-wrapper">
+            <h3 class="gh-card-title is-title">How to Track LLM Traffic: Measure AI Search Visibility &amp; Brand Impact</h3>
+                    <p class="gh-card-excerpt is-body">If you’re working in B2B marketing right now, someone on your team has already asked…
+
+“Can we track how much traffic is coming from ChatGPT?”
+
+Or maybe:
+
+“My board wants to know what we’re doing about AI search.”
+
+Or even:
+
+“I think we’re showing up on LLMs,</p>
+            <footer class="gh-card-meta">
+<!--
+             -->
+                    <span class="gh-card-author">By Gunnika Gupta</span>
+                    <time class="gh-card-date" datetime="2025-08-12">12 Aug 2025</time>
+                <!--
+         --></footer>
+        </div>
+    </a>
+</article>
+                            <article class="gh-card post no-image">
+    <a class="gh-card-link" href="/blog/ai-visibility-tools-what-works/">
+        <div class="gh-card-wrapper">
+            <h3 class="gh-card-title is-title">The Problem with AI Visibility Tools (And What You Should Actually Be Doing)</h3>
+                    <p class="gh-card-excerpt is-body">Let me start by stating the obvious: most AI visibility tools are...kind of useless.
+
+I say that as someone who has tried nearly every product that claims to help companies &quot;optimize for LLMs&quot; or &quot;track AI mentions.&quot; From dashboards and traffic monitors to visibility scores</p>
+            <footer class="gh-card-meta">
+<!--
+             -->
+                    <span class="gh-card-author">By Gunnika Gupta</span>
+                    <time class="gh-card-date" datetime="2025-08-11">11 Aug 2025</time>
+                <!--
+         --></footer>
+        </div>
+    </a>
+</article>
+                    </div>
+            </div>
+
+
+
+
+    </div>
+
+</section>
+
+
+
+
+<section class="gh-container is-grid gh-outer">
+    <div class="gh-container-inner gh-inner">
+        
+            <h2 class="gh-container-title">
+                Latest
+            </h2>
+
+        <main class="gh-main">
+            <div class="gh-feed">
+
+                                        <article class="gh-card post no-image">
+    <a class="gh-card-link" href="/blog/pr-for-ai-search-visibility-why-it-matters-how-to-do-it-right/">
+        <div class="gh-card-wrapper">
+            <h3 class="gh-card-title is-title">PR for AI Search Visibility: Why It Matters &amp; How to Do It Right</h3>
+                    <p class="gh-card-excerpt is-body">If you’re in PR or comms, you’ve probably heard someone say this before:
+
+“We’re announcing a funding round. Let’s do some PR.”
+“Big product launch next week. Time for a press release.”
+
+But here’s the thing…
+
+In 2025, that checkbox approach to PR is outdated.</p>
+            <footer class="gh-card-meta">
+<!--
+             -->
+                    <span class="gh-card-author">By Gunnika Gupta</span>
+                    <time class="gh-card-date" datetime="2025-08-11">11 Aug 2025</time>
+                <!--
+         --></footer>
+        </div>
+    </a>
+</article>
+                                        <article class="gh-card post no-image">
+    <a class="gh-card-link" href="/blog/top-llm-seo-tools/">
+        <div class="gh-card-wrapper">
+            <h3 class="gh-card-title is-title">Top LLM SEO Tools Compared: What Actually Helps You Show Up in AI Search (and What Doesn’t)</h3>
+                    <p class="gh-card-excerpt is-body">As AI SEO optimization platforms like ChatGPT, Claude, and Perplexity change how buyers discover products, a new category of tools has emerged: LLM SEO tools. Depending on who you ask, you might hear them called:
+
+ * AI Search Optimization platforms
+ * Generative Search Optimization (GEO) tools
+ * Answer Engine Optimization (AEO) dashboards
+ * Or</p>
+            <footer class="gh-card-meta">
+<!--
+             -->
+                    <span class="gh-card-author">By Gunnika Gupta</span>
+                    <time class="gh-card-date" datetime="2025-08-11">11 Aug 2025</time>
+                <!--
+         --></footer>
+        </div>
+    </a>
+</article>
+                                        <article class="gh-card post no-image">
+    <a class="gh-card-link" href="/blog/how-to-optimise-your-website-for-chatgpt-and-other-llms/">
+        <div class="gh-card-wrapper">
+            <h3 class="gh-card-title is-title">How To Optimise Your Website For ChatGPT (And Other LLMs) In 2025</h3>
+                    <p class="gh-card-excerpt is-body">As AI-powered tools like ChatGPT reshape how decision-makers discover and evaluate vendors, B2B SaaS brands can no longer rely on traditional SEO alone. Prospects now ask ChatGPT (and Perplexity, Gemini, etc.) things like:
+
+“Which SaaS helps with X?”
+“Does this company support Y?”
+“Who’s better between A and B?</p>
+            <footer class="gh-card-meta">
+<!--
+             -->
+                    <span class="gh-card-author">By Gunnika Gupta</span>
+                    <time class="gh-card-date" datetime="2025-08-06">06 Aug 2025</time>
+                <!--
+         --></footer>
+        </div>
+    </a>
+</article>
+                                        <article class="gh-card post no-image">
+    <a class="gh-card-link" href="/blog/ai-search-optimisation-guide-for-chatgpt-and-other-llms/">
+        <div class="gh-card-wrapper">
+            <h3 class="gh-card-title is-title">AI Search Optimization (AISO) Guide: How B2B Companies Can &quot;rank&quot; on ChatGPT and Other LLMs</h3>
+                    <p class="gh-card-excerpt is-body">Back in December, the SEO team at Spear Growth had some extra bandwidth. As marketers often do, we decided to experiment. We began ranking for high-intent keywords on ChatGPT—mostly as a fun side project. We weren&#39;t expecting major outcomes since ChatGPT had less than 1% share of</p>
+            <footer class="gh-card-meta">
+<!--
+             -->
+                    <span class="gh-card-author">By Ishaan Shakunt</span>
+                    <time class="gh-card-date" datetime="2025-05-07">07 May 2025</time>
+                <!--
+         --></footer>
+        </div>
+    </a>
+</article>
+                                        <article class="gh-card post no-image">
+    <a class="gh-card-link" href="/blog/coming-soon-2/">
+        <div class="gh-card-wrapper">
+            <h3 class="gh-card-title is-title">The Roast of AI Search Monitoring tools - Coming soon</h3>
+                    <p class="gh-card-excerpt is-body">Coming soon</p>
+            <footer class="gh-card-meta">
+<!--
+             -->
+                    <span class="gh-card-author">By Ishaan Shakunt</span>
+                    <time class="gh-card-date" datetime="2025-05-06">06 May 2025</time>
+                <!--
+         --></footer>
+        </div>
+    </a>
+</article>
+
+
+
+            </div>
+
+                <div class="gh-more is-title">
+                    <a href="https://chosenly.com/blog/page/2">See all <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" viewBox="0 0 256 256"><path d="M224.49,136.49l-72,72a12,12,0,0,1-17-17L187,140H40a12,12,0,0,1,0-24H187L135.51,64.48a12,12,0,0,1,17-17l72,72A12,12,0,0,1,224.49,136.49Z"></path></svg></a>
+                </div>
+        </main>
+
+
+    </div>
+</section>
+    
+    <footer class="gh-footer gh-outer">
+    <div class="gh-footer-inner gh-inner">
+
+        <div class="gh-footer-bar">
+            <span class="gh-footer-logo is-title">
+                    <img src="https://chosenly.com/blog/content/images/2025/08/Chosenly-Logo-Black.png" alt="Chosenly Blog: Insights &amp; Strategies for AI Search Optimization">
+            </span>
+            <nav class="gh-footer-menu">
+                <ul class="nav">
+    <li class="nav-chosenly-website"><a href="https://chosenly.com/blog/">Chosenly website</a></li>
+</ul>
+
+            </nav>
+            <div class="gh-footer-copyright">
+                Powered by <a href="https://ghost.org/" target="_blank" rel="noopener">Ghost</a>
+            </div>
+        </div>
+
+
+    </div>
+</footer>    
+</div>
+
+
+<script src="/blog/assets/built/source.js?v=6775c3d711"></script>
+
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-TZQVJMRT"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+</body>
+</html>

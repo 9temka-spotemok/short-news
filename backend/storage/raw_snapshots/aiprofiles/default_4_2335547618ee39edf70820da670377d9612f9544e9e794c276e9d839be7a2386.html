@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="csrf-token" content="OHJT5xfGqHKyEjFk2T2CYI5Wv5LLuko01f52V4Sy">
+
+        <title>AIProfiles</title>
+
+        <!-- Fonts -->
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400..700&display=swap" rel="stylesheet" />
+
+				<link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
+				<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+				<link rel="shortcut icon" href="/favicon.ico" />
+				<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+				<meta name="apple-mobile-web-app-title" content="AIProfiles" />
+				<link rel="manifest" href="/site.webmanifest" />
+
+        <!-- Scripts -->
+        <link rel="preload" as="style" href="https://www.aiprofiles.co.uk/build/assets/app-DiZOBfPq.css" /><link rel="modulepreload" href="https://www.aiprofiles.co.uk/build/assets/app-DwQ9jRW1.js" /><link rel="stylesheet" href="https://www.aiprofiles.co.uk/build/assets/app-DiZOBfPq.css" data-navigate-track="reload" /><script type="module" src="https://www.aiprofiles.co.uk/build/assets/app-DwQ9jRW1.js" data-navigate-track="reload"></script>
+        <!-- Styles -->
+        <!-- Livewire Styles --><style >[wire\:loading][wire\:loading], [wire\:loading\.delay][wire\:loading\.delay], [wire\:loading\.inline-block][wire\:loading\.inline-block], [wire\:loading\.inline][wire\:loading\.inline], [wire\:loading\.block][wire\:loading\.block], [wire\:loading\.flex][wire\:loading\.flex], [wire\:loading\.table][wire\:loading\.table], [wire\:loading\.grid][wire\:loading\.grid], [wire\:loading\.inline-flex][wire\:loading\.inline-flex] {display: none;}[wire\:loading\.delay\.none][wire\:loading\.delay\.none], [wire\:loading\.delay\.shortest][wire\:loading\.delay\.shortest], [wire\:loading\.delay\.shorter][wire\:loading\.delay\.shorter], [wire\:loading\.delay\.short][wire\:loading\.delay\.short], [wire\:loading\.delay\.default][wire\:loading\.delay\.default], [wire\:loading\.delay\.long][wire\:loading\.delay\.long], [wire\:loading\.delay\.longer][wire\:loading\.delay\.longer], [wire\:loading\.delay\.longest][wire\:loading\.delay\.longest] {display: none;}[wire\:offline][wire\:offline] {display: none;}[wire\:dirty]:not(textarea):not(input):not(select) {display: none;}:root {--livewire-progress-bar-color: #2299dd;}[x-cloak] {display: none !important;}[wire\:cloak] {display: none !important;}</style>        
+
+				<script>
+						(function () {
+								const hour = new Date().getHours();
+								let darkMode = localStorage.getItem('dark-mode');
+
+								// If user hasn't set a preference, decide based on time (nighttime: 7pm–6am)
+								if (darkMode === null) {
+										darkMode = (hour >= 19 || hour < 6) ? 'true' : 'false';
+								}
+
+								if (darkMode === 'true') {
+										document.documentElement.classList.add('dark');
+										document.documentElement.style.colorScheme = 'dark';
+								} else {
+										document.documentElement.classList.remove('dark');
+										document.documentElement.style.colorScheme = 'light';
+								}
+						})();
+				</script>
+
+    </head>
+    <body class="font-inter antialiased bg-gray-100 dark:bg-gray-900 text-gray-600 dark:text-gray-400">
+
+        <main class="bg-white dark:bg-gray-900">
+
+            <div class="flex min-h-[100dvh] items-stretch">
+
+                <!-- Content -->
+                <div class="w-full md:w-1/2 flex flex-col">
+
+                    <div class="min-h-[100dvh] h-full flex flex-col after:flex-1">
+
+                        <!-- Header -->
+                        <div class="flex-1">	
+                            <div class="flex items-center justify-between py-2 px-4 sm:px-6 lg:px-8">
+                                <!-- Logo -->
+																<a class="block" href="/">
+                                <img src="/images/logo.png" alt="AIProfiles Logo" title="AIProfiles Logo" style="height:65px;" class="site-logo">
+																</a>
+																<!-- Dark mode toggle -->
+																<div>
+    <input type="checkbox" name="light-switch" id="light-switch" class="light-switch sr-only" />
+    <label class="flex items-center justify-center cursor-pointer w-8 h-8 hover:bg-gray-100 lg:hover:bg-gray-200 dark:hover:bg-gray-700/50 dark:lg:hover:bg-gray-800 rounded-full" for="light-switch">
+        <svg class="dark:hidden fill-current text-gray-500/80 dark:text-gray-400/80" width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+            <path d="M8 0a1 1 0 0 1 1 1v.5a1 1 0 1 1-2 0V1a1 1 0 0 1 1-1Z"/>
+            <path d="M12 8a4 4 0 1 1-8 0 4 4 0 0 1 8 0Zm-4 2a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" />
+            <path d="M13.657 3.757a1 1 0 0 0-1.414-1.414l-.354.354a1 1 0 0 0 1.414 1.414l.354-.354ZM13.5 8a1 1 0 0 1 1-1h.5a1 1 0 1 1 0 2h-.5a1 1 0 0 1-1-1ZM13.303 11.889a1 1 0 0 0-1.414 1.414l.354.354a1 1 0 0 0 1.414-1.414l-.354-.354ZM8 13.5a1 1 0 0 1 1 1v.5a1 1 0 1 1-2 0v-.5a1 1 0 0 1 1-1ZM4.111 13.303a1 1 0 1 0-1.414-1.414l-.354.354a1 1 0 1 0 1.414 1.414l.354-.354ZM0 8a1 1 0 0 1 1-1h.5a1 1 0 0 1 0 2H1a1 1 0 0 1-1-1ZM3.757 2.343a1 1 0 1 0-1.414 1.414l.354.354A1 1 0 1 0 4.11 2.697l-.354-.354Z" />
+        </svg>
+        <svg class="hidden dark:block fill-current text-gray-500/80 dark:text-gray-400/80" width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+            <path d="M11.875 4.375a.625.625 0 1 0 1.25 0c.001-.69.56-1.249 1.25-1.25a.625.625 0 1 0 0-1.25 1.252 1.252 0 0 1-1.25-1.25.625.625 0 1 0-1.25 0 1.252 1.252 0 0 1-1.25 1.25.625.625 0 1 0 0 1.25c.69.001 1.249.56 1.25 1.25Z" />
+            <path d="M7.019 1.985a1.55 1.55 0 0 0-.483-1.36 1.44 1.44 0 0 0-1.53-.277C2.056 1.553 0 4.5 0 7.9 0 12.352 3.648 16 8.1 16c3.407 0 6.246-2.058 7.51-4.963a1.446 1.446 0 0 0-.25-1.55 1.554 1.554 0 0 0-1.372-.502c-4.01.552-7.539-2.987-6.97-7ZM2 7.9C2 5.64 3.193 3.664 4.961 2.6 4.82 7.245 8.72 11.158 13.36 11.04 12.265 12.822 10.341 14 8.1 14 4.752 14 2 11.248 2 7.9Z" />                                        
+        </svg>
+        <span class="sr-only">Switch to light / dark version</span>
+    </label>
+</div>                            </div>
+                        </div>
+
+                        <div class="mx-auto w-full px-4 py-8">
+                            <div class="max-w-md mx-auto bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+
+    <h1 class="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-8">Welcome back!</h1>
+        <!-- Form -->
+
+    <form method="POST" action="https://www.aiprofiles.co.uk/login">
+        <input type="hidden" name="_token" value="OHJT5xfGqHKyEjFk2T2CYI5Wv5LLuko01f52V4Sy" autocomplete="off">        <div class="space-y-4">
+            <div>
+                <label class="block text-md font-medium mb-1" for="email">
+    Email
+</label>
+                <input  class="form-input w-full" id="email" type="email" name="email" required="required" autofocus="autofocus">
+                
+            </div>
+            <div>
+                <label class="block text-md font-medium mb-1" for="password">
+    Password
+</label>
+                <input  class="form-input w-full" id="password" type="password" name="password" required="required" autocomplete="current-password">
+                
+            </div>
+        </div>
+        <div class="flex items-center justify-between mt-6">
+                            <div class="mr-1">
+                    <a class="text-sm underline hover:no-underline" href="https://www.aiprofiles.co.uk/forgot-password">
+                        Forgot Password?
+                    </a>
+                </div>
+                        
+            <button type="submit" class="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-gray-600 cursor-pointer  whitespace-nowrap ml-3">
+    Sign in
+</button>
+            
+        </div>
+    </form>
+       
+    <!-- Footer -->
+    <div class="pt-5 mt-6 border-t border-gray-100 dark:border-gray-700/60">
+        <div class="text-sm">
+            Don&#039;t have an account or password? <a class="font-medium text-violet-500 hover:text-violet-600 dark:hover:text-violet-400" href="https://www.aiprofiles.co.uk/register">Login with a magic link</a>
+        </div>
+        <!-- Warning -->
+        
+    </div>
+		</div>
+                        </div>
+
+                    </div>
+
+                </div>
+
+								<div class="hidden md:block md:w-1/2 relative overflow-hidden" aria-hidden="true">
+									<div class="relative overflow-hidden bg-gradient-to-br from-gray-100 to-white dark:from-gray-900 dark:to-gray-800 pb-20 pt-16 sm:pb-32 sm:pt-24 lg:pb-40 lg:pt-32 animate-move-gradient">
+
+										<div class="container mx-auto px-4 sm:px-6 lg:px-8 h-full flex flex-col justify-center">
+											<div class="lg:grid lg:grid-cols-12 lg:gap-12 lg:items-center">
+
+												<!-- Left: Text Content (slightly longer) -->
+												<div class="lg:col-span-9 text-center lg:text-left space-y-8">
+
+													<!-- Headline -->
+													<h1 class="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight leading-tight">
+														<span class="text-gray-900 dark:text-white">Get your company</span><br class="hidden sm:inline">
+														<span class="inline-block bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 text-transparent bg-clip-text animate-gradient-text">
+															suggested by AI
+														</span>
+													</h1>
+
+													<!-- Intro Paragraph -->
+													<p class="text-lg text-gray-600 dark:text-gray-300 max-w-lg mx-auto lg:mx-0">
+														Traditional Google clicks are shrinking as more people rely on AI and generative search for answers and recommendations. Make sure your business is ready and fully AI-consumable.
+													</p>
+
+													<!-- Features (slightly longer) -->
+													<div class="mt-6 grid gap-6 md:grid-cols-1">
+
+														<div class="p-5 bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700">
+															<h3 class="text-lg font-bold mb-2 dark:text-white">AI-friendly Profiles</h3>
+															<p class="text-gray-700 dark:text-gray-300 text-sm">
+																Build a clean, standardised business profile with schema.org and AI-readable markup. Update it anytime to stay current and accurate.
+															</p>
+														</div>
+
+														<div class="p-5 bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700">
+															<h3 class="text-lg font-bold mb-2 dark:text-white">Discoverable</h3>
+															<p class="text-gray-700 dark:text-gray-300 text-sm">
+																Profiles automatically generate an <strong>llms.txt</strong> file—the new standard AI bots look for. No coding required; just enter your data.
+															</p>
+														</div>
+
+														<div class="p-5 bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700">
+															<h3 class="text-lg font-bold mb-2 dark:text-white">Stay ahead</h3>
+															<p class="text-gray-700 dark:text-gray-300 text-sm">
+																We are constantly adding new features to profiles to ensure they're always at the forefront of what AI is looking for as it evolves and grows.
+															</p>
+														</div>
+
+													</div>
+												</div>
+
+											</div>
+										</div>
+
+									</div>
+								</div>
+
+
+            </div>
+
+						<!-- Footer -->
+<footer class="text-sm bg-white dark:bg-gray-900 pt-8 pb-5">
+		<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-center">
+				<p class="text-gray-600 dark:text-gray-300">&copy; <a href="https://www.18aproductions.co.uk/" target="_blank" class="underline" rel="external">18a Productions Limited</a> 2007-2025 | Registered in England and Wales No. 06735859 | All rights reserved</p>
+				<div class="flex space-x-4 mt-4 sm:mt-0">
+													<a href="https://www.aiprofiles.co.uk/login" class="text-gray-600 dark:text-gray-300 hover:text-blue-600">Login</a>
+												<a href="https://www.aiprofiles.co.uk/terms-of-service" class="text-gray-600 dark:text-gray-300 hover:text-blue-600">Terms</a>
+						<a href="https://www.aiprofiles.co.uk/privacy-policy" class="text-gray-600 dark:text-gray-300 hover:text-blue-600">Privacy</a>
+						<a href="https://www.aiprofiles.co.uk/profile/ai-profiles" rel="me noopener" title="AI Profiles - Verified Company Profile">Verified Company Profile</a>
+				</div>
+		</div>
+</footer>;
+
+        </main> 
+
+        <script data-navigate-once="true">window.livewireScriptConfig = {"csrf":"OHJT5xfGqHKyEjFk2T2CYI5Wv5LLuko01f52V4Sy","uri":"\/livewire\/update","progressBar":"","nonce":""};</script>
+    </body>
+</html>

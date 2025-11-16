@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+    <title>The Problem with AI Visibility Tools (And What You Should Actually Be Doing)</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <link rel="preload" as="style" href="/blog/assets/built/screen.css?v=6775c3d711">
+    <link rel="preload" as="script" href="/blog/assets/built/source.js?v=6775c3d711">
+    
+    <link rel="preload" as="font" type="font/woff2" href="/blog/assets/fonts/inter-roman.woff2?v=6775c3d711" crossorigin="anonymous">
+<style>
+    @font-face {
+        font-family: "Inter";
+        font-style: normal;
+        font-weight: 100 900;
+        font-display: optional;
+        src: url(/blog/assets/fonts/inter-roman.woff2?v=6775c3d711) format("woff2");
+        unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+    }
+</style>
+
+    <link rel="stylesheet" type="text/css" href="/blog/assets/built/screen.css?v=6775c3d711">
+
+    <style>
+        :root {
+            --background-color: #ffffff
+        }
+    </style>
+
+    <script>
+        /* The script for calculating the color contrast has been taken from
+        https://gomakethings.com/dynamically-changing-the-text-color-based-on-background-color-contrast-with-vanilla-js/ */
+        var accentColor = getComputedStyle(document.documentElement).getPropertyValue('--background-color');
+        accentColor = accentColor.trim().slice(1);
+
+        if (accentColor.length === 3) {
+            accentColor = accentColor[0] + accentColor[0] + accentColor[1] + accentColor[1] + accentColor[2] + accentColor[2];
+        }
+
+        var r = parseInt(accentColor.substr(0, 2), 16);
+        var g = parseInt(accentColor.substr(2, 2), 16);
+        var b = parseInt(accentColor.substr(4, 2), 16);
+        var yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+        var textColor = (yiq >= 128) ? 'dark' : 'light';
+
+        document.documentElement.className = `has-${textColor}-text`;
+    </script>
+
+    <meta name="description" content="The problem with AI visibility tools: reporting without action. Learn how to track, fix, and win visibility in ChatGPT results beyond dashboards and scores.">
+    <link rel="icon" href="https://chosenly.com/blog/content/images/size/w256h256/2025/08/Chosenly-logo-square.jpeg" type="image/jpeg">
+    <link rel="canonical" href="https://chosenly.com/blog/ai-visibility-tools-what-works/">
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    
+    <meta property="og:site_name" content="Chosenly Blog: Insights &amp; Strategies for AI Search Optimization">
+    <meta property="og:type" content="article">
+    <meta property="og:title" content="The Problem with AI Visibility Tools (And What You Should Actually Be Doing)">
+    <meta property="og:description" content="The problem with AI visibility tools: reporting without action. Learn how to track, fix, and win visibility in ChatGPT results beyond dashboards and scores.">
+    <meta property="og:url" content="https://chosenly.com/blog/ai-visibility-tools-what-works/">
+    <meta property="og:image" content="https://chosenly.com/blog/content/images/2025/08/Chosenly.com-report-is-actionable.jpg">
+    <meta property="article:published_time" content="2025-08-11T13:40:16.000Z">
+    <meta property="article:modified_time" content="2025-09-18T12:55:58.000Z">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="The Problem with AI Visibility Tools (And What You Should Actually Be Doing)">
+    <meta name="twitter:description" content="The problem with AI visibility tools: reporting without action. Learn how to track, fix, and win visibility in ChatGPT results beyond dashboards and scores.">
+    <meta name="twitter:url" content="https://chosenly.com/blog/ai-visibility-tools-what-works/">
+    <meta name="twitter:image" content="https://chosenly.com/blog/content/images/2025/08/Chosenly.com-report-is-actionable.jpg">
+    <meta name="twitter:label1" content="Written by">
+    <meta name="twitter:data1" content="Gunnika Gupta">
+    <meta property="og:image:width" content="868">
+    <meta property="og:image:height" content="446">
+    
+    <script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "publisher": {
+        "@type": "Organization",
+        "name": "Chosenly Blog: Insights &amp; Strategies for AI Search Optimization",
+        "url": "https://chosenly.com/blog/",
+        "logo": {
+            "@type": "ImageObject",
+            "url": "https://chosenly.com/blog/content/images/2025/08/Chosenly-Logo-Black.png"
+        }
+    },
+    "author": {
+        "@type": "Person",
+        "name": "Gunnika Gupta",
+        "image": {
+            "@type": "ImageObject",
+            "url": "https://chosenly.com/blog/content/images/2025/08/image--24-.png",
+            "width": 600,
+            "height": 600
+        },
+        "url": "https://chosenly.com/blog/author/gunnika/",
+        "sameAs": []
+    },
+    "headline": "The Problem with AI Visibility Tools (And What You Should Actually Be Doing)",
+    "url": "https://chosenly.com/blog/ai-visibility-tools-what-works/",
+    "datePublished": "2025-08-11T13:40:16.000Z",
+    "dateModified": "2025-09-18T12:55:58.000Z",
+    "description": "\nLet me start by stating the obvious: most AI visibility tools are...kind of useless.\n\nI say that as someone who has tried nearly every product that claims to help companies &quot;optimize for LLMs&quot; or &quot;track AI mentions.&quot; From dashboards and traffic monitors to visibility scores and real-time alerts, there’s no shortage of shiny graphs. But here’s the problem:\n\nSchedule a Chosenly.com demo\n\n\n\n\n\n\n\nMonitoring visibility is not the same as driving pipeline.\n\n\n\n\n\n\nIf you&#x27;re a B2B SaaS company trying to ",
+    "mainEntityOfPage": "https://chosenly.com/blog/ai-visibility-tools-what-works/"
+}
+    </script>
+
+    <meta name="generator" content="Ghost 6.0">
+    <link rel="alternate" type="application/rss+xml" title="Chosenly Blog: Insights &amp; Strategies for AI Search Optimization" href="https://chosenly.com/blog/rss/">
+    
+    <script defer src="https://cdn.jsdelivr.net/ghost/sodo-search@~1.8/umd/sodo-search.min.js" data-key="1ebfecb69e92541401c360e5f7" data-styles="https://cdn.jsdelivr.net/ghost/sodo-search@~1.8/umd/main.css" data-sodo-search="https://chosenly.com/blog/" data-locale="en" crossorigin="anonymous"></script>
+    
+    <link href="https://chosenly.com/blog/webmentions/receive/" rel="webmention">
+    <script defer src="/blog/public/cards.min.js?v=6775c3d711"></script><style>:root {--ghost-accent-color: #FF1A75;}</style>
+    <link rel="stylesheet" type="text/css" href="/blog/public/cards.min.css?v=6775c3d711">
+    <!-- Google Tag Manager -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-TZQVJMRT');</script>
+<!-- End Google Tag Manager -->
+
+<!-- Global Schema Markup -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://chosenly.com/#website",
+      "url": "https://chosenly.com/",
+      "name": "Chosenly",
+      "description": "AI Search Optimization software that helps B2B brands show up (and get chosen) in ChatGPT and other LLMs.",
+      "inLanguage": "en"
+    },
+    {
+      "@type": "Organization",
+      "@id": "https://chosenly.com/#organization",
+      "name": "Chosenly",
+      "url": "https://chosenly.com/",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://framerusercontent.com/images/TYhYlTf6MuXXk1eIZgTP4Vr0I.svg"
+      },
+      "sameAs": [
+        "https://www.youtube.com/@Chosenly-com",
+        "https://www.linkedin.com/company/chosenly/"
+      ],
+      "description": "Chosenly is an AI Search Optimization (AISO) platform that shows where you do—and don’t—appear in LLM answers, fixes misinformation, and helps win high-intent mentions that drive pipeline."
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://chosenly.com/#app",
+      "name": "Chosenly",
+      "url": "https://chosenly.com/",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Web",
+      "offers": {
+        "@type": "Offer",
+        "url": "https://chosenly.com/",
+        "priceCurrency": "USD"
+      },
+      "publisher": { "@id": "https://chosenly.com/#organization" },
+      "description": "Actionable AISO platform for B2B teams to improve visibility and recommendations across ChatGPT, Perplexity, Claude, and Gemini."
+    },
+    {
+      "@type": "Blog",
+      "@id": "https://chosenly.com/blog/#blog",
+      "name": "Chosenly Blog",
+      "url": "https://chosenly.com/blog/",
+      "publisher": { "@id": "https://chosenly.com/#organization" }
+    }
+  ]
+}
+</script>
+<!-- End Global Schema Markup -->
+
+    <link rel="preconnect" href="https://fonts.bunny.net"><link rel="stylesheet" href="https://fonts.bunny.net/css?family=cardo:400,700|fira-sans:400,500,600"><style>:root {--gh-font-heading: Cardo;--gh-font-body: Fira Sans;}</style>
+
+</head>
+<body class="post-template gh-font-heading-cardo gh-font-body-fira-sans has-sans-title has-sans-body">
+
+<div class="gh-viewport">
+    
+    <header id="gh-navigation" class="gh-navigation is-left-logo gh-outer">
+    <div class="gh-navigation-inner gh-inner">
+
+        <div class="gh-navigation-brand">
+            <a class="gh-navigation-logo is-title" href="https://chosenly.com/blog">
+                    <img src="https://chosenly.com/blog/content/images/2025/08/Chosenly-Logo-Black.png" alt="Chosenly Blog: Insights &amp; Strategies for AI Search Optimization">
+            </a>
+            <button class="gh-search gh-icon-button" aria-label="Search this site" data-ghost-search>
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" width="20" height="20"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg></button>            <button class="gh-burger gh-icon-button" aria-label="Menu">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 256 256"><path d="M224,128a8,8,0,0,1-8,8H40a8,8,0,0,1,0-16H216A8,8,0,0,1,224,128ZM40,72H216a8,8,0,0,0,0-16H40a8,8,0,0,0,0,16ZM216,184H40a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16Z"></path></svg>                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 256 256"><path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"></path></svg>            </button>
+        </div>
+
+        <nav class="gh-navigation-menu">
+            <ul class="nav">
+    <li class="nav-go-back-to-the-chosenly-website"><a href="https://chosenly.com">Go back to the Chosenly website</a></li>
+</ul>
+
+        </nav>
+
+        <div class="gh-navigation-actions">
+                    <button class="gh-search gh-icon-button" aria-label="Search this site" data-ghost-search>
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" width="20" height="20"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg></button>        </div>
+
+    </div>
+</header>
+
+    
+
+<main class="gh-main">
+
+    <article class="gh-article post no-image">
+
+        <header class="gh-article-header gh-canvas">
+
+            <h1 class="gh-article-title is-title">The Problem with AI Visibility Tools (And What You Should Actually Be Doing)</h1>
+
+            <div class="gh-article-meta">
+                <div class="gh-article-author-image instapaper_ignore">
+                            <a href="/blog/author/gunnika/">
+                                <img class="author-profile-image" src="/blog/content/images/size/w160/2025/08/image--24-.png" alt="Gunnika Gupta">
+                            </a>
+                </div>
+                <div class="gh-article-meta-wrapper">
+                    <h4 class="gh-article-author-name"><a href="/blog/author/gunnika/">Gunnika Gupta</a></h4>
+                    <div class="gh-article-meta-content">
+                        <time class="gh-article-meta-date" datetime="2025-08-11">11 Aug 2025</time>
+                            <span class="gh-article-meta-length"><span class="bull">—</span> 5 min read</span>
+                    </div>
+                </div>
+            </div>
+
+            
+        </header>
+
+        <section class="gh-content gh-canvas is-body">
+            <p><br>Let me start by stating the obvious: most AI visibility tools are...kind of useless.</p><p>I say that as someone who has tried nearly every product that claims to help companies "optimize for LLMs" or "track AI mentions." From dashboards and traffic monitors to visibility scores and real-time alerts, there’s no shortage of shiny graphs. But here’s the problem:</p><div class="kg-card kg-button-card kg-align-center"><a href="https://calendar.google.com/calendar/u/0/appointments/schedules/AcZssZ0ULQsD3-W4pLBLznEZeNZAlCNsU1N7s0uao3cRbiVlPpZ3HQ8H9O1AXTMc9ftg7uKij5oW6Do5?ref=chosenly.com" class="kg-btn kg-btn-accent">Schedule a Chosenly.com demo</a></div><div class="kg-card kg-header-card kg-v2 kg-width-full kg-content-wide " style="background-color: #000000;" data-background-color="#000000">
+            
+            <div class="kg-header-card-content">
+                
+                <div class="kg-header-card-text kg-align-center">
+                    <h2 id="monitoring-visibility-is-not-the-same-as-driving-pipeline" class="kg-header-card-heading" style="color: #FFFFFF;" data-text-color="#FFFFFF"><b><strong style="white-space: pre-wrap;">Monitoring visibility is not the same as driving pipeline.</strong></b></h2>
+                    
+                    
+                </div>
+            </div>
+        </div><p>If you're a B2B SaaS company trying to get in front of buyers using <a href="https://openai.com/index/chatgpt/?ref=chosenly.com" rel="noreferrer">ChatGPT</a>, <a href="https://www.perplexity.ai/?ref=chosenly.com" rel="noreferrer">Perplexity</a>, or <a href="https://claude.ai/login?returnTo=%2F%3F&ref=chosenly.com" rel="noreferrer">Claude</a>, visibility is just a means to an end. You don’t want a score. You want demos. Trials. Revenue.</p><p>That's what we built <a href="https://chosenly.com/?ref=chosenly.com" rel="noreferrer">Chosenly.com</a> for.</p><p>Let’s unpack why existing AI visibility tracking tools fall short, what actually works, how to choose the right AI visibility tool, how to track visibility across AI platforms, best AI search visibility tracking tools and how the next generation of AI visibility optimization tools should operate.</p><div class="kg-card kg-button-card kg-align-center"><a href="https://calendar.google.com/calendar/u/0/appointments/schedules/AcZssZ0ULQsD3-W4pLBLznEZeNZAlCNsU1N7s0uao3cRbiVlPpZ3HQ8H9O1AXTMc9ftg7uKij5oW6Do5?ref=chosenly.com" class="kg-btn kg-btn-accent">Schedule a Chosenly.com demo</a></div><div class="kg-card kg-header-card kg-v2 kg-width-full kg-content-wide " style="background-color: #000000;" data-background-color="#000000">
+            
+            <div class="kg-header-card-content">
+                
+                <div class="kg-header-card-text kg-align-center">
+                    <h2 id="the-rise-of-ai-search-and-why-it-matters-now" class="kg-header-card-heading" style="color: #FFFFFF;" data-text-color="#FFFFFF"><b><strong style="white-space: pre-wrap;">The Rise of AI Search (And Why It Matters Now)</strong></b></h2>
+                    
+                    
+                </div>
+            </div>
+        </div><p><br>You already know LLMs like ChatGPT are taking over search behaviors:</p><ul><li>ChatGPT has over <strong>300M weekly users</strong>, growing at 396% YoY.</li><li>Decision-makers are using AI to shortlist vendors—replacing Google, forums, and peer chats.</li><li>We found only <strong>~30% overlap</strong> between companies ranked on Google and those mentioned by ChatGPT.</li></ul><p>That means SEO alone no longer cuts it.</p><p>Even if you're dominating Google SERPs, you may be invisible where your buyers are actually searching. That’s a scary blind spot.</p><p>It also means there’s a new channel emerging and it's unclaimed territory.</p><div class="kg-card kg-button-card kg-align-center"><a href="https://calendar.google.com/calendar/u/0/appointments/schedules/AcZssZ0ULQsD3-W4pLBLznEZeNZAlCNsU1N7s0uao3cRbiVlPpZ3HQ8H9O1AXTMc9ftg7uKij5oW6Do5?ref=chosenly.com" class="kg-btn kg-btn-accent">Schedule a Chosenly.com demo</a></div><div class="kg-card kg-header-card kg-v2 kg-width-full kg-content-wide " style="background-color: #000000;" data-background-color="#000000">
+            
+            <div class="kg-header-card-content">
+                
+                <div class="kg-header-card-text kg-align-center">
+                    <h2 id="what-most-llm-tracking-tools-for-ai-visibility-get-wrong" class="kg-header-card-heading" style="color: #FFFFFF;" data-text-color="#FFFFFF"><span style="white-space: pre-wrap;">What Most LLM tracking tools for AI visibility Get Wrong</span></h2>
+                    
+                    
+                </div>
+            </div>
+        </div><p>Companies like <a href="https://www.tryprofound.com/?ref=chosenly.com" rel="noreferrer">Profound</a><strong>, </strong><a href="https://otterly.ai/?ref=chosenly.com" rel="noreferrer">Otterly</a><strong>, </strong><a href="https://www.athenahq.ai/?ref=chosenly.com" rel="noreferrer">Athena</a><strong>, </strong><a href="https://www.semrush.com/?ref=chosenly.com" rel="noreferrer">SEMrush</a><strong>,</strong> and <a href="https://www.hubspot.com/products/crm?ref=chosenly.com" rel="noreferrer">HubSpot</a> have all launched features around AI visibility solutions or generative engine optimization (GEO). But we believe most are solving the wrong problem.</p><p>Here’s how:</p>
+<!--kg-card-begin: html-->
+<table style="border:none;border-collapse:collapse;"><colgroup><col width="147"><col width="235"><col width="243"></colgroup><tbody><tr style="height:25.75pt"><td style="vertical-align:top;padding:5pt 5pt 5pt 5pt;overflow:hidden;overflow-wrap:break-word;"><p dir="ltr" style="line-height:1.38;text-align: center;margin-top:0pt;margin-bottom:0pt;"><span style="font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:700;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;">Tool</span></p></td><td style="vertical-align:top;padding:5pt 5pt 5pt 5pt;overflow:hidden;overflow-wrap:break-word;"><p dir="ltr" style="line-height:1.38;text-align: center;margin-top:0pt;margin-bottom:0pt;"><span style="font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:700;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;">What It Does</span></p></td><td style="vertical-align:top;padding:5pt 5pt 5pt 5pt;overflow:hidden;overflow-wrap:break-word;"><p dir="ltr" style="line-height:1.38;text-align: center;margin-top:0pt;margin-bottom:0pt;"><span style="font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:700;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;">Why It Fails</span></p></td></tr><tr style="height:39.25pt"><td style="vertical-align:top;padding:5pt 5pt 5pt 5pt;overflow:hidden;overflow-wrap:break-word;"><p dir="ltr" style="line-height:1.38;margin-top:0pt;margin-bottom:0pt;"><span style="font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:700;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;">Profound</span></p></td><td style="vertical-align:top;padding:5pt 5pt 5pt 5pt;overflow:hidden;overflow-wrap:break-word;"><p dir="ltr" style="line-height:1.38;margin-top:0pt;margin-bottom:0pt;"><span style="font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;">Tracks AI mentions, gives visibility scores</span></p></td><td style="vertical-align:top;padding:5pt 5pt 5pt 5pt;overflow:hidden;overflow-wrap:break-word;"><p dir="ltr" style="line-height:1.38;margin-top:0pt;margin-bottom:0pt;"><span style="font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;">Doesn’t help you </span><span style="font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:italic;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;">change</span><span style="font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;"> what LLMs say</span></p></td></tr><tr style="height:25.75pt"><td style="vertical-align:top;padding:5pt 5pt 5pt 5pt;overflow:hidden;overflow-wrap:break-word;"><p dir="ltr" style="line-height:1.38;margin-top:0pt;margin-bottom:0pt;"><span style="font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:700;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;">Athena</span></p></td><td style="vertical-align:top;padding:5pt 5pt 5pt 5pt;overflow:hidden;overflow-wrap:break-word;"><p dir="ltr" style="line-height:1.38;margin-top:0pt;margin-bottom:0pt;"><span style="font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;">Tracks prompts, shows gaps</span></p></td><td style="vertical-align:top;padding:5pt 5pt 5pt 5pt;overflow:hidden;overflow-wrap:break-word;"><p dir="ltr" style="line-height:1.38;margin-top:0pt;margin-bottom:0pt;"><span style="font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;">No PR, no page strategy, no fixes</span></p></td></tr><tr style="height:39.25pt"><td style="vertical-align:top;padding:5pt 5pt 5pt 5pt;overflow:hidden;overflow-wrap:break-word;"><p dir="ltr" style="line-height:1.38;margin-top:0pt;margin-bottom:0pt;"><span style="font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:700;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;">Otterly</span></p></td><td style="vertical-align:top;padding:5pt 5pt 5pt 5pt;overflow:hidden;overflow-wrap:break-word;"><p dir="ltr" style="line-height:1.38;margin-top:0pt;margin-bottom:0pt;"><span style="font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;">Real-time citation alerts</span></p></td><td style="vertical-align:top;padding:5pt 5pt 5pt 5pt;overflow:hidden;overflow-wrap:break-word;"><p dir="ltr" style="line-height:1.38;margin-top:0pt;margin-bottom:0pt;"><span style="font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;">Just alerts—no prioritization, no resolution</span></p></td></tr><tr style="height:39.25pt"><td style="vertical-align:top;padding:5pt 5pt 5pt 5pt;overflow:hidden;overflow-wrap:break-word;"><p dir="ltr" style="line-height:1.38;margin-top:0pt;margin-bottom:0pt;"><span style="font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:700;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;">SEMrush/HubSpot</span></p></td><td style="vertical-align:top;padding:5pt 5pt 5pt 5pt;overflow:hidden;overflow-wrap:break-word;"><p dir="ltr" style="line-height:1.38;margin-top:0pt;margin-bottom:0pt;"><span style="font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;">Tracks sentiment, visibility in LLMs</span></p></td><td style="vertical-align:top;padding:5pt 5pt 5pt 5pt;overflow:hidden;overflow-wrap:break-word;"><p dir="ltr" style="line-height:1.38;margin-top:0pt;margin-bottom:0pt;"><span style="font-size:11pt;font-family:Arial,sans-serif;color:#000000;background-color:transparent;font-weight:400;font-style:normal;font-variant:normal;text-decoration:none;vertical-align:baseline;white-space:pre;white-space:pre-wrap;">SEO-first mindset, retrofitted for AI</span></p></td></tr></tbody></table>
+<!--kg-card-end: html-->
+<p>These tools focus on reporting, not impact. They don’t tell you:</p><ul><li>Why ChatGPT picked a competitor over you</li><li>How to fix incorrect claims about your product</li><li>Where to add content so you get recommended more often</li></ul><p>They're dashboards without a steering wheel.</p><p>And when they do offer optimization advice, it's surface-level: "Add more schema." "Use clearer headings." That might help a Google crawler, but ChatGPT isn’t a crawler. It’s a reasoning engine.</p><div class="kg-card kg-button-card kg-align-center"><a href="https://calendar.google.com/calendar/u/0/appointments/schedules/AcZssZ0ULQsD3-W4pLBLznEZeNZAlCNsU1N7s0uao3cRbiVlPpZ3HQ8H9O1AXTMc9ftg7uKij5oW6Do5?ref=chosenly.com" class="kg-btn kg-btn-accent">Schedule a Chosenly.com demo</a></div><div class="kg-card kg-header-card kg-v2 kg-width-full kg-content-wide " style="background-color: #000000;" data-background-color="#000000">
+            
+            <div class="kg-header-card-content">
+                
+                <div class="kg-header-card-text kg-align-center">
+                    <h2 id="what-actually-works-aiso-not-seo" class="kg-header-card-heading" style="color: #FFFFFF;" data-text-color="#FFFFFF"><b><strong style="white-space: pre-wrap;">What Actually Works: AISO, Not SEO</strong></b></h2>
+                    
+                    
+                </div>
+            </div>
+        </div><p>At <a href="https://chosenly.com/?ref=chosenly.com" rel="noreferrer">Chosenly</a>, we use the term <strong>AISO</strong>: AI Search Optimization.</p><p>It’s not about traffic. It’s about showing up in bottom-of-funnel, high-intent, LLM-driven decisions.</p><p>We break AISO into three pillars:</p><h2 id="1-show-up-for-simple-searches">1. Show up for Simple Searches<br></h2><p>These are queries like:</p><ul><li>"Best payroll software for startups"</li><li>"<a href="https://www.hubspot.com/products/crm?ref=chosenly.com" rel="noreferrer">HubSpot</a> alternatives for B2B SaaS"</li></ul><p>LLMs like ChatGPT often pull these answers from live URLs. Not just your website, but also:</p><ul><li>Review sites</li><li>Comparison listicles</li><li>Reddit threads</li><li>PR placements</li></ul><p>To win these, we:</p><ul><li>Map your high-performing Google keywords to AI equivalents</li><li>Scrape ChatGPT responses using web search on</li><li>Identify which URLs get referenced in those answers</li><li>Help you get featured on those URLs (via PR, guest posts, refreshes, or swaps)</li></ul><p>Simple search is 40% of the game. But it’s just the start.</p><h2 id="2-show-up-for-contextual-searches">2. Show up for Contextual Searches<br></h2><p>As users get more comfortable, their prompts become more specific:</p><p>"I’m a CFO at a fintech company in Europe, with 7 people on the finance team. We use Oracle NetSuite and want a reporting tool under $5k/year."</p><p>To show up here, you need to make ChatGPT believe you’re a great fit for that persona, in that context.</p><p>We recommend:</p><ul><li><strong>Team pages:</strong> Who your product is best for</li><li><strong>Industry pages</strong>: Why you’re tailored to specific verticals</li><li><strong>Case studies with detail</strong>: Include headcount, tools used, geography</li><li><strong>Compliance pages</strong>: Many regions (e.g., EU) require this info</li><li><strong>Pricing signals</strong>: Even if you're sales-led, give ChatGPT something to go on (e.g., ROI math, cost comparison)</li></ul><p>ChatGPT builds mental models. If your competitors include this info and you don’t, you lose.</p><h2 id="3-fix-brand-misrepresentations">3. Fix Brand Misrepresentations<br></h2><p>LLMs hallucinate. A lot.</p><ul><li>They may say your tool lacks features you actually have</li><li>They may cite old pricing, wrong integrations, or outdated testimonials</li></ul><p>We’ve seen brands lose deals because ChatGPT made them look worse than they are.</p><p>So we built best software for AI visibility in search to:</p><ul><li>Detect misrepresentations</li><li>Find the source (e.g., outdated review sites, scraped PDFs, stale pages)</li><li>Suggest fixes: PR, content, removals, or replacements</li><li>Track LLM behavior over time (is the correction working?)</li></ul><p>This isn’t about gaming AI. It’s about fixing your narrative where it’s broken.</p><div class="kg-card kg-button-card kg-align-center"><a href="https://calendar.google.com/calendar/u/0/appointments/schedules/AcZssZ0ULQsD3-W4pLBLznEZeNZAlCNsU1N7s0uao3cRbiVlPpZ3HQ8H9O1AXTMc9ftg7uKij5oW6Do5?ref=chosenly.com" class="kg-btn kg-btn-accent">Schedule a Chosenly.com demo</a></div><div class="kg-card kg-header-card kg-v2 kg-width-full kg-content-wide " style="background-color: #000000;" data-background-color="#000000">
+            
+            <div class="kg-header-card-content">
+                
+                <div class="kg-header-card-text kg-align-center">
+                    <h2 id="real-results-why-this-works" class="kg-header-card-heading" style="color: #FFFFFF;" data-text-color="#FFFFFF"><b><strong style="white-space: pre-wrap;">Real Results: Why This Works</strong></b></h2>
+                    
+                    
+                </div>
+            </div>
+        </div><p>Across our client base, we’re seeing:</p><ul><li>~20% of inbound pipeline attributed to LLMs (usually inferred via prompt language)</li><li>Higher close rates from leads who "discovered" the brand via ChatGPT</li><li>Marketing teams finding and fixing brand holes they didn’t know existed</li></ul><p>And importantly: this doesn’t replace SEO. It runs alongside it. If SEO is about visibility in Google’s crawlers, AISO is about credibility in AI agents.</p><div class="kg-card kg-button-card kg-align-center"><a href="https://calendar.google.com/calendar/u/0/appointments/schedules/AcZssZ0ULQsD3-W4pLBLznEZeNZAlCNsU1N7s0uao3cRbiVlPpZ3HQ8H9O1AXTMc9ftg7uKij5oW6Do5?ref=chosenly.com" class="kg-btn kg-btn-accent">Schedule a Chosenly.com demo</a></div><div class="kg-card kg-header-card kg-v2 kg-width-full kg-content-wide " style="background-color: #000000;" data-background-color="#000000">
+            
+            <div class="kg-header-card-content">
+                
+                <div class="kg-header-card-text kg-align-center">
+                    <h2 id="what-to-look-for-in-a-real-ai-visibility-tool" class="kg-header-card-heading" style="color: #FFFFFF;" data-text-color="#FFFFFF"><b><strong style="white-space: pre-wrap;">What to Look for in a Real AI Visibility Tool</strong></b></h2>
+                    
+                    
+                </div>
+            </div>
+        </div><p>If you’re thinking how to choose an AI visibility tool, don’t ask:</p><ul><li>“Does it track mentions?”</li><li>“Does it show score changes?”</li></ul><p>Instead ask:</p><ul><li>Does it identify which sources LLMs are using?</li><li>Can it tell me why I’m not being mentioned?</li><li>Does it help me get listed on high-impact URLs?</li><li>Can it detect and correct hallucinations or misinformation?</li><li>Will it prioritize next steps for me (or my agency) to act on?</li></ul><p>If not, it’s not a visibility optimization tool. It’s just a monitor.</p><div class="kg-card kg-button-card kg-align-center"><a href="https://calendar.google.com/calendar/u/0/appointments/schedules/AcZssZ0ULQsD3-W4pLBLznEZeNZAlCNsU1N7s0uao3cRbiVlPpZ3HQ8H9O1AXTMc9ftg7uKij5oW6Do5?ref=chosenly.com" class="kg-btn kg-btn-accent">Schedule a Chosenly.com demo</a></div><div class="kg-card kg-header-card kg-v2 kg-width-full kg-content-wide " style="background-color: #000000;" data-background-color="#000000">
+            
+            <div class="kg-header-card-content">
+                
+                <div class="kg-header-card-text kg-align-center">
+                    <h2 id="why-chosenly-is-different" class="kg-header-card-heading" style="color: #FFFFFF;" data-text-color="#FFFFFF"><b><strong style="white-space: pre-wrap;">Why </strong></b><a href="https://chosenly.com/?ref=chosenly.com" rel="noreferrer"><b><strong style="white-space: pre-wrap;">Chosenly</strong></b></a><b><strong style="white-space: pre-wrap;"> Is Different</strong></b></h2>
+                    
+                    
+                </div>
+            </div>
+        </div><p>We didn’t build <a href="https://chosenly.com/?ref=chosenly.com" rel="noreferrer">Chosenly.com </a>to be a dashboard. We built it to answer:</p><ul><li>"Why is my competitor showing up in ChatGPT and I’m not?"</li><li>"How do I fix what it’s saying about me?"</li><li>"Where should I focus this quarter to win AI-influenced deals?"</li></ul><p>And we didn’t stop at answers. We help you act on them.</p><ul><li>Dedicated Slack support with AISO experts</li><li>Monthly strategy calls</li><li>Execution templates and outreach tools</li><li>Real-world context from hundreds of LLM audits</li></ul><p>Most AI visibility optimization platforms show you the problem. We show you what to fix. Then help you fix it.</p><div class="kg-card kg-button-card kg-align-center"><a href="https://calendar.google.com/calendar/u/0/appointments/schedules/AcZssZ0ULQsD3-W4pLBLznEZeNZAlCNsU1N7s0uao3cRbiVlPpZ3HQ8H9O1AXTMc9ftg7uKij5oW6Do5?ref=chosenly.com" class="kg-btn kg-btn-accent">Schedule a Chosenly.com demo</a></div><div class="kg-card kg-header-card kg-v2 kg-width-full kg-content-wide " style="background-color: #000000;" data-background-color="#000000">
+            
+            <div class="kg-header-card-content">
+                
+                <div class="kg-header-card-text kg-align-center">
+                    <h2 id="final-thoughts-the-window-is-narrow" class="kg-header-card-heading" style="color: #FFFFFF;" data-text-color="#FFFFFF"><b><strong style="white-space: pre-wrap;">Final Thoughts: The Window Is Narrow</strong></b></h2>
+                    
+                    
+                </div>
+            </div>
+        </div><p>Right now, most B2B SaaS companies aren’t thinking about optimizing brand visibility in AI search</p><p>That’s your advantage.</p><p>In 3 months, this starts driving inbound. In 6 months, it affects sales close rates. In 3 years, the next <a href="https://www.hubspot.com/products/crm?ref=chosenly.com" rel="noreferrer">HubSpot</a> or <a href="https://zapier.com/?ref=chosenly.com" rel="noreferrer">Zapier</a> will have been built not on Google traffic, but on AI recommendations.</p><p>If you want that to be you, you can’t just track visibility. You need to <strong>optimize</strong> it.</p><p>Schedule a demo at<a href="https://chosenly.com/?ref=chosenly.com"> <u>Chosenly.com</u></a> and let’s talk about what’s broken (and how to fix it).</p>
+        </section>
+
+    </article>
+
+
+</main>
+
+
+            <section class="gh-container is-grid gh-outer">
+                <div class="gh-container-inner gh-inner">
+                    <h2 class="gh-container-title">Read more</h2>
+                    <div class="gh-feed">
+                            <article class="gh-card post no-image">
+    <a class="gh-card-link" href="/blog/how-to-rank-on-gemini-in-2025-full-guide-2025/">
+        <div class="gh-card-wrapper">
+            <h3 class="gh-card-title is-title">How to Rank on Gemini in 2025: Full Guide</h3>
+                    <p class="gh-card-excerpt is-body">There is a persistent disconnect that many teams are feeling. You can execute the traditional playbook - technical SEO, authority building, and disciplined content and still fail to appear when Gemini is asked to recommend vendors. That gap is not a mirage. Traditional SEO rewards signals of popularity; Gemini prioritizes</p>
+            <footer class="gh-card-meta">
+<!--
+             -->
+                    <span class="gh-card-author">By Gunnika Gupta</span>
+                    <time class="gh-card-date" datetime="2025-10-10">10 Oct 2025</time>
+                <!--
+         --></footer>
+        </div>
+    </a>
+</article>
+                            <article class="gh-card post no-image">
+    <a class="gh-card-link" href="/blog/how-to-rank-on-claude-proven-tactics-to-get-featured-in-claudes-ai-answers/">
+        <div class="gh-card-wrapper">
+            <h3 class="gh-card-title is-title">How to Rank on Claude: Proven Tactics to Get Featured in Claude’s AI Answers</h3>
+                    <p class="gh-card-excerpt is-body">Let’s be honest: nobody woke up one morning thinking, “I need to figure out how to rank on Claude.” But here we are. Buyers now open Claude before they open Google. They type questions they’d normally ask a peer, a Slack group, or a consultant. They don’t</p>
+            <footer class="gh-card-meta">
+<!--
+             -->
+                    <span class="gh-card-author">By Gunnika Gupta</span>
+                    <time class="gh-card-date" datetime="2025-09-25">25 Sep 2025</time>
+                <!--
+         --></footer>
+        </div>
+    </a>
+</article>
+                            <article class="gh-card post no-image">
+    <a class="gh-card-link" href="/blog/the-top-generative-engine-optimization-services-agencies-of-2025/">
+        <div class="gh-card-wrapper">
+            <h3 class="gh-card-title is-title">The Top Generative Engine Optimization Services Agencies of 2025</h3>
+                    <p class="gh-card-excerpt is-body">Generative search is no longer a “future trend.” It&#39;s here, shaping how buyers shortlist and evaluate vendors. With ChatGPT, Gemini, Claude, and Perplexity becoming decision-making copilots, companies that fail to optimise for AI search risk disappearing from consideration altogether.
+
+That’s why generative engine optimisation services (GEO) are</p>
+            <footer class="gh-card-meta">
+<!--
+             -->
+                    <span class="gh-card-author">By Gunnika Gupta</span>
+                    <time class="gh-card-date" datetime="2025-09-19">19 Sep 2025</time>
+                <!--
+         --></footer>
+        </div>
+    </a>
+</article>
+                            <article class="gh-card post no-image">
+    <a class="gh-card-link" href="/blog/introducing-sourcesync-see-which-seo-keyword-drives-pipeline-in-hubspot-finally/">
+        <div class="gh-card-wrapper">
+            <h3 class="gh-card-title is-title">Introducing SourceSync: See Which SEO Keyword Drives Pipeline in HubSpot (Finally!)</h3>
+                    <p class="gh-card-excerpt is-body">Most B2B marketers face the same frustration: HubSpot shows you where your contacts come from… but not which keywords are driving MQLs, SQLs, or pipeline.
+
+Without a revenue-based feedback loop, your SEO remains disconnected from what actually drives the pipeline.
+
+At Spear Growth, we’ve had the unfair advantage for</p>
+            <footer class="gh-card-meta">
+<!--
+             -->
+                    <span class="gh-card-author">By Rushabh Patel</span>
+                    <time class="gh-card-date" datetime="2025-09-18">18 Sep 2025</time>
+                <!--
+         --></footer>
+        </div>
+    </a>
+</article>
+                    </div>
+                </div>
+            </section>
+
+    
+    <footer class="gh-footer gh-outer">
+    <div class="gh-footer-inner gh-inner">
+
+        <div class="gh-footer-bar">
+            <span class="gh-footer-logo is-title">
+                    <img src="https://chosenly.com/blog/content/images/2025/08/Chosenly-Logo-Black.png" alt="Chosenly Blog: Insights &amp; Strategies for AI Search Optimization">
+            </span>
+            <nav class="gh-footer-menu">
+                <ul class="nav">
+    <li class="nav-chosenly-website"><a href="https://chosenly.com/blog/">Chosenly website</a></li>
+</ul>
+
+            </nav>
+            <div class="gh-footer-copyright">
+                Powered by <a href="https://ghost.org/" target="_blank" rel="noopener">Ghost</a>
+            </div>
+        </div>
+
+
+    </div>
+</footer>    
+</div>
+
+    <div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="pswp__bg"></div>
+
+    <div class="pswp__scroll-wrap">
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        <div class="pswp__ui pswp__ui--hidden">
+            <div class="pswp__top-bar">
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)"></button>
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="/blog/assets/built/source.js?v=6775c3d711"></script>
+
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-TZQVJMRT"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+</body>
+</html>

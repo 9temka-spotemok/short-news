@@ -1,0 +1,923 @@
+<!DOCTYPE html><html lang="en"> <head><meta charset="utf-8"><link rel="shortcut icon" href="/favicon.ico"><meta name="msapplication-TileColor" content="#000"><meta name="theme-color" media="(prefers-color-scheme: light)" content="#fff"><meta name="theme-color" media="(prefers-color-scheme: dark)" content="#000"><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no"><title>The AccuRanker Blog — AccuRanker</title><meta name="description" content="Stay ahead in SEO with expert tips, industry updates, and insights from the AccuRanker blog — designed for agencies and in-house teams."><meta name="keywords" content=" accuranker blog,organic growth blog,enterprise seo blog,seo agency blog"><link rel="canonical" href="https://www.accuranker.com/blog/" item-prop="url"><meta name="author" content="AccuRanker ❤️ Denmark"><meta property="og:title" content="The AccuRanker Blog — AccuRanker"><meta property="og:description" content="Stay ahead in SEO with expert tips, industry updates, and insights from the AccuRanker blog — designed for agencies and in-house teams."><meta property="og:type" content="website"><meta property="og:url" content="https://accuranker.com/blog/"><meta property="og:image" content="/images/og-image.png"><meta name="twitter:title" content="The AccuRanker Blog — AccuRanker"><meta name="twitter:description" content="Stay ahead in SEO with expert tips, industry updates, and insights from the AccuRanker blog — designed for agencies and in-house teams."><meta name="twitter:image" content="/images/og-image.png"><meta name="twitter:card" content="summary_large_image"><meta name="referrer" content="strict-origin-when-cross-origin"><link rel="manifest" href="/site.webmanifest"><link rel="sitemap" href="/sitemap-index.xml"><!-- <link rel='preload' href={stylesUrl} as='style' />
+<link rel='preload' href={genericStylesUrl} as='style' />
+<link rel='stylesheet' href={stylesUrl} />
+<link rel='stylesheet' href={genericStylesUrl} /> --><link rel="alternate" type="application/rss+xml" title="The AccuRanker Blog — AccuRanker" href="https://www.accuranker.com/rss-blog.xml"><link rel="stylesheet" href="/_astro/_marketing_.CKs8E79K.css">
+<link rel="stylesheet" href="/_astro/_marketing_.BR5MB8Dy.css">
+<link rel="stylesheet" href="/_astro/_blogPost_.DvFUMApH.css">
+<link rel="stylesheet" href="/_astro/_contact_.P8TTdRAZ.css">
+<link rel="stylesheet" href="/_astro/index.DN4tfYBf.css"></head> <body class="overflow-x-hidden"> <div class="relative w-full max-w-[100vw] overflow-x-hidden pt-[60px] md:pt-[72px]"> <style>astro-island,astro-slot,astro-static-slot{display:contents}</style><script>(()=>{var e=async t=>{await(await t())()};(self.Astro||(self.Astro={})).load=e;window.dispatchEvent(new Event("astro:load"));})();;(()=>{var A=Object.defineProperty;var g=(i,o,a)=>o in i?A(i,o,{enumerable:!0,configurable:!0,writable:!0,value:a}):i[o]=a;var d=(i,o,a)=>g(i,typeof o!="symbol"?o+"":o,a);{let i={0:t=>m(t),1:t=>a(t),2:t=>new RegExp(t),3:t=>new Date(t),4:t=>new Map(a(t)),5:t=>new Set(a(t)),6:t=>BigInt(t),7:t=>new URL(t),8:t=>new Uint8Array(t),9:t=>new Uint16Array(t),10:t=>new Uint32Array(t),11:t=>1/0*t},o=t=>{let[l,e]=t;return l in i?i[l](e):void 0},a=t=>t.map(o),m=t=>typeof t!="object"||t===null?t:Object.fromEntries(Object.entries(t).map(([l,e])=>[l,o(e)]));class y extends HTMLElement{constructor(){super(...arguments);d(this,"Component");d(this,"hydrator");d(this,"hydrate",async()=>{var b;if(!this.hydrator||!this.isConnected)return;let e=(b=this.parentElement)==null?void 0:b.closest("astro-island[ssr]");if(e){e.addEventListener("astro:hydrate",this.hydrate,{once:!0});return}let c=this.querySelectorAll("astro-slot"),n={},h=this.querySelectorAll("template[data-astro-template]");for(let r of h){let s=r.closest(this.tagName);s!=null&&s.isSameNode(this)&&(n[r.getAttribute("data-astro-template")||"default"]=r.innerHTML,r.remove())}for(let r of c){let s=r.closest(this.tagName);s!=null&&s.isSameNode(this)&&(n[r.getAttribute("name")||"default"]=r.innerHTML)}let p;try{p=this.hasAttribute("props")?m(JSON.parse(this.getAttribute("props"))):{}}catch(r){let s=this.getAttribute("component-url")||"<unknown>",v=this.getAttribute("component-export");throw v&&(s+=` (export ${v})`),console.error(`[hydrate] Error parsing props for component ${s}`,this.getAttribute("props"),r),r}let u;await this.hydrator(this)(this.Component,p,n,{client:this.getAttribute("client")}),this.removeAttribute("ssr"),this.dispatchEvent(new CustomEvent("astro:hydrate"))});d(this,"unmount",()=>{this.isConnected||this.dispatchEvent(new CustomEvent("astro:unmount"))})}disconnectedCallback(){document.removeEventListener("astro:after-swap",this.unmount),document.addEventListener("astro:after-swap",this.unmount,{once:!0})}connectedCallback(){if(!this.hasAttribute("await-children")||document.readyState==="interactive"||document.readyState==="complete")this.childrenConnectedCallback();else{let e=()=>{document.removeEventListener("DOMContentLoaded",e),c.disconnect(),this.childrenConnectedCallback()},c=new MutationObserver(()=>{var n;((n=this.lastChild)==null?void 0:n.nodeType)===Node.COMMENT_NODE&&this.lastChild.nodeValue==="astro:end"&&(this.lastChild.remove(),e())});c.observe(this,{childList:!0}),document.addEventListener("DOMContentLoaded",e)}}async childrenConnectedCallback(){let e=this.getAttribute("before-hydration-url");e&&await import(e),this.start()}async start(){let e=JSON.parse(this.getAttribute("opts")),c=this.getAttribute("client");if(Astro[c]===void 0){window.addEventListener(`astro:${c}`,()=>this.start(),{once:!0});return}try{await Astro[c](async()=>{let n=this.getAttribute("renderer-url"),[h,{default:p}]=await Promise.all([import(this.getAttribute("component-url")),n?import(n):()=>()=>{}]),u=this.getAttribute("component-export")||"default";if(!u.includes("."))this.Component=h[u];else{this.Component=h;for(let f of u.split("."))this.Component=this.Component[f]}return this.hydrator=p,this.hydrate},e,this)}catch(n){console.error(`[astro-island] Error hydrating ${this.getAttribute("component-url")}`,n)}}attributeChangedCallback(){this.hydrate()}}d(y,"observedAttributes",["props"]),customElements.get("astro-island")||customElements.define("astro-island",y)}})();</script><astro-island uid="ZIlme4" prefix="r17" component-url="/_astro/Header.u7mfROJh.js" component-export="default" renderer-url="/_astro/client.BkSGAj95.js" props="{&quot;data&quot;:[0,{&quot;header&quot;:[0,{&quot;items&quot;:[1,[[0,{&quot;label&quot;:[0,&quot;Why AccuRanker&quot;],&quot;url&quot;:[0,&quot;/why-accuranker/&quot;],&quot;navigation&quot;:[0,{&quot;innerLabel&quot;:[0,null],&quot;leftColumnHeading&quot;:[0,null],&quot;leftColumn&quot;:[1,[[0,{&quot;label&quot;:[0,&quot;For Agencies&quot;],&quot;url&quot;:[0,&quot;/why-accuranker/for-agencies/&quot;],&quot;__typename&quot;:[0,&quot;ComponentSharedLink&quot;]}]]],&quot;middleColumnHeading&quot;:[0,null],&quot;middleColumn&quot;:[1,[[0,{&quot;label&quot;:[0,&quot;For Enterprises&quot;],&quot;url&quot;:[0,&quot;/why-accuranker/for-enterprise/&quot;],&quot;__typename&quot;:[0,&quot;ComponentSharedLink&quot;]}]]],&quot;rightColumnHeading&quot;:[0,null],&quot;rightColumn&quot;:[1,[[0,{&quot;label&quot;:[0,&quot;For Consultants&quot;],&quot;url&quot;:[0,&quot;/why-accuranker/for-consultants/&quot;],&quot;__typename&quot;:[0,&quot;ComponentSharedLink&quot;]}]]],&quot;__typename&quot;:[0,&quot;HeaderNavigation&quot;]}],&quot;__typename&quot;:[0,&quot;ComponentNavigationNavigationColumn&quot;]}],[0,{&quot;label&quot;:[0,&quot;Features&quot;],&quot;url&quot;:[0,&quot;/features/&quot;],&quot;navigation&quot;:[0,{&quot;innerLabel&quot;:[0,&quot;All features&quot;],&quot;leftColumnHeading&quot;:[0,null],&quot;leftColumn&quot;:[1,[[0,{&quot;label&quot;:[0,&quot;Rank Tracking&quot;],&quot;url&quot;:[0,&quot;/features/rank-tracking/&quot;],&quot;__typename&quot;:[0,&quot;ComponentSharedLink&quot;]}],[0,{&quot;label&quot;:[0,&quot;Reporting&quot;],&quot;url&quot;:[0,&quot;/features/reporting/&quot;],&quot;__typename&quot;:[0,&quot;ComponentSharedLink&quot;]}],[0,{&quot;label&quot;:[0,&quot;Keyword Research Database&quot;],&quot;url&quot;:[0,&quot;/features/keyword-research/&quot;],&quot;__typename&quot;:[0,&quot;ComponentSharedLink&quot;]}],[0,{&quot;label&quot;:[0,&quot;AccuLLM&quot;],&quot;url&quot;:[0,&quot;/features/accullm&quot;],&quot;__typename&quot;:[0,&quot;ComponentSharedLink&quot;]}]]],&quot;middleColumnHeading&quot;:[0,null],&quot;middleColumn&quot;:[1,[[0,{&quot;label&quot;:[0,&quot;Tagging&quot;],&quot;url&quot;:[0,&quot;/features/tagging/&quot;],&quot;__typename&quot;:[0,&quot;ComponentSharedLink&quot;]}],[0,{&quot;label&quot;:[0,&quot;API &amp; Integrations&quot;],&quot;url&quot;:[0,&quot;/features/api-integrations/&quot;],&quot;__typename&quot;:[0,&quot;ComponentSharedLink&quot;]}],[0,{&quot;label&quot;:[0,&quot;AI Models&quot;],&quot;url&quot;:[0,&quot;/features/ai-models/&quot;],&quot;__typename&quot;:[0,&quot;ComponentSharedLink&quot;]}]]],&quot;rightColumnHeading&quot;:[0,null],&quot;rightColumn&quot;:[1,[[0,{&quot;label&quot;:[0,&quot;Organic Site Explorer&quot;],&quot;url&quot;:[0,&quot;/features/organic-site-explorer/&quot;],&quot;__typename&quot;:[0,&quot;ComponentSharedLink&quot;]}],[0,{&quot;label&quot;:[0,&quot;SERP Analysis&quot;],&quot;url&quot;:[0,&quot;/features/serp-analysis/&quot;],&quot;__typename&quot;:[0,&quot;ComponentSharedLink&quot;]}],[0,{&quot;label&quot;:[0,&quot;Forecasting&quot;],&quot;url&quot;:[0,&quot;/features/forecasting/&quot;],&quot;__typename&quot;:[0,&quot;ComponentSharedLink&quot;]}]]],&quot;__typename&quot;:[0,&quot;HeaderNavigation&quot;]}],&quot;__typename&quot;:[0,&quot;ComponentNavigationNavigationColumn&quot;]}],[0,{&quot;label&quot;:[0,&quot;Pricing&quot;],&quot;url&quot;:[0,&quot;/pricing/&quot;],&quot;navigation&quot;:[0,null],&quot;__typename&quot;:[0,&quot;ComponentNavigationNavigationColumn&quot;]}],[0,{&quot;label&quot;:[0,&quot;Resources&quot;],&quot;url&quot;:[0,null],&quot;navigation&quot;:[0,{&quot;innerLabel&quot;:[0,null],&quot;leftColumnHeading&quot;:[0,&quot;Insights&quot;],&quot;leftColumn&quot;:[1,[[0,{&quot;label&quot;:[0,&quot;Success Stories&quot;],&quot;url&quot;:[0,&quot;/cases/&quot;],&quot;__typename&quot;:[0,&quot;ComponentSharedLink&quot;]}],[0,{&quot;label&quot;:[0,&quot;Blog&quot;],&quot;url&quot;:[0,&quot;/blog/&quot;],&quot;__typename&quot;:[0,&quot;ComponentSharedLink&quot;]}],[0,{&quot;label&quot;:[0,&quot;White Papers&quot;],&quot;url&quot;:[0,&quot;/white-papers/&quot;],&quot;__typename&quot;:[0,&quot;ComponentSharedLink&quot;]}]]],&quot;middleColumnHeading&quot;:[0,&quot;Free tools&quot;],&quot;middleColumn&quot;:[1,[[0,{&quot;label&quot;:[0,&quot;Google Grump&quot;],&quot;url&quot;:[0,&quot;/grump/&quot;],&quot;__typename&quot;:[0,&quot;ComponentSharedLink&quot;]}],[0,{&quot;label&quot;:[0,&quot;Live SERP Checker&quot;],&quot;url&quot;:[0,&quot;/rank-tracker/&quot;],&quot;__typename&quot;:[0,&quot;ComponentSharedLink&quot;]}]]],&quot;rightColumnHeading&quot;:[0,&quot;Knowledge&quot;],&quot;rightColumn&quot;:[1,[[0,{&quot;label&quot;:[0,&quot;Marketing Dictionary&quot;],&quot;url&quot;:[0,&quot;/marketing-dictionary/&quot;],&quot;__typename&quot;:[0,&quot;ComponentSharedLink&quot;]}],[0,{&quot;label&quot;:[0,&quot;Learn SEO&quot;],&quot;url&quot;:[0,&quot;/learn-seo/&quot;],&quot;__typename&quot;:[0,&quot;ComponentSharedLink&quot;]}],[0,{&quot;label&quot;:[0,&quot;Help Guides&quot;],&quot;url&quot;:[0,&quot;/help/&quot;],&quot;__typename&quot;:[0,&quot;ComponentSharedLink&quot;]}],[0,{&quot;label&quot;:[0,&quot;Release Log&quot;],&quot;url&quot;:[0,&quot;/changelog/&quot;],&quot;__typename&quot;:[0,&quot;ComponentSharedLink&quot;]}]]],&quot;__typename&quot;:[0,&quot;HeaderNavigation&quot;]}],&quot;__typename&quot;:[0,&quot;ComponentNavigationNavigationColumn&quot;]}],[0,{&quot;label&quot;:[0,&quot;Company&quot;],&quot;url&quot;:[0,&quot;/about-us/&quot;],&quot;navigation&quot;:[0,{&quot;innerLabel&quot;:[0,null],&quot;leftColumnHeading&quot;:[0,null],&quot;leftColumn&quot;:[1,[[0,{&quot;label&quot;:[0,&quot;About Us&quot;],&quot;url&quot;:[0,&quot;/about-us/&quot;],&quot;__typename&quot;:[0,&quot;ComponentSharedLink&quot;]}]]],&quot;middleColumnHeading&quot;:[0,null],&quot;middleColumn&quot;:[1,[[0,{&quot;label&quot;:[0,&quot;Careers&quot;],&quot;url&quot;:[0,&quot;/careers/&quot;],&quot;__typename&quot;:[0,&quot;ComponentSharedLink&quot;]}]]],&quot;rightColumnHeading&quot;:[0,null],&quot;rightColumn&quot;:[1,[[0,{&quot;label&quot;:[0,&quot;Contact&quot;],&quot;url&quot;:[0,&quot;/contact/&quot;],&quot;__typename&quot;:[0,&quot;ComponentSharedLink&quot;]}]]],&quot;__typename&quot;:[0,&quot;HeaderNavigation&quot;]}],&quot;__typename&quot;:[0,&quot;ComponentNavigationNavigationColumn&quot;]}]]],&quot;signInButtonLabel&quot;:[0,&quot;Sign in&quot;],&quot;signInUrl&quot;:[0,{&quot;url&quot;:[0,&quot;https://app.accuranker.com/&quot;],&quot;__typename&quot;:[0,&quot;GlobalLink&quot;]}],&quot;signUpButtonLabel&quot;:[0,&quot;Request a demo&quot;],&quot;signUpUrl&quot;:[0,{&quot;url&quot;:[0,&quot;/book-a-demo/&quot;],&quot;__typename&quot;:[0,&quot;GlobalLink&quot;]}],&quot;__typename&quot;:[0,&quot;Header&quot;]}]}]}" ssr client="load" opts="{&quot;name&quot;:&quot;Header&quot;,&quot;value&quot;:true}" await-children><header class="bg-background fixed top-0 z-50 flex min-h-[60px] w-full items-center transition-transform duration-300 lg:min-h-[72px] translate-y-0 transform" role="banner"><div class="container flex"><a href="/" class="flex items-center justify-start overflow-hidden" aria-label="AccuRanker Home" style="view-transition-name:logo" data-arma-tag="back_to_home"><img src="/images/logo.svg" alt="AccuRanker" class="block lg:hidden h-auto w-[132px] xl:block"/><img src="/images/logo-wave.svg" alt="AccuRanker" class="hidden lg:block h-[25px] h-auto w-[25px] xl:hidden"/></a><div class="flex-1"></div><button class="group flex cursor-pointer items-center justify-center font-medium transition-colors duration-300 rounded-sm text-icon min-h-[32px] min-w-[32px] rounded-sm bg-transparent py-2 hover:bg-black/5 lg:hidden" aria-label="Open mobile menu"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tabler-icon tabler-icon-menu-2 "><path d="M4 6l16 0"></path><path d="M4 12l16 0"></path><path d="M4 18l16 0"></path></svg></button><nav class="relative -mr-8 hidden items-center gap-x-4 select-none lg:flex"><div class="relative"><a href="/why-accuranker/" class="header__link transition duration-200" tabindex="0">Why AccuRanker<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tabler-icon tabler-icon-chevron-down header__icon header__icon--down"><path d="M6 9l6 6l6 -6"></path></svg></a><div class="header__dropdown invisible -translate-y-10 scale-90 opacity-0 left-0 grid-cols-3"><div class="header__area--left"><a href="/why-accuranker/for-agencies/" class="header__link hover:bg-black/5" data-arma-tag="sub_navigation_item" data-arma-value="For Agencies">For Agencies<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tabler-icon tabler-icon-chevron-right header__icon header__icon--right"><path d="M9 6l6 6l-6 6"></path></svg></a></div><div class="header__area--middle"><a href="/why-accuranker/for-enterprise/" class="header__link hover:bg-black/5" data-arma-tag="sub_navigation_item" data-arma-value="For Enterprises">For Enterprises<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tabler-icon tabler-icon-chevron-right header__icon header__icon--right"><path d="M9 6l6 6l-6 6"></path></svg></a></div><div class="header__area--right"><a href="/why-accuranker/for-consultants/" class="header__link hover:bg-black/5" data-arma-tag="sub_navigation_item" data-arma-value="For Consultants">For Consultants<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tabler-icon tabler-icon-chevron-right header__icon header__icon--right"><path d="M9 6l6 6l-6 6"></path></svg></a></div></div></div><div class=""><a href="/features/" class="header__link transition duration-200" tabindex="0">Features<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tabler-icon tabler-icon-chevron-down header__icon header__icon--down"><path d="M6 9l6 6l6 -6"></path></svg></a><div class="header__dropdown invisible -translate-y-10 scale-90 opacity-0 right-0 grid-cols-3"><a href="/features/" class="header__link hover:bg-black/5 header__area--label header__link--bold" data-arma-tag="sub_navigation_item" data-arma-value="All features">All features<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tabler-icon tabler-icon-chevron-right header__icon header__icon--right"><path d="M9 6l6 6l-6 6"></path></svg></a><div class="header__area--left"><a href="/features/rank-tracking/" class="header__link hover:bg-black/5" data-arma-tag="sub_navigation_item" data-arma-value="Rank Tracking">Rank Tracking<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tabler-icon tabler-icon-chevron-right header__icon header__icon--right"><path d="M9 6l6 6l-6 6"></path></svg></a><a href="/features/reporting/" class="header__link hover:bg-black/5" data-arma-tag="sub_navigation_item" data-arma-value="Reporting">Reporting<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tabler-icon tabler-icon-chevron-right header__icon header__icon--right"><path d="M9 6l6 6l-6 6"></path></svg></a><a href="/features/keyword-research/" class="header__link hover:bg-black/5" data-arma-tag="sub_navigation_item" data-arma-value="Keyword Research Database">Keyword Research Database<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tabler-icon tabler-icon-chevron-right header__icon header__icon--right"><path d="M9 6l6 6l-6 6"></path></svg></a><a href="/features/accullm/" class="header__link hover:bg-black/5 bg-[#079AA7] text-white" data-arma-tag="sub_navigation_item" data-arma-value="AccuLLM">AccuLLM<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tabler-icon tabler-icon-chevron-right header__icon header__icon--right"><path d="M9 6l6 6l-6 6"></path></svg></a></div><div class="header__area--middle"><a href="/features/tagging/" class="header__link hover:bg-black/5" data-arma-tag="sub_navigation_item" data-arma-value="Tagging">Tagging<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tabler-icon tabler-icon-chevron-right header__icon header__icon--right"><path d="M9 6l6 6l-6 6"></path></svg></a><a href="/features/api-integrations/" class="header__link hover:bg-black/5" data-arma-tag="sub_navigation_item" data-arma-value="API &amp; Integrations">API &amp; Integrations<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tabler-icon tabler-icon-chevron-right header__icon header__icon--right"><path d="M9 6l6 6l-6 6"></path></svg></a><a href="/features/ai-models/" class="header__link hover:bg-black/5" data-arma-tag="sub_navigation_item" data-arma-value="AI Models">AI Models<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tabler-icon tabler-icon-chevron-right header__icon header__icon--right"><path d="M9 6l6 6l-6 6"></path></svg></a></div><div class="header__area--right"><a href="/features/organic-site-explorer/" class="header__link hover:bg-black/5" data-arma-tag="sub_navigation_item" data-arma-value="Organic Site Explorer">Organic Site Explorer<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tabler-icon tabler-icon-chevron-right header__icon header__icon--right"><path d="M9 6l6 6l-6 6"></path></svg></a><a href="/features/serp-analysis/" class="header__link hover:bg-black/5" data-arma-tag="sub_navigation_item" data-arma-value="SERP Analysis">SERP Analysis<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tabler-icon tabler-icon-chevron-right header__icon header__icon--right"><path d="M9 6l6 6l-6 6"></path></svg></a><a href="/features/forecasting/" class="header__link hover:bg-black/5" data-arma-tag="sub_navigation_item" data-arma-value="Forecasting">Forecasting<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tabler-icon tabler-icon-chevron-right header__icon header__icon--right"><path d="M9 6l6 6l-6 6"></path></svg></a></div></div></div><div class=""><a href="/pricing/" class="header__link transition duration-200" tabindex="0">Pricing</a></div><div class=""><div class="header__link transition duration-200" tabindex="0">Resources<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tabler-icon tabler-icon-chevron-down header__icon header__icon--down"><path d="M6 9l6 6l6 -6"></path></svg></div><div class="header__dropdown invisible -translate-y-10 scale-90 opacity-0 right-0 grid-cols-3"><div class="header__column-heading header__area-heading--left">Insights</div><div class="header__area--left"><a href="/cases/" class="header__link hover:bg-black/5" data-arma-tag="sub_navigation_item" data-arma-value="Success Stories">Success Stories<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tabler-icon tabler-icon-chevron-right header__icon header__icon--right"><path d="M9 6l6 6l-6 6"></path></svg></a><a href="/blog/" class="header__link hover:bg-black/5" data-arma-tag="sub_navigation_item" data-arma-value="Blog">Blog<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tabler-icon tabler-icon-chevron-right header__icon header__icon--right"><path d="M9 6l6 6l-6 6"></path></svg></a><a href="/white-papers/" class="header__link hover:bg-black/5" data-arma-tag="sub_navigation_item" data-arma-value="White Papers">White Papers<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tabler-icon tabler-icon-chevron-right header__icon header__icon--right"><path d="M9 6l6 6l-6 6"></path></svg></a></div><div class="header__column-heading header__area-heading--middle">Free tools</div><div class="header__area--middle"><a href="/grump/" class="header__link hover:bg-black/5" data-arma-tag="sub_navigation_item" data-arma-value="Google Grump">Google Grump<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tabler-icon tabler-icon-chevron-right header__icon header__icon--right"><path d="M9 6l6 6l-6 6"></path></svg></a><a href="/rank-tracker/" class="header__link hover:bg-black/5" data-arma-tag="sub_navigation_item" data-arma-value="Live SERP Checker">Live SERP Checker<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tabler-icon tabler-icon-chevron-right header__icon header__icon--right"><path d="M9 6l6 6l-6 6"></path></svg></a></div><div class="header__column-heading header__area-heading--right">Knowledge</div><div class="header__area--right"><a href="/marketing-dictionary/" class="header__link hover:bg-black/5" data-arma-tag="sub_navigation_item" data-arma-value="Marketing Dictionary">Marketing Dictionary<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tabler-icon tabler-icon-chevron-right header__icon header__icon--right"><path d="M9 6l6 6l-6 6"></path></svg></a><a href="/learn-seo/" class="header__link hover:bg-black/5" data-arma-tag="sub_navigation_item" data-arma-value="Learn SEO">Learn SEO<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tabler-icon tabler-icon-chevron-right header__icon header__icon--right"><path d="M9 6l6 6l-6 6"></path></svg></a><a href="/help/" class="header__link hover:bg-black/5" data-arma-tag="sub_navigation_item" data-arma-value="Help Guides">Help Guides<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tabler-icon tabler-icon-chevron-right header__icon header__icon--right"><path d="M9 6l6 6l-6 6"></path></svg></a><a href="/changelog/" class="header__link hover:bg-black/5" data-arma-tag="sub_navigation_item" data-arma-value="Release Log">Release Log<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tabler-icon tabler-icon-chevron-right header__icon header__icon--right"><path d="M9 6l6 6l-6 6"></path></svg></a></div></div></div><div class=""><a href="/about-us/" class="header__link transition duration-200" tabindex="0">Company<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tabler-icon tabler-icon-chevron-down header__icon header__icon--down"><path d="M6 9l6 6l6 -6"></path></svg></a><div class="header__dropdown invisible -translate-y-10 scale-90 opacity-0 right-0 grid-cols-3"><div class="header__area--left"><a href="/about-us/" class="header__link hover:bg-black/5" data-arma-tag="sub_navigation_item" data-arma-value="About Us">About Us<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tabler-icon tabler-icon-chevron-right header__icon header__icon--right"><path d="M9 6l6 6l-6 6"></path></svg></a></div><div class="header__area--middle"><a href="/careers/" class="header__link hover:bg-black/5" data-arma-tag="sub_navigation_item" data-arma-value="Careers">Careers<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tabler-icon tabler-icon-chevron-right header__icon header__icon--right"><path d="M9 6l6 6l-6 6"></path></svg></a></div><div class="header__area--right"><a href="/contact/" class="header__link hover:bg-black/5" data-arma-tag="sub_navigation_item" data-arma-value="Contact">Contact<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tabler-icon tabler-icon-chevron-right header__icon header__icon--right"><path d="M9 6l6 6l-6 6"></path></svg></a></div></div></div><a href="/book-a-demo/" class="group flex cursor-pointer items-center justify-center font-medium transition-colors duration-300 rounded-sm bg-ctaPrimary hover:bg-ctaAccent text-white min-h-[43px] px-10 py-4 text-xs">Request a demo</a><a href="https://app.accuranker.com/" class="group flex cursor-pointer items-center justify-center font-medium transition-colors duration-300 rounded-sm text-icon min-h-[32px] min-w-[32px] rounded-sm bg-transparent py-2 hover:bg-black/5 text-textPrimary min-h-[43px] gap-x-3 pr-8 pl-4 text-xs underline" target="_blank" rel="noreferrer"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tabler-icon tabler-icon-arrow-narrow-right "><path d="M5 12l14 0"></path><path d="M15 16l4 -4"></path><path d="M15 8l4 4"></path></svg>Sign in</a></nav></div></header><div class="bg-overlay fixed top-0 left-0 z-50 h-full w-full cursor-pointer transition-all lg:hidden invisible opacity-0"></div><nav class="bg-background-secondary align-start fixed top-0 right-0 z-50 flex h-full max-h-[100vh] w-[285px] flex-col justify-between overflow-x-hidden transition-transform duration-300 lg:hidden translate-x-full"><button class="group flex cursor-pointer items-center justify-center font-medium transition-colors duration-300 rounded-sm text-icon min-h-[32px] min-w-[32px] rounded-sm bg-transparent py-2 hover:bg-black/5 absolute top-7 right-16 z-20 self-end" aria-label="Close mobile menu"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tabler-icon tabler-icon-x "><path d="M18 6l-12 12"></path><path d="M6 6l12 12"></path></svg></button><div></div> <div class="flex flex-col gap-y-10 overflow-y-auto pl-24"><div><button class="header__link transition duration-200">Why AccuRanker<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tabler-icon tabler-icon-chevron-right header__icon header__icon--right"><path d="M9 6l6 6l-6 6"></path></svg></button><div class="absolute top-0 right-0 z-10 grid h-full w-full grid-cols-[51px_1fr] transition-transform duration-200 translate-x-full"><button class="header_vertical-btn"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tabler-icon tabler-icon-chevron-right header__icon"><path d="M9 6l6 6l-6 6"></path></svg><span class="rotate-180">Why AccuRanker</span></button><div class="bg-boxPrimary flex h-full w-full flex-col justify-center gap-y-6 overflow-y-auto px-4"><a href="/why-accuranker/for-agencies/" class="header__link hover:bg-black/5" data-arma-tag="sub_navigation_item" data-arma-value="For Agencies">For Agencies</a><a href="/why-accuranker/for-enterprise/" class="header__link hover:bg-black/5" data-arma-tag="sub_navigation_item" data-arma-value="For Enterprises">For Enterprises</a><a href="/why-accuranker/for-consultants/" class="header__link hover:bg-black/5" data-arma-tag="sub_navigation_item" data-arma-value="For Consultants">For Consultants</a></div></div></div><div><button class="header__link transition duration-200">Features<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tabler-icon tabler-icon-chevron-right header__icon header__icon--right"><path d="M9 6l6 6l-6 6"></path></svg></button><div class="absolute top-0 right-0 z-10 grid h-full w-full grid-cols-[51px_1fr] transition-transform duration-200 translate-x-full"><button class="header_vertical-btn"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tabler-icon tabler-icon-chevron-right header__icon"><path d="M9 6l6 6l-6 6"></path></svg><span class="rotate-180">Features</span></button><div class="bg-boxPrimary flex h-full w-full flex-col justify-center gap-y-6 overflow-y-auto px-4"><a href="/features/" class="header__link hover:bg-black/5 header__link--bold" data-arma-tag="sub_navigation_item" data-arma-value="All features">All features<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tabler-icon tabler-icon-chevron-right header__icon header__icon--right"><path d="M9 6l6 6l-6 6"></path></svg></a><a href="/features/rank-tracking/" class="header__link hover:bg-black/5" data-arma-tag="sub_navigation_item" data-arma-value="Rank Tracking">Rank Tracking</a><a href="/features/reporting/" class="header__link hover:bg-black/5" data-arma-tag="sub_navigation_item" data-arma-value="Reporting">Reporting</a><a href="/features/keyword-research/" class="header__link hover:bg-black/5" data-arma-tag="sub_navigation_item" data-arma-value="Keyword Research Database">Keyword Research Database</a><a href="/features/accullm/" class="header__link hover:bg-black/5 bg-[#079AA7] text-white" data-arma-tag="sub_navigation_item" data-arma-value="AccuLLM">AccuLLM</a><a href="/features/tagging/" class="header__link hover:bg-black/5" data-arma-tag="sub_navigation_item" data-arma-value="Tagging">Tagging</a><a href="/features/api-integrations/" class="header__link hover:bg-black/5" data-arma-tag="sub_navigation_item" data-arma-value="API &amp; Integrations">API &amp; Integrations</a><a href="/features/ai-models/" class="header__link hover:bg-black/5" data-arma-tag="sub_navigation_item" data-arma-value="AI Models">AI Models</a><a href="/features/organic-site-explorer/" class="header__link hover:bg-black/5" data-arma-tag="sub_navigation_item" data-arma-value="Organic Site Explorer">Organic Site Explorer</a><a href="/features/serp-analysis/" class="header__link hover:bg-black/5" data-arma-tag="sub_navigation_item" data-arma-value="SERP Analysis">SERP Analysis</a><a href="/features/forecasting/" class="header__link hover:bg-black/5" data-arma-tag="sub_navigation_item" data-arma-value="Forecasting">Forecasting</a></div></div></div><div><a href="/pricing/" class="header__link transition duration-200">Pricing</a></div><div><button class="header__link transition duration-200">Resources<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tabler-icon tabler-icon-chevron-right header__icon header__icon--right"><path d="M9 6l6 6l-6 6"></path></svg></button><div class="absolute top-0 right-0 z-10 grid h-full w-full grid-cols-[51px_1fr] transition-transform duration-200 translate-x-full"><button class="header_vertical-btn"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tabler-icon tabler-icon-chevron-right header__icon"><path d="M9 6l6 6l-6 6"></path></svg><span class="rotate-180">Resources</span></button><div class="bg-boxPrimary flex h-full w-full flex-col justify-center gap-y-6 overflow-y-auto px-4"><div class="header__column-heading">Insights</div><a href="/cases/" class="header__link hover:bg-black/5" data-arma-tag="sub_navigation_item" data-arma-value="Success Stories">Success Stories</a><a href="/blog/" class="header__link hover:bg-black/5" data-arma-tag="sub_navigation_item" data-arma-value="Blog">Blog</a><a href="/white-papers/" class="header__link hover:bg-black/5" data-arma-tag="sub_navigation_item" data-arma-value="White Papers">White Papers</a><div class="header__column-heading">Free tools</div><a href="/grump/" class="header__link hover:bg-black/5" data-arma-tag="sub_navigation_item" data-arma-value="Google Grump">Google Grump</a><a href="/rank-tracker/" class="header__link hover:bg-black/5" data-arma-tag="sub_navigation_item" data-arma-value="Live SERP Checker">Live SERP Checker</a><div class="header__column-heading">Knowledge</div><a href="/marketing-dictionary/" class="header__link hover:bg-black/5" data-arma-tag="sub_navigation_item" data-arma-value="Marketing Dictionary">Marketing Dictionary</a><a href="/learn-seo/" class="header__link hover:bg-black/5" data-arma-tag="sub_navigation_item" data-arma-value="Learn SEO">Learn SEO</a><a href="/help/" class="header__link hover:bg-black/5" data-arma-tag="sub_navigation_item" data-arma-value="Help Guides">Help Guides</a><a href="/changelog/" class="header__link hover:bg-black/5" data-arma-tag="sub_navigation_item" data-arma-value="Release Log">Release Log</a></div></div></div><div><button class="header__link transition duration-200">Company<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tabler-icon tabler-icon-chevron-right header__icon header__icon--right"><path d="M9 6l6 6l-6 6"></path></svg></button><div class="absolute top-0 right-0 z-10 grid h-full w-full grid-cols-[51px_1fr] transition-transform duration-200 translate-x-full"><button class="header_vertical-btn"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tabler-icon tabler-icon-chevron-right header__icon"><path d="M9 6l6 6l-6 6"></path></svg><span class="rotate-180">Company</span></button><div class="bg-boxPrimary flex h-full w-full flex-col justify-center gap-y-6 overflow-y-auto px-4"><a href="/about-us/" class="header__link hover:bg-black/5" data-arma-tag="sub_navigation_item" data-arma-value="About Us">About Us</a><a href="/careers/" class="header__link hover:bg-black/5" data-arma-tag="sub_navigation_item" data-arma-value="Careers">Careers</a><a href="/contact/" class="header__link hover:bg-black/5" data-arma-tag="sub_navigation_item" data-arma-value="Contact">Contact</a></div></div></div></div><div class="flex flex-row gap-x-4 px-12 pb-10 transition-transform duration-200"><a href="/book-a-demo/" class="group flex cursor-pointer items-center justify-center font-medium transition-colors duration-300 rounded-sm bg-ctaPrimary hover:bg-ctaAccent text-white min-h-[43px] px-10 py-4 text-xs">Request a demo</a><a href="https://app.accuranker.com/" class="group flex cursor-pointer items-center justify-center font-medium transition-colors duration-300 rounded-sm text-icon min-h-[32px] min-w-[32px] rounded-sm bg-transparent py-2 hover:bg-black/5 text-textPrimary min-h-[43px] gap-x-3 pr-8 pl-4 text-xs underline" target="_blank" rel="noreferrer"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tabler-icon tabler-icon-arrow-narrow-right "><path d="M5 12l14 0"></path><path d="M15 16l4 -4"></path><path d="M15 8l4 4"></path></svg>Sign in</a></div></nav><!--astro:end--></astro-island> <nav aria-label="breadcrumbs" class="text-accentPrimary container mt-15 mb-10 md:mt-30 md:mb-15"> <ol class="flex flex-wrap items-center gap-y-2">  </ol> </nav> <script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"item":{"@id":"/","name":"Home"}},{"@type":"ListItem","position":2,"item":{"@id":"/blog/","name":"Master the SERPs"}},{"@type":"ListItem","position":3,"item":{"@id":"blog/","name":1}}]}</script> <main id="main-content" class="space-y-32 md:space-y-56">    <div class="relative z-10 flex flex-col gap-8 mt-40 lg:mt-60 mx-auto items-center gap-8 container"><h1 class="flex flex-col text-2xl text-center font-[800] max-w-[750px]" style="view-transition-name:the-accuranker-blog"><span>The AccuRanker Blog</span></h1><span class="flex flex-col text-xs text-center font-[700] -order-1 max-w-[750px]"><span>Master the SERPs</span></span><h2 class="flex flex-col text-base text-center font-[600] max-w-[750px]"><span>Insights, tips, and tools for SEO and keyword rank tracking</span></h2></div>  <script>(()=>{var e=async t=>{await(await t())()};(self.Astro||(self.Astro={})).only=e;window.dispatchEvent(new Event("astro:only"));})();</script><astro-island uid="Z7Jnvc" component-url="/_astro/BlogSearch.GymLHhGq.js" component-export="default" renderer-url="/_astro/client.BkSGAj95.js" props="{}" ssr client="only" opts="{&quot;name&quot;:&quot;BlogSearch&quot;,&quot;value&quot;:&quot;react&quot;}"></astro-island> <div class="results-container container my-32 md:my-56"> <div class="grid grid-cols-1 gap-12 md:grid-cols-2 lg:grid-cols-3"> <a href="/blog/how-to-find-prompts-to-track/" class="fs-column fs-column--promo fs-column--mist-blue" data-arma-tag="feature_section_column" data-arma-value="/blog/how-to-find-prompts-to-track/"><div class="relative aspect-3/2 w-full overflow-hidden object-cover md:order-2 md:h-full"><img sizes="(max-width: 480px) 480px, (max-width: 768px) 768px, 1200px" loading="lazy" srcset="/opt-images/How_to_Find_the_Best_Prompts_header2_5b94c67962-480.webp 480w, /opt-images/How_to_Find_the_Best_Prompts_header2_5b94c67962-768.webp 768w, /opt-images/How_to_Find_the_Best_Prompts_header2_5b94c67962-1200.webp 1200w" class="absolute top-0 left-0 h-full w-full object-cover" src="/opt-images/How_to_Find_the_Best_Prompts_header2_5b94c67962.webp" width="2500" height="1667" style="view-transition-name:image-how-to-find-the-best-prompts-to-track-for-ai-visibility"/><div class="absolute inset-0 opacity-0" style="view-transition-name:shadow-how-to-find-the-best-prompts-to-track-for-ai-visibility"></div></div><div class="flex w-full flex-col items-start gap-6 md:px-16 md:py-16 lg:px-35 lg:py-25"><span class="flex flex-col text-4xs text-left font-bold bg-accentNews flex min-w-[85px] max-w-[120px] flex-row items-center justify-center rounded-3xl border-3 border-white p-4 text-center text-white truncate -order-3"><span>New blog post</span></span><h2 class="flex flex-col text-md text-left font-[800]" style="view-transition-name:how-to-find-the-best-prompts-to-track-for-ai-visibility"><span>How to Find the Best Prompts to Track for AI Visibility</span></h2><p class="flex flex-col text-xs text-left font-normal"><span>Do you want to start tracking prompts to optimize your AI visibility? We give you seven practical ways to identify relevant prompts to track in LLMs.</span></p><span class="flex flex-col text-xs text-left font-[600]"><span>9 November 2025</span></span></div></a><a href="/blog/what-are-prompts/" class="fs-column fs-column--mist-blue" data-arma-tag="feature_section_column" data-arma-value="/blog/what-are-prompts/"><div class="relative aspect-3/2 w-full overflow-hidden object-cover rounded-lg"><img sizes="(max-width: 480px) 480px, (max-width: 768px) 768px, 1200px" loading="lazy" srcset="/opt-images/What_AI_Prompts_Are_Blog_Banner_8e0027ee7e-480.webp 480w, /opt-images/What_AI_Prompts_Are_Blog_Banner_8e0027ee7e-768.webp 768w, /opt-images/What_AI_Prompts_Are_Blog_Banner_8e0027ee7e-1200.webp 1200w" class="absolute top-0 left-0 h-full w-full object-cover rounded-lg" src="/opt-images/What_AI_Prompts_Are_Blog_Banner_8e0027ee7e.webp" width="2500" height="1407" style="view-transition-name:image-what-ai-prompts-are-and-why-you-should-track-them"/><div class="absolute inset-0 opacity-0" style="view-transition-name:shadow-what-ai-prompts-are-and-why-you-should-track-them"></div></div><div class="flex w-full flex-col items-start gap-6"><h2 class="flex flex-col text-base text-left font-[800]" style="view-transition-name:what-ai-prompts-are-and-why-you-should-track-them"><span>What AI Prompts Are and Why You Should Track Them</span></h2><p class="flex flex-col text-xs text-left font-normal"><span>SEO is now both about tracking keywords and prompts. Learn what prompts are and how tracking them gives you the LLM insights you need.</span></p><span class="flex flex-col text-xs text-left font-[600]"><span>3 November 2025</span></span></div></a><a href="/blog/track-your-llm-performance-with-accullm/" class="fs-column fs-column--mist-blue" data-arma-tag="feature_section_column" data-arma-value="/blog/track-your-llm-performance-with-accullm/"><div class="relative aspect-3/2 w-full overflow-hidden object-cover rounded-lg"><img sizes="(max-width: 480px) 480px, (max-width: 768px) 768px, 1200px" loading="lazy" srcset="/opt-images/T_Rack_your_llm_performance_blogpost_header_5f03a115e8-480.webp 480w, /opt-images/T_Rack_your_llm_performance_blogpost_header_5f03a115e8-768.webp 768w, /opt-images/T_Rack_your_llm_performance_blogpost_header_5f03a115e8-1200.webp 1200w" class="absolute top-0 left-0 h-full w-full object-cover rounded-lg" src="/opt-images/T_Rack_your_llm_performance_blogpost_header_5f03a115e8.webp" width="2500" height="1806" style="view-transition-name:image-track-your-llm-performance-with-accullm"/><div class="absolute inset-0 opacity-0" style="view-transition-name:shadow-track-your-llm-performance-with-accullm"></div></div><div class="flex w-full flex-col items-start gap-6"><h2 class="flex flex-col text-base text-left font-[800]" style="view-transition-name:track-your-llm-performance-with-accullm"><span>Track Your LLM Performance with AccuLLM</span></h2><p class="flex flex-col text-xs text-left font-normal"><span>You can now track ChatGPT, Perplexity, AI Overview, and AI Mode with AccuLLM. Learn how we help you monitor your LLM performance.</span></p><span class="flex flex-col text-xs text-left font-[600]"><span>20 October 2025</span></span></div></a><a href="/blog/num-100-google-update/" class="fs-column fs-column--mist-blue" data-arma-tag="feature_section_column" data-arma-value="/blog/num-100-google-update/"><div class="relative aspect-3/2 w-full overflow-hidden object-cover rounded-lg"><img sizes="(max-width: 480px) 480px, (max-width: 768px) 768px, 1200px" loading="lazy" srcset="/opt-images/Blog_post_featured_image_list_LLM_Tracking3_7e26301075-480.webp 480w, /opt-images/Blog_post_featured_image_list_LLM_Tracking3_7e26301075-768.webp 768w, /opt-images/Blog_post_featured_image_list_LLM_Tracking3_7e26301075-1200.webp 1200w" class="absolute top-0 left-0 h-full w-full object-cover rounded-lg" src="/opt-images/Blog_post_featured_image_list_LLM_Tracking3_7e26301075.webp" width="1642" height="1096" style="view-transition-name:image-google-num-100-update"/><div class="absolute inset-0 opacity-0" style="view-transition-name:shadow-google-num-100-update"></div></div><div class="flex w-full flex-col items-start gap-6"><h2 class="flex flex-col text-base text-left font-[800]" style="view-transition-name:google-num-100-update"><span>Google Num 100 Update</span></h2><span class="flex flex-col text-xs text-left font-[600]"><span>19 September 2025</span></span></div></a><a href="/blog/how-llms-change-traditional-seo-metrics/" class="fs-column fs-column--mist-blue" data-arma-tag="feature_section_column" data-arma-value="/blog/how-llms-change-traditional-seo-metrics/"><div class="relative aspect-3/2 w-full overflow-hidden object-cover rounded-lg"><img sizes="(max-width: 480px) 480px, (max-width: 768px) 768px, 1200px" loading="lazy" srcset="/opt-images/Blog_post_featured_image_post_LL_Ms_changed_traditional_SEO_new_bd04b48002-480.webp 480w, /opt-images/Blog_post_featured_image_post_LL_Ms_changed_traditional_SEO_new_bd04b48002-768.webp 768w, /opt-images/Blog_post_featured_image_post_LL_Ms_changed_traditional_SEO_new_bd04b48002-1200.webp 1200w" class="absolute top-0 left-0 h-full w-full object-cover rounded-lg" src="/opt-images/Blog_post_featured_image_post_LL_Ms_changed_traditional_SEO_new_bd04b48002.webp" width="2586" height="1079" style="view-transition-name:image-how-llms-change-traditional-seo-metrics"/><div class="absolute inset-0 opacity-0" style="view-transition-name:shadow-how-llms-change-traditional-seo-metrics"></div></div><div class="flex w-full flex-col items-start gap-6"><h2 class="flex flex-col text-base text-left font-[800]" style="view-transition-name:how-llms-change-traditional-seo-metrics"><span>How LLMs Change Traditional SEO Metrics</span></h2><p class="flex flex-col text-xs text-left font-normal"><span>Learn why rankings, CTRs, and impressions fail to measure visibility in AI-powered search — and what SEOs should track instead.</span></p><span class="flex flex-col text-xs text-left font-[600]"><span>15 July 2025</span></span></div></a><a href="/blog/llm-tracking-explained/" class="fs-column fs-column--mist-blue" data-arma-tag="feature_section_column" data-arma-value="/blog/llm-tracking-explained/"><div class="relative aspect-3/2 w-full overflow-hidden object-cover rounded-lg"><img sizes="(max-width: 480px) 480px, (max-width: 768px) 768px, 1200px" loading="lazy" srcset="/opt-images/Blog_post_featured_image_post_LLM_Tracking_1218143172-480.webp 480w, /opt-images/Blog_post_featured_image_post_LLM_Tracking_1218143172-768.webp 768w, /opt-images/Blog_post_featured_image_post_LLM_Tracking_1218143172-1200.webp 1200w" class="absolute top-0 left-0 h-full w-full object-cover rounded-lg" src="/opt-images/Blog_post_featured_image_post_LLM_Tracking_1218143172.webp" width="1642" height="1096" style="view-transition-name:image-llm-tracking-explained"/><div class="absolute inset-0 opacity-0" style="view-transition-name:shadow-llm-tracking-explained"></div></div><div class="flex w-full flex-col items-start gap-6"><h2 class="flex flex-col text-base text-left font-[800]" style="view-transition-name:llm-tracking-explained"><span>LLM Tracking Explained</span></h2><p class="flex flex-col text-xs text-left font-normal"><span>Learn what LLM tracking is and why being mentioned in AI-generated answers is becoming a vital layer of visibility in SEO.</span></p><span class="flex flex-col text-xs text-left font-[600]"><span>13 July 2025</span></span></div></a><a href="/blog/the-hidden-flaws-in-search-volumes/" class="fs-column fs-column--mist-blue" data-arma-tag="feature_section_column" data-arma-value="/blog/the-hidden-flaws-in-search-volumes/"><div class="relative aspect-3/2 w-full overflow-hidden object-cover rounded-lg"><img sizes="(max-width: 480px) 480px, (max-width: 768px) 768px, 1200px" loading="lazy" srcset="/opt-images/Blog_post_featured_image_list_Search_Volume_e19a28f162-480.webp 480w, /opt-images/Blog_post_featured_image_list_Search_Volume_e19a28f162-768.webp 768w, /opt-images/Blog_post_featured_image_list_Search_Volume_e19a28f162-1200.webp 1200w" class="absolute top-0 left-0 h-full w-full object-cover rounded-lg" src="/opt-images/Blog_post_featured_image_list_Search_Volume_e19a28f162.webp" width="1642" height="1096" style="view-transition-name:image-the-hidden-flaws-in-search-volumes-and-how-to-solve-them"/><div class="absolute inset-0 opacity-0" style="view-transition-name:shadow-the-hidden-flaws-in-search-volumes-and-how-to-solve-them"></div></div><div class="flex w-full flex-col items-start gap-6"><h2 class="flex flex-col text-base text-left font-[800]" style="view-transition-name:the-hidden-flaws-in-search-volumes-and-how-to-solve-them"><span>The Hidden Flaws in Search Volumes and How to Solve Them</span></h2><p class="flex flex-col text-xs text-left font-normal"><span>Learn how AI Search Volume delivers reliable search volumes by combining GKP, GSC, and Trends so that you can prioritize the right keywords.</span></p><span class="flex flex-col text-xs text-left font-[600]"><span>1 July 2025</span></span></div></a><a href="/blog/ai-overviews-are-taking-over-serps/" class="fs-column fs-column--mist-blue" data-arma-tag="feature_section_column" data-arma-value="/blog/ai-overviews-are-taking-over-serps/"><div class="relative aspect-3/2 w-full overflow-hidden object-cover rounded-lg"><img sizes="(max-width: 480px) 480px, (max-width: 768px) 768px, 1200px" loading="lazy" srcset="/opt-images/Blog_post_featured_image_post_AIO_739f92ae21-480.webp 480w, /opt-images/Blog_post_featured_image_post_AIO_739f92ae21-768.webp 768w, /opt-images/Blog_post_featured_image_post_AIO_739f92ae21-1200.webp 1200w" class="absolute top-0 left-0 h-full w-full object-cover rounded-lg" src="/opt-images/Blog_post_featured_image_post_AIO_739f92ae21.webp" width="2586" height="1079" style="view-transition-name:image-ai-overviews-are-taking-over-serps"/><div class="absolute inset-0 opacity-0" style="view-transition-name:shadow-ai-overviews-are-taking-over-serps"></div></div><div class="flex w-full flex-col items-start gap-6"><h2 class="flex flex-col text-base text-left font-[800]" style="view-transition-name:ai-overviews-are-taking-over-serps"><span>AI Overviews Are Taking Over SERPs</span></h2><p class="flex flex-col text-xs text-left font-normal"><span>From traffic drops to decreasing CTRs, AI Overviews are shaking up SEO. Learn what is happening and how AccuRanker helps you track AIO.</span></p><span class="flex flex-col text-xs text-left font-[600]"><span>25 June 2025</span></span></div></a><a href="/blog/how-accuranker-s-ai-models-fix-inaccurate-seo-data/" class="fs-column fs-column--mist-blue" data-arma-tag="feature_section_column" data-arma-value="/blog/how-accuranker-s-ai-models-fix-inaccurate-seo-data/"><div class="relative aspect-3/2 w-full overflow-hidden object-cover rounded-lg"><img sizes="(max-width: 480px) 480px, (max-width: 768px) 768px, 1200px" loading="lazy" srcset="/opt-images/AI_Models_blog_header_web_cc86a2ea5f-480.webp 480w, /opt-images/AI_Models_blog_header_web_cc86a2ea5f-768.webp 768w, /opt-images/AI_Models_blog_header_web_cc86a2ea5f-1200.webp 1200w" class="absolute top-0 left-0 h-full w-full object-cover rounded-lg" src="/opt-images/AI_Models_blog_header_web_cc86a2ea5f.webp" width="1152" height="471" style="view-transition-name:image-how-accuranker-s-ai-models-fix-inaccurate-seo-data"/><div class="absolute inset-0 opacity-0" style="view-transition-name:shadow-how-accuranker-s-ai-models-fix-inaccurate-seo-data"></div></div><div class="flex w-full flex-col items-start gap-6"><h2 class="flex flex-col text-base text-left font-[800]" style="view-transition-name:how-accuranker-s-ai-models-fix-inaccurate-seo-data"><span>How AccuRanker’s AI Models Fix Inaccurate SEO Data</span></h2><p class="flex flex-col text-xs text-left font-normal"><span>Struggling with unreliable SEO data? Discover how AccuRanker’s CTR, Search Intent, Search Volume, and Share of Voice deliver accurate insights.</span></p><span class="flex flex-col text-xs text-left font-[600]"><span>1 June 2025</span></span></div></a><a href="/blog/why-your-ctr-model-is-betraying-you/" class="fs-column fs-column--mist-blue" data-arma-tag="feature_section_column" data-arma-value="/blog/why-your-ctr-model-is-betraying-you/"><div class="relative aspect-3/2 w-full overflow-hidden object-cover rounded-lg"><img sizes="(max-width: 480px) 480px, (max-width: 768px) 768px, 1200px" loading="lazy" srcset="/opt-images/Blogpost_Featured_Image_9bfc73303a-480.webp 480w, /opt-images/Blogpost_Featured_Image_9bfc73303a-768.webp 768w, /opt-images/Blogpost_Featured_Image_9bfc73303a-1200.webp 1200w" class="absolute top-0 left-0 h-full w-full object-cover rounded-lg" src="/opt-images/Blogpost_Featured_Image_9bfc73303a.webp" width="601" height="319" style="view-transition-name:image-why-your-ctr-model-is-betraying-you"/><div class="absolute inset-0 opacity-0" style="view-transition-name:shadow-why-your-ctr-model-is-betraying-you"></div></div><div class="flex w-full flex-col items-start gap-6"><h2 class="flex flex-col text-base text-left font-[800]" style="view-transition-name:why-your-ctr-model-is-betraying-you"><span>Why Your CTR Model Is Betraying You</span></h2><p class="flex flex-col text-xs text-left font-normal"><span>The static CTR model relies on outdated averages. Learn more about how AccuRanker&#x27;s dynamic CTR model helps you prioritize your SEO efforts.</span></p><span class="flex flex-col text-xs text-left font-[600]"><span>13 May 2025</span></span></div></a> </div> <div class="mt-30 flex items-end justify-center gap-2"><button class="group flex cursor-pointer items-center justify-center font-medium transition-colors duration-300 rounded-sm text-icon min-h-[32px] min-w-[32px] rounded-sm bg-transparent py-2 hover:bg-black/5 cursor-not-allowed opacity-40 hidden" disabled="" data-arma-tag="paginator_prev_button"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tabler-icon tabler-icon-chevron-left "><path d="M15 6l-6 6l6 6"></path></svg></button><a href="/blog/" class="group flex cursor-pointer items-center justify-center font-medium transition-colors duration-300 rounded-sm text-icon min-h-[32px] min-w-[32px] rounded-sm bg-transparent py-2 hover:bg-black/5 bg-ctaPrimary! text-white">1</a><a href="/blog/2/" class="group flex cursor-pointer items-center justify-center font-medium transition-colors duration-300 rounded-sm text-icon min-h-[32px] min-w-[32px] rounded-sm bg-transparent py-2 hover:bg-black/5">2</a><a href="/blog/3/" class="group flex cursor-pointer items-center justify-center font-medium transition-colors duration-300 rounded-sm text-icon min-h-[32px] min-w-[32px] rounded-sm bg-transparent py-2 hover:bg-black/5">3</a><svg xmlns="http://www.w3.org/2000/svg" width="18px" height="18px" viewBox="0 0 24 24" fill="none" stroke="var(--color-icon)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tabler-icon tabler-icon-dots "><path d="M5 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"></path><path d="M12 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"></path><path d="M19 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"></path></svg><a href="/blog/33/" class="group flex cursor-pointer items-center justify-center font-medium transition-colors duration-300 rounded-sm text-icon min-h-[32px] min-w-[32px] rounded-sm bg-transparent py-2 hover:bg-black/5">33</a><a href="/blog/2/" class="group flex cursor-pointer items-center justify-center font-medium transition-colors duration-300 rounded-sm text-icon min-h-[32px] min-w-[32px] rounded-sm bg-transparent py-2 hover:bg-black/5"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tabler-icon tabler-icon-chevron-right "><path d="M9 6l6 6l-6 6"></path></svg></a></div> </div>  </main>  <div class="container"> <div class="signup-cta rounded-lg"> <div class="active-form mx-auto flex max-w-[760px] flex-col items-center justify-center gap-10"> <div class="relative z-10 flex flex-col gap-8 mx-auto items-center gap-8"><h2 class="flex flex-col text-2xl text-center font-[800] max-w-[750px]" style="view-transition-name:insights-that-keep-seos-ahead"><span>Insights that keep SEOs ahead</span></h2><span class="flex flex-col text-xs text-center font-[700] -order-1 max-w-[750px]"><span>Subscribe</span></span><div class="flex flex-col text-sm text-center font-normal max-w-[570px]"><p class="">Join our newsletter to get feature updates, SEO insights, and smart ways to use AccuRanker.</p></div></div> <form method="POST" action="https://accuranker1689.activehosted.com/proc.php" id="_form_1_" class="_form _form_1 _inline-form _dark w-full" novalidate data-styles-version="5"> <input type="hidden" name="u" value="1"> <input type="hidden" name="f" value="1"> <input type="hidden" name="s"> <input type="hidden" name="c" value="0"> <input type="hidden" name="m" value="0"> <input type="hidden" name="act" value="sub"> <input type="hidden" name="v" value="2"> <input type="hidden" name="or" value="b48651bb-f9fc-4db2-a6aa-8ae8e3922403"> <div class="_form-content"> <input type="text" required="" name="email" placeholder="Your work email" class="base-input" id="email"/> <button class="group flex cursor-pointer items-center justify-center font-medium transition-colors duration-300 rounded-sm bg-ctaPrimary hover:bg-ctaAccent text-white min-h-[48px] px-10 py-6 _submit" id="_form_1_submit" type="submit">Keep Me Updated!</button> </div> <div class="_form-thank-you w-full text-center" style="display:none;"></div> </form> <div class="legal-text text-3xs"><p class="">By continuing, you agree to our <a href="/terms/">Terms of Service</a> &amp; <a href="/privacy/">Privacy Policy</a>.</p></div> </div> </div> </div> <script data-astro-rerun>
+  const freeDomains = [
+    'gmail.com',
+    'yahoo.com',
+    'hotmail.com',
+    'outlook.com',
+    'aol.com',
+    'icloud.com',
+    'protonmail.com',
+    'proton.me',
+    'live.com',
+    'live.dk',
+    'mail.com',
+    'gmx.com',
+    'zoho.com'
+  ]
+  window.cfields = []
+  window._show_thank_you = function (id, message, trackcmp_url, email) {
+    var form = document.getElementById('_form_' + id + '_'),
+      thank_you = form.querySelector('._form-thank-you')
+    form.querySelector('._form-content').style.display = 'none'
+    thank_you.innerHTML = message
+    thank_you.style.display = 'block'
+    const vgoAlias =
+      typeof visitorGlobalObjectAlias === 'undefined' ? 'vgo' : visitorGlobalObjectAlias
+    var visitorObject = window[vgoAlias]
+    if (email && typeof visitorObject !== 'undefined') {
+      visitorObject('setEmail', email)
+      visitorObject('update')
+    } else if (typeof trackcmp_url != 'undefined' && trackcmp_url) {
+      // Site tracking URL to use after inline form submission.
+      _load_script(trackcmp_url)
+    }
+    if (typeof window._form_callback !== 'undefined') window._form_callback(id)
+  }
+  window._show_unsubscribe = function (id, message, trackcmp_url, email) {
+    var form = document.getElementById('_form_' + id + '_'),
+      unsub = form.querySelector('._form-thank-you')
+    var branding = form.querySelector('._form-branding')
+    if (branding) {
+      branding.style.display = 'none'
+    }
+    form.querySelector('._form-content').style.display = 'none'
+    unsub.style.display = 'block'
+    form.insertAdjacentHTML('afterend', message)
+    const vgoAlias =
+      typeof visitorGlobalObjectAlias === 'undefined' ? 'vgo' : visitorGlobalObjectAlias
+    var visitorObject = window[vgoAlias]
+    if (email && typeof visitorObject !== 'undefined') {
+      visitorObject('setEmail', email)
+      visitorObject('update')
+    } else if (typeof trackcmp_url != 'undefined' && trackcmp_url) {
+      // Site tracking URL to use after inline form submission.
+      _load_script(trackcmp_url)
+    }
+    if (typeof window._form_callback !== 'undefined') window._form_callback(id)
+  }
+  window._show_error = function (id, message, html) {
+    var form = document.getElementById('_form_' + id + '_'),
+      err = document.createElement('div'),
+      button = form.querySelector('button[type="submit"]'),
+      old_error = form.querySelector('._form_error')
+    if (old_error) old_error.parentNode.removeChild(old_error)
+    err.innerHTML = message
+    err.className = '_error-inner _form_error _no_arrow'
+    var wrapper = document.createElement('div')
+    wrapper.className = '_form-inner _show_be_error'
+    wrapper.appendChild(err)
+    button.parentNode.insertBefore(wrapper, button)
+    var submitButton = form.querySelector('[id^="_form"][id$="_submit"]')
+    submitButton.disabled = false
+    submitButton.classList.remove('processing')
+    if (html) {
+      var div = document.createElement('div')
+      div.className = '_error-html'
+      div.innerHTML = html
+      err.appendChild(div)
+    }
+  }
+  window._show_pc_confirmation = function (id, header, detail, show, email) {
+    var form = document.getElementById('_form_' + id + '_'),
+      pc_confirmation = form.querySelector('._form-pc-confirmation')
+    if (pc_confirmation.style.display === 'none') {
+      form.querySelector('._form-content').style.display = 'none'
+      pc_confirmation.innerHTML =
+        "<div class='_form-title'>" +
+        header +
+        '</div>' +
+        '<p>' +
+        detail +
+        '</p>' +
+        "<button class='_submit' id='hideButton'>Manage preferences</button>"
+      pc_confirmation.style.display = 'block'
+      var mp = document.querySelector('input[name="mp"]')
+      mp.value = '0'
+    } else {
+      form.querySelector('._form-content').style.display = 'inline'
+      pc_confirmation.style.display = 'none'
+    }
+
+    var hideButton = document.getElementById('hideButton')
+    // Add event listener to the button
+    hideButton.addEventListener('click', function () {
+      var submitButton = document.querySelector('#_form_1_submit')
+      submitButton.disabled = false
+      submitButton.classList.remove('processing')
+      var mp = document.querySelector('input[name="mp"]')
+      mp.value = '1'
+      const cacheBuster = new URL(window.location.href)
+      cacheBuster.searchParams.set('v', new Date().getTime())
+      window.location.href = cacheBuster.toString()
+    })
+
+    const vgoAlias =
+      typeof visitorGlobalObjectAlias === 'undefined' ? 'vgo' : visitorGlobalObjectAlias
+    var visitorObject = window[vgoAlias]
+    if (email && typeof visitorObject !== 'undefined') {
+      visitorObject('setEmail', email)
+      visitorObject('update')
+    } else if (typeof trackcmp_url != 'undefined' && trackcmp_url) {
+      // Site tracking URL to use after inline form submission.
+      _load_script(trackcmp_url)
+    }
+    if (typeof window._form_callback !== 'undefined') window._form_callback(id)
+  }
+  window._load_script = function (url, callback, isSubmit) {
+    var head = document.querySelector('head'),
+      script = document.createElement('script'),
+      r = false
+    var submitButton = document.querySelector('#_form_1_submit')
+    script.charset = 'utf-8'
+    script.src = url
+    if (callback) {
+      script.onload = script.onreadystatechange = function () {
+        if (!r && (!this.readyState || this.readyState == 'complete')) {
+          r = true
+          callback()
+        }
+      }
+    }
+    script.onerror = function () {
+      if (isSubmit) {
+        if (script.src.length > 10000) {
+          _show_error(
+            '1',
+            'Sorry, your submission failed. Please shorten your responses and try again.'
+          )
+        } else {
+          _show_error('1', 'Sorry, your submission failed. Please try again.')
+        }
+        submitButton.disabled = false
+        submitButton.classList.remove('processing')
+      }
+    }
+
+    head.appendChild(script)
+  }
+  ;(function () {
+    var iti
+    if (window.location.search.search('excludeform') !== -1) return false
+    var getCookie = function (name) {
+      var match = document.cookie.match(new RegExp('(^|; )' + name + '=([^;]+)'))
+      return match ? match[2] : null
+    }
+    var setCookie = function (name, value) {
+      var now = new Date()
+      var time = now.getTime()
+      var expireTime = time + 1000 * 60 * 60 * 24 * 365
+      now.setTime(expireTime)
+      document.cookie = name + '=' + value + '; expires=' + now + ';path=/; Secure; SameSite=Lax;'
+    }
+    var addEvent = function (element, event, func) {
+      if (element.addEventListener) {
+        element.addEventListener(event, func)
+      } else {
+        var oldFunc = element['on' + event]
+        element['on' + event] = function () {
+          oldFunc.apply(this, arguments)
+          func.apply(this, arguments)
+        }
+      }
+    }
+    var _removed = false
+    var form_to_submit = document.getElementById('_form_1_')
+    var allInputs = form_to_submit.querySelectorAll('input, select, textarea'),
+      tooltips = [],
+      submitted = false
+
+    var getUrlParam = function (name) {
+      if (name.toLowerCase() !== 'email') {
+        var params = new URLSearchParams(window.location.search)
+        return params.get(name) || false
+      }
+      // email is a special case because a plus is valid in the email address
+      var qString = window.location.search
+      if (!qString) {
+        return false
+      }
+      var parameters = qString.substr(1).split('&')
+      for (var i = 0; i < parameters.length; i++) {
+        var parameter = parameters[i].split('=')
+        if (parameter[0].toLowerCase() === 'email') {
+          return parameter[1] === undefined ? true : decodeURIComponent(parameter[1])
+        }
+      }
+      return false
+    }
+
+    var acctDateFormat = '%m/%d/%Y'
+    var getNormalizedDate = function (date, acctFormat) {
+      var decodedDate = decodeURIComponent(date)
+      if (acctFormat && acctFormat.match(/(%d|%e).*%m/gi) !== null) {
+        return decodedDate.replace(/(\d{2}).*(\d{2}).*(\d{4})/g, '$3-$2-$1')
+      } else if (Date.parse(decodedDate)) {
+        var dateObj = new Date(decodedDate)
+        var year = dateObj.getFullYear()
+        var month = dateObj.getMonth() + 1
+        var day = dateObj.getDate()
+        return `${year}-${month < 10 ? `0${month}` : month}-${day < 10 ? `0${day}` : day}`
+      }
+      return false
+    }
+
+    var getNormalizedTime = function (time) {
+      var hour, minutes
+      var decodedTime = decodeURIComponent(time)
+      var timeParts = Array.from(decodedTime.matchAll(/(\d{1,2}):(\d{1,2})\W*([AaPp][Mm])?/gm))[0]
+      if (timeParts[3]) {
+        // 12 hour format
+        var isPM = timeParts[3].toLowerCase() === 'pm'
+        if (isPM) {
+          hour = parseInt(timeParts[1]) === 12 ? '12' : `${parseInt(timeParts[1]) + 12}`
+        } else {
+          hour = parseInt(timeParts[1]) === 12 ? '0' : timeParts[1]
+        }
+      } else {
+        // 24 hour format
+        hour = timeParts[1]
+      }
+      var normalizedHour = parseInt(hour) < 10 ? `0${parseInt(hour)}` : hour
+      var minutes = timeParts[2]
+      return `${normalizedHour}:${minutes}`
+    }
+
+    for (var i = 0; i < allInputs.length; i++) {
+      var regexStr = 'field\\[(\\d+)\\]'
+      var results = new RegExp(regexStr).exec(allInputs[i].name)
+      if (results != undefined) {
+        allInputs[i].dataset.name = allInputs[i].name.match(/\[time\]$/)
+          ? `${window.cfields[results[1]]}_time`
+          : window.cfields[results[1]]
+      } else {
+        allInputs[i].dataset.name = allInputs[i].name
+      }
+      var fieldVal = getUrlParam(allInputs[i].dataset.name)
+
+      if (fieldVal) {
+        if (allInputs[i].dataset.autofill === 'false') {
+          continue
+        }
+        if (allInputs[i].type == 'radio' || allInputs[i].type == 'checkbox') {
+          if (allInputs[i].value == fieldVal) {
+            allInputs[i].checked = true
+          }
+        } else if (allInputs[i].type == 'date') {
+          allInputs[i].value = getNormalizedDate(fieldVal, acctDateFormat)
+        } else if (allInputs[i].type == 'time') {
+          allInputs[i].value = getNormalizedTime(fieldVal)
+        } else {
+          allInputs[i].value = fieldVal
+        }
+      }
+    }
+
+    var remove_tooltips = function () {
+      for (var i = 0; i < tooltips.length; i++) {
+        tooltips[i].tip.parentNode.removeChild(tooltips[i].tip)
+      }
+      tooltips = []
+    }
+    var remove_tooltip = function (elem) {
+      for (var i = 0; i < tooltips.length; i++) {
+        if (tooltips[i].elem === elem) {
+          tooltips[i].tip.parentNode.removeChild(tooltips[i].tip)
+          tooltips.splice(i, 1)
+          return
+        }
+      }
+    }
+    var create_tooltip = function (elem, text) {
+      var tooltip = document.createElement('div'),
+        arrow = document.createElement('div'),
+        inner = document.createElement('div'),
+        new_tooltip = {}
+      if (elem.type != 'radio' && (elem.type != 'checkbox' || elem.name === 'sms_consent')) {
+        tooltip.className = '_error'
+        arrow.className = '_error-arrow'
+        inner.className = '_error-inner'
+        inner.innerHTML = text
+        tooltip.appendChild(arrow)
+        tooltip.appendChild(inner)
+        elem.parentNode.appendChild(tooltip)
+      } else {
+        tooltip.className = '_error-inner _no_arrow'
+        tooltip.innerHTML = text
+        elem.parentNode.insertBefore(tooltip, elem)
+        new_tooltip.no_arrow = true
+      }
+      new_tooltip.tip = tooltip
+      new_tooltip.elem = elem
+      tooltips.push(new_tooltip)
+      return new_tooltip
+    }
+    var resize_tooltip = function (tooltip) {
+      var rect = tooltip.elem.getBoundingClientRect()
+      var doc = document.documentElement,
+        scrollPosition = rect.top - ((window.pageYOffset || doc.scrollTop) - (doc.clientTop || 0))
+      if (scrollPosition < 40) {
+        tooltip.tip.className =
+          tooltip.tip.className.replace(/ ?(_above|_below) ?/g, '') + ' _below'
+      } else {
+        tooltip.tip.className =
+          tooltip.tip.className.replace(/ ?(_above|_below) ?/g, '') + ' _above'
+      }
+    }
+    var resize_tooltips = function () {
+      if (_removed) return
+      for (var i = 0; i < tooltips.length; i++) {
+        if (!tooltips[i].no_arrow) resize_tooltip(tooltips[i])
+      }
+    }
+    var validate_field = function (elem, remove) {
+      var tooltip = null,
+        value = elem.value,
+        no_error = true
+      remove ? remove_tooltip(elem) : false
+      if (elem.type != 'checkbox') elem.className = elem.className.replace(/ ?_has_error ?/g, '')
+      if (elem.getAttribute('required') !== null) {
+        if (elem.type == 'radio' || (elem.type == 'checkbox' && /any/.test(elem.className))) {
+          var elems = form_to_submit.elements[elem.name]
+          if (
+            !(elems instanceof NodeList || elems instanceof HTMLCollection) ||
+            elems.length <= 1
+          ) {
+            no_error = elem.checked
+          } else {
+            no_error = false
+            for (var i = 0; i < elems.length; i++) {
+              if (elems[i].checked) no_error = true
+            }
+          }
+          if (!no_error) {
+            tooltip = create_tooltip(elem, 'Please select an option.')
+          }
+        } else if (elem.type == 'checkbox') {
+          var elems = form_to_submit.elements[elem.name],
+            found = false,
+            err = []
+          no_error = true
+          for (var i = 0; i < elems.length; i++) {
+            if (elems[i].getAttribute('required') === null) continue
+            if (!found && elems[i] !== elem) return true
+            found = true
+            elems[i].className = elems[i].className.replace(/ ?_has_error ?/g, '')
+            if (!elems[i].checked) {
+              no_error = false
+              elems[i].className = elems[i].className + ' _has_error'
+              err.push('Checking %s is required'.replace('%s', elems[i].value))
+            }
+          }
+          if (!no_error) {
+            tooltip = create_tooltip(elem, err.join('<br/>'))
+          }
+        } else if (elem.tagName == 'SELECT') {
+          var selected = true
+          if (elem.multiple) {
+            selected = false
+            for (var i = 0; i < elem.options.length; i++) {
+              if (elem.options[i].selected) {
+                selected = true
+                break
+              }
+            }
+          } else {
+            for (var i = 0; i < elem.options.length; i++) {
+              if (
+                elem.options[i].selected &&
+                (!elem.options[i].value || elem.options[i].value.match(/\n/g))
+              ) {
+                selected = false
+              }
+            }
+          }
+          if (!selected) {
+            elem.className = elem.className + ' _has_error'
+            no_error = false
+            tooltip = create_tooltip(elem, 'Please select an option.')
+          }
+        } else if (value === undefined || value === null || value === '') {
+          elem.className = elem.className + ' _has_error'
+          no_error = false
+          tooltip = create_tooltip(elem, 'This field is required.')
+        }
+      }
+      if (no_error && elem.name == 'email') {
+        if (
+          !value.match(
+            /^[\+_a-z0-9-'&=]+(\.[\+_a-z0-9-']+)*@[a-z0-9-]+(\.[a-z0-9-]+)*(\.[a-z]{2,})$/i
+          )
+        ) {
+          elem.className = elem.className + ' _has_error'
+          no_error = false
+          tooltip = create_tooltip(elem, 'Enter a valid email address.')
+        }
+        // custom validation
+        if (freeDomains.includes(value.split('@')[1])) {
+          elem.className = elem.className + ' _has_error'
+          no_error = false
+          tooltip = create_tooltip(elem, 'Please use your business email address.')
+        }
+      }
+      if (no_error && elem.id == 'phone') {
+        if (elem.value.trim() && typeof iti != 'undefined' && !iti.isValidNumber()) {
+          elem.className = elem.className + ' _has_error'
+          no_error = false
+          tooltip = create_tooltip(elem, 'Enter a valid phone number.')
+        }
+      }
+      if (no_error && /date_field/.test(elem.className)) {
+        if (!value.match(/^\d\d\d\d-\d\d-\d\d$/)) {
+          elem.className = elem.className + ' _has_error'
+          no_error = false
+          tooltip = create_tooltip(elem, 'Enter a valid date.')
+        }
+      }
+
+      if (no_error && elem.name === 'sms_consent') {
+        const elemShouldBeChecked = !!elem.attributes.required && !elem.checked
+        if (elemShouldBeChecked) {
+          elem.className = elem.className + ' _has_error'
+          no_error = false
+          tooltip = create_tooltip(elem, 'Please check this box to continue')
+        } else {
+          elem.className = elem.className.replace(/ ?_has_error ?/g, '')
+        }
+      }
+      tooltip ? resize_tooltip(tooltip) : false
+      return no_error
+    }
+    var needs_validate = function (el) {
+      if (el.getAttribute('required') !== null) {
+        return true
+      }
+      if ((el.name === 'email' || el.id === 'phone') && el.value !== '') {
+        return true
+      }
+
+      return false
+    }
+    var validate_form = function (e) {
+      var err = form_to_submit.querySelector('._form_error'),
+        no_error = true
+      if (!submitted) {
+        submitted = true
+        for (var i = 0, len = allInputs.length; i < len; i++) {
+          var input = allInputs[i]
+          if (needs_validate(input)) {
+            if (
+              input.type == 'text' ||
+              input.type == 'number' ||
+              input.type == 'time' ||
+              input.type == 'tel'
+            ) {
+              addEvent(input, 'blur', function () {
+                this.value = this.value.trim()
+                validate_field(this, true)
+              })
+              addEvent(input, 'input', function () {
+                validate_field(this, true)
+              })
+            } else if (input.type == 'radio' || input.type == 'checkbox') {
+              ;(function (el) {
+                function getElementsArray(name) {
+                  const value = form_to_submit.elements[name]
+                  if (Array.isArray(value)) {
+                    return value
+                  }
+                  return [value]
+                }
+                var radios = getElementsArray(el.name)
+                for (var i = 0; i < radios.length; i++) {
+                  addEvent(radios[i], 'change', function () {
+                    validate_field(el, true)
+                  })
+                }
+              })(input)
+            } else if (input.tagName == 'SELECT') {
+              addEvent(input, 'change', function () {
+                validate_field(this, true)
+              })
+            } else if (input.type == 'textarea') {
+              addEvent(input, 'input', function () {
+                validate_field(this, true)
+              })
+            }
+          }
+        }
+      }
+      remove_tooltips()
+      for (var i = 0, len = allInputs.length; i < len; i++) {
+        var elem = allInputs[i]
+        if (needs_validate(elem)) {
+          if (elem.tagName.toLowerCase() !== 'select') {
+            elem.value = elem.value.trim()
+          }
+          validate_field(elem) ? true : (no_error = false)
+        }
+      }
+      if (!no_error && e) {
+        e.preventDefault()
+      }
+      resize_tooltips()
+      return no_error
+    }
+    addEvent(window, 'resize', resize_tooltips)
+    addEvent(window, 'scroll', resize_tooltips)
+
+    var _form_serialize = function (form) {
+      if (!form || form.nodeName !== 'FORM') {
+        return
+      }
+      var i,
+        j,
+        q = []
+      for (i = 0; i < form.elements.length; i++) {
+        if (form.elements[i].name === '') {
+          continue
+        }
+        switch (form.elements[i].nodeName) {
+          case 'INPUT':
+            switch (form.elements[i].type) {
+              case 'tel':
+                q.push(
+                  form.elements[i].name +
+                    '=' +
+                    encodeURIComponent(
+                      form.elements[i].previousSibling.querySelector('div.iti__selected-dial-code')
+                        .innerText
+                    ) +
+                    encodeURIComponent(' ') +
+                    encodeURIComponent(form.elements[i].value)
+                )
+                break
+              case 'text':
+              case 'number':
+              case 'date':
+              case 'time':
+              case 'hidden':
+              case 'password':
+              case 'button':
+              case 'reset':
+              case 'submit':
+                q.push(form.elements[i].name + '=' + encodeURIComponent(form.elements[i].value))
+                break
+              case 'checkbox':
+              case 'radio':
+                if (form.elements[i].checked) {
+                  q.push(form.elements[i].name + '=' + encodeURIComponent(form.elements[i].value))
+                }
+                break
+              case 'file':
+                break
+            }
+            break
+          case 'TEXTAREA':
+            q.push(form.elements[i].name + '=' + encodeURIComponent(form.elements[i].value))
+            break
+          case 'SELECT':
+            switch (form.elements[i].type) {
+              case 'select-one':
+                q.push(form.elements[i].name + '=' + encodeURIComponent(form.elements[i].value))
+                break
+              case 'select-multiple':
+                for (j = 0; j < form.elements[i].options.length; j++) {
+                  if (form.elements[i].options[j].selected) {
+                    q.push(
+                      form.elements[i].name +
+                        '=' +
+                        encodeURIComponent(form.elements[i].options[j].value)
+                    )
+                  }
+                }
+                break
+            }
+            break
+          case 'BUTTON':
+            switch (form.elements[i].type) {
+              case 'reset':
+              case 'submit':
+              case 'button':
+                q.push(form.elements[i].name + '=' + encodeURIComponent(form.elements[i].value))
+                break
+            }
+            break
+        }
+      }
+      return q.join('&')
+    }
+
+    const formSupportsPost = false
+    var form_submit = function (e) {
+      e.preventDefault()
+      if (validate_form()) {
+        if (form_to_submit.querySelector('input[name="phone"]') && typeof iti != 'undefined') {
+          form_to_submit.querySelector('input[name="phone"]').value = iti.getNumber()
+        }
+        // use this trick to get the submit button & disable it using plain javascript
+        var submitButton = e.target.querySelector('#_form_1_submit')
+        submitButton.disabled = true
+        submitButton.classList.add('processing')
+        var serialized = _form_serialize(document.getElementById('_form_1_')).replace(/%0A/g, '\\n')
+        var err = form_to_submit.querySelector('._form_error')
+        err ? err.parentNode.removeChild(err) : false
+        async function submitForm() {
+          var formData = new FormData()
+          const searchParams = new URLSearchParams(serialized)
+          searchParams.forEach((value, key) => {
+            if (key !== 'hideButton') {
+              formData.append(key, value)
+            }
+          })
+          let request = {
+            headers: {
+              Accept: 'application/json'
+            },
+            body: formData,
+            method: 'POST'
+          }
+
+          let pageUrlParams = new URLSearchParams(window.location.search)
+          if (pageUrlParams.has('t')) {
+            request.headers.Authorization = 'Bearer ' + pageUrlParams.get('t')
+          }
+          const response = await fetch(
+            'https://accuranker1689.activehosted.com/proc.php?jsonp=true',
+            request
+          )
+
+          return response.json()
+        }
+        if (formSupportsPost) {
+          submitForm()
+            .then((data) => {
+              eval(data.js)
+            })
+            .catch(() => {
+              _show_error('1', 'Sorry, your submission failed. Please try again.')
+            })
+        } else {
+          _load_script(
+            'https://accuranker1689.activehosted.com/proc.php?' + serialized + '&jsonp=true',
+            null,
+            true
+          )
+        }
+      }
+      return false
+    }
+    addEvent(form_to_submit, 'submit', form_submit)
+  })()
+</script> <footer class="cv-auto acc-grid container my-32 text-xs lg:my-50"><div class="col-span-12 flex flex-col gap-16 md:col-span-10 md:col-start-2"><div class="grid grid-cols-1 gap-32 md:-mb-24 md:grid-cols-[180px_auto] xl:mb-0"><div class="flex flex-col gap-10 md:mb-24 xl:mb-0"><img src="/images/logo.svg" alt="AccuRanker" class="h-auto w-[137px]"/><p class="flex flex-col text-xs text-left font-[500]"><span>We empower SEO professionals</span></p><a href="/cdn-cgi/l/email-protection#d8b0bdb4b4b798b9bbbbadaab9b6b3bdaaf6bbb7b5" class="font-medium underline"><span class="__cf_email__" data-cfemail="a6cec3cacac9e6c7c5c5d3d4c7c8cdc3d488c5c9cb">[email&#160;protected]</span></a><div class="flex flex-row gap-2"><a href="https://www.linkedin.com/company/accuranker/" aria-label="LinkedIn" target="_blank" rel="noreferrer" class="group inline-flex items-center justify-center h-12 w-12"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tabler-icon tabler-icon-brand-linkedin text-icon group-hover:text-accentPrimary"><path d="M4 4m0 2a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2z"></path><path d="M8 11l0 5"></path><path d="M8 8l0 .01"></path><path d="M12 16l0 -5"></path><path d="M16 16v-3a2 2 0 0 0 -4 0"></path></svg></a></div><h3 class="mb-2 font-bold text-gray-800">AccuRanker HQ</h3><p class="flex flex-col text-xs text-left font-[500]"><span>Åboulevarden 22, 5-7,<br/>8000 Aarhus Centrum<br/>Denmark
+
+<br/>VAT: DK32932215</span></p><a href="tel:+45 89 87 39 44" class="font-medium underline">+45 89 87 39 44</a></div><div class="grid gap-32 md:block md:columns-2 xl:grid xl:grid-cols-[repeat(4,auto)]"><nav class="break-inside-avoid md:mb-24 lg:pl-[5vw] xl:mb-0 xl:pl-0"><h3 class="mb-10 text-xs font-bold">Why AccuRanker</h3><ul class="space-y-10"><li><a href="/why-accuranker/for-agencies/" class="font-medium" data-arma-tag="footer_link" data-arma-value="For Agencies">For Agencies</a></li><li><a href="/why-accuranker/for-enterprise/" class="font-medium" data-arma-tag="footer_link" data-arma-value="For Enterprises">For Enterprises</a></li><li><a href="/why-accuranker/for-consultants/" class="font-medium" data-arma-tag="footer_link" data-arma-value="For Consultants">For Consultants</a></li></ul></nav><nav class="break-inside-avoid md:mb-24 lg:pl-[5vw] xl:mb-0 xl:pl-0"><h3 class="mb-10 text-xs font-bold">Features</h3><ul class="space-y-10"><li><a href="/features/rank-tracking/" class="font-medium" data-arma-tag="footer_link" data-arma-value="Rank Tracking">Rank Tracking</a></li><li><a href="/features/reporting/" class="font-medium" data-arma-tag="footer_link" data-arma-value="Reporting">Reporting</a></li><li><a href="/features/keyword-research/" class="font-medium" data-arma-tag="footer_link" data-arma-value="Keyword Research Database">Keyword Research Database</a></li><li><a href="/features/accullm/" class="font-medium" data-arma-tag="footer_link" data-arma-value="AccuLLM">AccuLLM</a></li><li><a href="/features/tagging/" class="font-medium" data-arma-tag="footer_link" data-arma-value="Tagging">Tagging</a></li><li><a href="/features/api-integrations/" class="font-medium" data-arma-tag="footer_link" data-arma-value="API &amp; Integrations">API &amp; Integrations</a></li><li><a href="/features/ai-models/" class="font-medium" data-arma-tag="footer_link" data-arma-value="AI Models">AI Models</a></li><li><a href="/features/organic-site-explorer/" class="font-medium" data-arma-tag="footer_link" data-arma-value="Organic Site Explorer">Organic Site Explorer</a></li><li><a href="/features/serp-analysis/" class="font-medium" data-arma-tag="footer_link" data-arma-value="SERP Analysis">SERP Analysis</a></li><li><a href="/features/forecasting/" class="font-medium" data-arma-tag="footer_link" data-arma-value="Forecasting">Forecasting</a></li></ul></nav><nav class="break-inside-avoid md:mb-24 lg:pl-[5vw] xl:mb-0 xl:pl-0"><h3 class="mb-10 text-xs font-bold">Resources</h3><ul class="space-y-10"><li><a href="/cases/" class="font-medium" data-arma-tag="footer_link" data-arma-value="Success Stories">Success Stories</a></li><li><a href="/blog/" class="font-medium" data-arma-tag="footer_link" data-arma-value="Blog">Blog</a></li><li><a href="/white-papers/" class="font-medium" data-arma-tag="footer_link" data-arma-value="White Papers">White Papers</a></li><li><a href="/grump/" class="font-medium" data-arma-tag="footer_link" data-arma-value="Google Grump">Google Grump</a></li><li><a href="/rank-tracker/" class="font-medium" data-arma-tag="footer_link" data-arma-value="Live SERP Checker">Live SERP Checker</a></li><li><a href="/marketing-dictionary/" class="font-medium" data-arma-tag="footer_link" data-arma-value="Marketing Dictionary">Marketing Dictionary</a></li><li><a href="/learn-seo/" class="font-medium" data-arma-tag="footer_link" data-arma-value="Learn SEO">Learn SEO</a></li><li><a href="/help/" class="font-medium" data-arma-tag="footer_link" data-arma-value="Help Guides">Help Guides</a></li><li><a href="/changelog/" class="font-medium" data-arma-tag="footer_link" data-arma-value="Release Log">Release Log</a></li></ul></nav><nav class="break-inside-avoid md:mb-24 lg:pl-[5vw] xl:mb-0 xl:pl-0"><h3 class="mb-10 text-xs font-bold">Company</h3><ul class="space-y-10"><li><a href="/about-us/" class="font-medium" data-arma-tag="footer_link" data-arma-value="About Us">About Us</a></li><li><a href="/careers/" class="font-medium" data-arma-tag="footer_link" data-arma-value="Careers">Careers</a></li><li><a href="/contact/" class="font-medium" data-arma-tag="footer_link" data-arma-value="Contact">Contact</a></li></ul></nav></div></div><div class="mx-auto h-[1px] w-[777px] max-w-full bg-white"></div><div class="flex justify-center gap-10 self-center"><img sizes="(max-width: 480px) 480px, (max-width: 768px) 768px, 1200px" srcset="/opt-images/visa-480.webp 480w, /opt-images/visa-768.webp 768w, /opt-images/visa-1200.webp 1200w" src="/opt-images/visa.webp" alt="Visa" class="h-[30px] w-[45px] object-contain" loading="lazy"/><img sizes="(max-width: 480px) 480px, (max-width: 768px) 768px, 1200px" srcset="/opt-images/mastercard-480.webp 480w, /opt-images/mastercard-768.webp 768w, /opt-images/mastercard-1200.webp 1200w" src="/opt-images/mastercard.webp" alt="Mastercard" class="h-[30px] w-[45px] object-contain" loading="lazy"/><img sizes="(max-width: 480px) 480px, (max-width: 768px) 768px, 1200px" srcset="/opt-images/amex-480.webp 480w, /opt-images/amex-768.webp 768w, /opt-images/amex-1200.webp 1200w" src="/opt-images/amex.webp" alt="American Express" class="h-[30px] w-[45px] object-contain" loading="lazy"/><img sizes="(max-width: 480px) 480px, (max-width: 768px) 768px, 1200px" srcset="/opt-images/paypal-480.webp 480w, /opt-images/paypal-768.webp 768w, /opt-images/paypal-1200.webp 1200w" src="/opt-images/paypal.webp" alt="PayPal" class="h-[30px] w-[45px] object-contain" loading="lazy"/></div><div class="flex flex-col justify-center gap-10 text-center sm:flex-row lg:gap-25"><a href="/refund/" class="font-normal underline" data-arma-tag="footer_legals">Refund Policy</a><a href="/terms/" class="font-normal underline" data-arma-tag="footer_legals">Terms Policy</a><a href="/privacy/" class="font-normal underline" data-arma-tag="footer_legals">Privacy Policy</a></div><div class="flex justify-center text-center">© 2013 – 2025 AccuRanker. All Rights Reserved.</div></div></footer> </div> <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script src="/text-dictionary.js" async></script> <astro-island uid="e9M9B" component-url="/_astro/MouseTracking.Bq5Zx0Tn.js" component-export="default" renderer-url="/_astro/client.BkSGAj95.js" props="{}" ssr client="only" opts="{&quot;name&quot;:&quot;MouseTracking&quot;,&quot;value&quot;:&quot;react&quot;}"></astro-island> <astro-island uid="bph5W" component-url="/_astro/ScrollEffects.CzbawKJl.js" component-export="default" renderer-url="/_astro/client.BkSGAj95.js" props="{}" ssr client="only" opts="{&quot;name&quot;:&quot;ScrollEffects&quot;,&quot;value&quot;:&quot;react&quot;}"></astro-island> <script type="text/javascript" id="matomo_tag_manager" async defer>
+  var _mtm = (window._mtm = window._mtm || [])
+  var dataLayer = window.dataLayer || _mtm
+  _mtm.push({ 'mtm.startTime': new Date().getTime(), event: 'mtm.Start' })
+  var d = document,
+    g = d.createElement('script'),
+    s = d.getElementsByTagName('script')[0]
+  g.async = true
+  g.src = 'https://matomo.accuranker.com/js/container_3HrDY9Yi.js'
+  s.parentNode.insertBefore(g, s)
+</script> <script async src="https://www.googletagmanager.com/gtag/js?id=G-D2SXNT78V1"></script> <script>
+  let userInteracted = false
+  const getCookieValue = (cookie) =>
+    document.cookie
+      .split('; ')
+      .find((row) => row.startsWith(`${cookie}=`))
+      ?.split('=')[1]
+
+  const userCookieValue = () => getCookieValue('is_user')
+
+  const setCookie = (cname, cvalue) => {
+    if (!cname || !cvalue) return
+    const d = new Date()
+    d.setTime(d.getTime() + 1000 * 24 * 60 * 60 * 1000) // 1000 days
+    const expires = 'expires=' + d.toUTCString()
+    document.cookie = `${cname}=${cvalue};${expires};domain=accuranker.com;samesite=lax;secure`
+  }
+
+  window.dataLayer = window.dataLayer || []
+  function gtag() {
+    dataLayer.push(arguments)
+  }
+  gtag('js', new Date())
+  gtag('config', 'G-D2SXNT78V1', { user_id: userCookieValue })
+
+  const scrollListener = () => {
+    events.forEach((event) => {
+      window.removeEventListener(event, scrollListener)
+    })
+
+    if (window.dataLayer !== undefined) {
+      setTimeout(() => {
+        window._mtm?.push({ event: 'initial-client-render' })
+        const initialClientRenderEvent = new Event('initial-client-render')
+        window.dispatchEvent(initialClientRenderEvent)
+        userInteracted = true
+      }, 200)
+    }
+
+    // retrieves the matomo visitor id and push it to MTM data layer
+    const getMatomoVisitorID = () => {
+      setTimeout(() => {
+        window._paq?.push([
+          function () {
+            // @ts-expect-error 2683
+            const matVisId = this.getVisitorId()
+            if (matVisId) {
+              window.mvid = matVisId
+              setCookie('mvid', matVisId)
+            }
+          }
+        ])
+      }, 200)
+    }
+
+    // pushes the accuranker and hubspot user IDs to MTM data layer
+    const pushCookiesToDataLayer = () => {
+      const u = userCookieValue()
+      window._mtm = window._mtm || []
+      if (u) {
+        window._mtm.push({ accUserId: u })
+      }
+    }
+
+    const initialize = () => {
+      getMatomoVisitorID()
+      pushCookiesToDataLayer()
+    }
+
+    setTimeout(() => {
+      'requestIdleCallback' in window ? requestIdleCallback(() => initialize()) : initialize()
+    }, 300)
+  }
+
+  const events = ['scroll', 'mousemove', 'keydown', 'click', 'touchstart']
+  events.forEach((event) => {
+    window.addEventListener(event, scrollListener)
+  })
+
+  function initScripts() {
+    window.addEventListener('CookiebotOnConsentReady', function () {
+      var C = Cookiebot.consent,
+        c = ['preferences', 'statistics', 'marketing']
+      function m(a) {
+        _mtm.push({ event: 'cookie_consent_' + a })
+      }
+      c.forEach(function (i) {
+        C[i] && m(i)
+      })
+    })
+
+    //Load the CookieBot script in JS instead of through MTM to prevent adblockers from blocking it
+    !(function (C, oo, k, ie, b, o, t) {
+      ;(b = C.createElement(oo)), (o = C.getElementsByTagName(oo)[0])
+      b.src = 'https://consent.cookiebot.com/uc.js?cbid=' + ie
+      b.id = k
+      b.async = !0
+      o.parentNode.insertBefore(b, o)
+    })(document, 'script', 'Cookiebot', 'c929fb40-8268-4405-888c-15bc500280a5')
+
+    const fingerprintScript = document.createElement('script')
+    fingerprintScript.id = 'fingerprint-script'
+    fingerprintScript.innerHTML = `
+    (function() {
+      const getCookie = (cookie) =>
+        document.cookie
+          .split("; ")
+          .find(row => row.startsWith(\`\${cookie}=\`))
+          ?.split("=")[1];
+          
+      const setCookie = (cname, cvalue) => {
+        if (!cname || !cvalue) return;
+        const d = new Date();
+        d.setTime(d.getTime() + 1000 * 24 * 60 * 60 * 1000); // 1000 days
+        const expires = "expires=" + d.toUTCString();
+        document.cookie = \`\${cname}=\${cvalue};\${expires};domain=accuranker.com;path=/;samesite=lax;secure\`;
+      };
+    
+      const savedFp = getCookie("fp") || window.fp
+      if (savedFp) {
+        window.fp = savedFp
+        setCookie("fp", window.fp);
+      } else {
+        import('https://accuranker.com/ufIg73v7I0IWX8UH/IhEEUHKPod9MrghX?apiKey=DzAucSsAhfqFiWLlwkEC')
+          .then(FingerprintJS => FingerprintJS.load({
+            endpoint: [
+              "https://accuranker.com/ufIg73v7I0IWX8UH/2ghGm6zlcikNb0FT?region=eu",
+              FingerprintJS.defaultEndpoint
+            ],
+            region: "eu"
+          }))
+          .then(fp => fp.get())
+          .then(result => {
+            const visitorId = result.visitorId
+            window.fp = visitorId
+            if (window.fp) {
+              setCookie("fp", window.fp);
+            }
+          })
+      }
+      // custom tag manager variables
+      window._mtm?.push({ fp: window.fp });
+    })(); 
+  `
+    document.body.appendChild(fingerprintScript)
+  }
+
+  if (userInteracted) {
+    initScripts()
+  } else {
+    window.addEventListener('initial-client-render', initScripts, { once: true })
+  }
+</script> <script id="intercom2" data-cookieconsent="preferences" async defer>
+  window.intercomSettings = {
+    api_base: 'https://api-iam.intercom.io',
+    app_id: 'e0db10a7c5db6863136cef9e2b9fd077e1bb33f6'
+  }
+
+  function initIntercom() {
+    ;(function () {
+      var w = window
+      var ic = w.Intercom
+      if (typeof ic === 'function') {
+        ic('reattach_activator')
+        ic('update', w.intercomSettings)
+      } else {
+        var d = document
+        var i = function () {
+          i.c(arguments)
+        }
+        i.q = []
+        i.c = function (args) {
+          i.q.push(args)
+        }
+        w.Intercom = i
+        var l = function () {
+          var s = d.createElement('script')
+          s.type = 'text/javascript'
+          s.async = true
+          s.src = 'https://widget.intercom.io/widget/e0db10a7c5db6863136cef9e2b9fd077e1bb33f6'
+          var x = d.getElementsByTagName('script')[0]
+          x.parentNode.insertBefore(s, x)
+        }
+        if (document.readyState === 'complete') {
+          l()
+        } else if (w.attachEvent) {
+          w.attachEvent('onload', l)
+        } else {
+          w.addEventListener('load', l, false)
+        }
+      }
+    })()
+  }
+
+  if (userInteracted) {
+    initScripts()
+  } else {
+    window.addEventListener('initial-client-render', initIntercom, { once: true })
+  }
+</script> <script type="module" src="/_astro/Scripts.astro_astro_type_script_index_0_lang.VIVNPbqi.js"></script> <script>
+  let isFirstLoad = true
+
+  if (!isFirstLoad) {
+    window.gtag('event', 'page_view', {
+      page_location: window.location.href,
+      page_title: window.document.title
+    })
+  } else {
+    isFirstLoad = false
+  }
+  currentUrl = window.location.pathname
+  window._mtm?.push({ event: 'route-change' })
+  window._paq?.push(['setReferrerUrl', currentUrl])
+  const pageTitle = window.document.title
+  window._paq?.push(['setCustomUrl', currentUrl])
+  window._paq?.push(['setDocumentTitle', pageTitle])
+  // remove all previously assigned custom variables, requires Matomo (formerly Piwik) 3.0.2
+  window._paq?.push(['deleteCustomVariables', 'page'])
+
+  window._paq?.push(['trackPageView'])
+</script> <!-- <script is:inline>
+      const signup = new URLSearchParams(window.location.search).has('signup')
+      if (signup) {
+        // Redirect to signup page
+        window.location.href = '/sign-up/' // TODO: remove hardcoded sign-up page path
+      }
+    </script>
+    {
+      !['/llm', '/llm/', '/brightonseo-san-diego', '/brightonseo-san-diego/'].includes(
+        currentPath
+      ) && (
+        <script is:inline src='https://accuranker1689.activehosted.com/f/embed.php?id=15' async />
+      )
+    } --> </body></html>

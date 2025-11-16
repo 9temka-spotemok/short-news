@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <style data-vite-theme="" data-inject-first="">:root {
+      --background: 0 0% 100%;
+--foreground: 20 14.3% 4.1%;
+--muted: 60 4.8% 95.9%;
+--muted-foreground: 25 5.3% 44.7%;
+--popover: 0 0% 100%;
+--popover-foreground: 20 14.3% 4.1%;
+--card: 0 0% 100%;
+--card-foreground: 20 14.3% 4.1%;
+--border: 20 5.9% 90%;
+--input: 20 5.9% 90%;
+--primary: 252 97% 62%;
+--primary-foreground: 236 100% 99%;
+--secondary: 60 4.8% 95.9%;
+--secondary-foreground: 24 9.8% 10%;
+--accent: 60 4.8% 95.9%;
+--accent-foreground: 24 9.8% 10%;
+--destructive: 0 84.2% 60.2%;
+--destructive-foreground: 60 9.1% 97.8%;
+--ring: 20 14.3% 4.1%;
+--radius: 0.75rem;
+  }
+  .dark {
+      --background: 240 10% 3.9%;
+--foreground: 0 0% 98%;
+--muted: 240 3.7% 15.9%;
+--muted-foreground: 240 5% 64.9%;
+--popover: 240 10% 3.9%;
+--popover-foreground: 0 0% 98%;
+--card: 240 10% 3.9%;
+--card-foreground: 0 0% 98%;
+--border: 240 3.7% 15.9%;
+--input: 240 3.7% 15.9%;
+--primary: 252 97% 62%;
+--primary-foreground: 236 100% 99%;
+--secondary: 240 3.7% 15.9%;
+--secondary-foreground: 0 0% 98%;
+--accent: 240 3.7% 15.9%;
+--accent-foreground: 0 0% 98%;
+--destructive: 0 62.8% 30.6%;
+--destructive-foreground: 0 0% 98%;
+--ring: 240 4.9% 83.9%;
+--radius: 0.75rem;
+  }</style>
+
+    <!-- Google Tag Manager -->
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-574LJ9T7');</script>
+    <!-- End Google Tag Manager -->
+    
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-QZZQDNSSNJ"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-QZZQDNSSNJ');
+    </script>
+    
+    <!-- Meta Pixel Code -->
+    <script>
+    !function(f,b,e,v,n,t,s)
+    {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+    n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+    if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+    n.queue=[];t=b.createElement(e);t.async=!0;
+    t.src=v;s=b.getElementsByTagName(e)[0];
+    s.parentNode.insertBefore(t,s)}(window, document,'script',
+    'https://connect.facebook.net/en_US/fbevents.js');
+    fbq('init', '1436615727487244');
+    fbq('track', 'PageView');
+    </script>
+    <!-- End Meta Pixel Code -->
+    
+    <meta charset="UTF-8" />
+    <!-- Enhanced mobile viewport with safe area and scaling controls -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover" />
+    
+    <!-- iOS/Android PWA support -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="AppearOnAI">
+    
+    <!-- Prevent unwanted behaviors on mobile -->
+    <meta name="format-detection" content="telephone=no, date=no, email=no, address=no">
+    
+    <!-- Performance and SEO optimizations -->
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
+    <meta name="googlebot" content="index, follow">
+    <meta name="bingbot" content="index, follow">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="theme-color" content="#344D9C">
+    <meta name="msapplication-TileColor" content="#344D9C">
+    <meta name="format-detection" content="telephone=no">
+    
+    <!-- DNS prefetch for external resources -->
+    <link rel="dns-prefetch" href="//fonts.googleapis.com">
+    <link rel="dns-prefetch" href="//cdnjs.cloudflare.com">
+    <link rel="dns-prefetch" href="//js.stripe.com">
+    <link rel="dns-prefetch" href="//www.googletagmanager.com">
+    
+    <!-- Preconnect for critical resources -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    
+    <!-- Resource hints for better performance -->
+    <link rel="prefetch" href="/analysis">
+    <link rel="prefetch" href="/dashboard">
+    <link rel="modulepreload" href="data:application/octet-stream;base64,Ly8gQ2FjaGUgYnVzdCAtIHYyICAKaW1wb3J0IHsgY3JlYXRlUm9vdCB9IGZyb20gInJlYWN0LWRvbS9jbGllbnQiOwppbXBvcnQgQXBwIGZyb20gIi4vQXBwIjsKaW1wb3J0ICIuL2luZGV4LmNzcyI7CmltcG9ydCB7IFRvYXN0ZXIgfSBmcm9tICJAL2NvbXBvbmVudHMvdWkvdG9hc3RlciI7Cgpjb25zdCBjb250YWluZXIgPSBkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgicm9vdCIpOwppZiAoIWNvbnRhaW5lcikgdGhyb3cgbmV3IEVycm9yKCJSb290IGVsZW1lbnQgbm90IGZvdW5kIik7Cgpjb25zdCByb290ID0gY3JlYXRlUm9vdChjb250YWluZXIpOwpyb290LnJlbmRlcigKICA8PgogICAgPEFwcCAvPgogICAgPFRvYXN0ZXIgLz4KICA8Lz4KKTs=">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="/appearon-ai-logo.png?v=8" />
+    <link rel="apple-touch-icon" href="/appearon-ai-logo.png?v=8" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/appearon-ai-logo.png?v=8" />
+    <link rel="icon" type="image/x-icon" href="/appearon-ai-logo.png?v=8" />
+    <link rel="manifest" href="/manifest.json" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap&font-display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"></noscript>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></noscript>
+    <script src="https://js.stripe.com/v3/" defer></script>
+    
+    <!-- Additional SEO Meta Tags -->
+    <meta name="author" content="AppearOnAI">
+    <meta name="keywords" content="AI visibility analysis, ChatGPT optimization, Claude AI SEO, Gemini AI ranking, Perplexity optimization, AI search visibility, GEO optimization, generative engine optimization, AI chatbot rankings, LLM SEO, AI content optimization, competitor AI analysis, brand visibility in AI, semantic search optimization, AI discovery platform">
+    <meta name="language" content="English">
+    <meta name="revisit-after" content="7 days">
+    <meta name="distribution" content="global">
+    <meta name="rating" content="general">
+    
+    <!-- AI Crawlers & GEO Optimization -->
+    <meta name="ai-content-type" content="business-analysis-tool">
+    <meta name="ai-industry" content="AI optimization, SEO, digital marketing">
+    <meta name="ai-service-type" content="SaaS platform">
+    <meta name="geo-optimization" content="true">
+    <meta name="llm-friendly" content="true">
+    
+    <!-- Primary Meta Tags -->
+    <title>AppearOnAI - AI Visibility Analysis Platform | Optimize for ChatGPT, Claude & Gemini</title>
+    <meta name="title" content="AppearOnAI - AI Visibility Analysis Platform | Optimize for ChatGPT, Claude & Gemini">
+    <meta name="description" content="Discover how AI platforms like ChatGPT, Claude, and Perplexity rank your business. Get an executive-level AI visibility assessment with strategic insights to dominate AI-powered search. Exclusive access for industry leaders.">
+    
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://appearonai.com/">
+    
+    <!-- Schema.org Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": "https://appearonai.com/#organization",
+          "name": "AppearOnAI",
+          "url": "https://appearonai.com",
+          "logo": "https://appearonai.com/logo.png",
+          "sameAs": [
+            "https://twitter.com/AppearOnAI",
+            "https://linkedin.com/company/appearonai"
+          ],
+          "description": "Leading AI visibility analysis platform helping businesses optimize their presence in AI-powered search results"
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://appearonai.com/#website",
+          "url": "https://appearonai.com",
+          "name": "AppearOnAI",
+          "description": "AI Visibility Analysis Platform - Optimize for ChatGPT, Claude, Gemini & Perplexity",
+          "publisher": {"@id": "https://appearonai.com/#organization"},
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": "https://appearonai.com/quiz?q={search_term_string}",
+            "query-input": "required name=search_term_string"
+          }
+        },
+        {
+          "@type": "SoftwareApplication",
+          "name": "AppearOnAI Platform",
+          "description": "AI visibility analysis platform that reveals how ChatGPT, Claude, Gemini, and Perplexity rank your business. Get comprehensive analysis, strategic recommendations, and competitive intelligence to improve AI search presence.",
+          "url": "https://appearonai.com",
+          "applicationCategory": "BusinessApplication",
+          "operatingSystem": "Web",
+          "aggregateRating": {
+            "@type": "AggregateRating",
+            "ratingValue": "4.8",
+            "reviewCount": "2149",
+            "bestRating": "5",
+            "worstRating": "1"
+          },
+          "offers": [
+            {
+              "@type": "Offer",
+              "name": "AI Visibility Audit",
+              "price": "39",
+              "priceCurrency": "USD",
+              "priceValidUntil": "2025-12-31",
+              "availability": "https://schema.org/InStock",
+              "description": "Complete AI visibility audit with strategic recommendations, competitor intelligence, and comprehensive scoring"
+            },
+            {
+              "@type": "Offer",
+              "name": "Monthly Dashboard",
+              "price": "150",
+              "priceCurrency": "USD",
+              "priceValidUntil": "2025-12-31",
+              "availability": "https://schema.org/InStock",
+              "description": "Ongoing AI visibility monitoring with monthly reports and recommendations"
+            }
+          ],
+          "featureList": [
+            "AI Visibility Score across 7+ platforms",
+            "Competitor Intelligence Analysis",
+            "Strategic Recommendations",
+            "Instant AI Visibility Assessment",
+            "Comprehensive Keyword Strategy",
+            "Brand Sentiment Analysis",
+            "Industry-Specific Insights",
+            "Actionable Implementation Roadmap"
+          ]
+        },
+        {
+          "@type": "FAQPage",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "What is AI visibility analysis?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "AI visibility analysis evaluates how your website appears in AI-powered search results from platforms like ChatGPT, Claude, Gemini, and Perplexity. It measures your content's optimization for AI understanding and provides recommendations to improve your rankings."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "How is AI SEO different from traditional SEO?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Traditional SEO optimizes for search engines like Google, while AI SEO (or GEO - Generative Engine Optimization) optimizes for AI chatbots and assistants. AI systems use different algorithms focusing on semantic understanding, entity recognition, and conversational relevance."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "What's included in the AI visibility audit?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "The AI visibility audit includes your comprehensive AI visibility score, analysis across ChatGPT, Claude, Gemini & Perplexity, strategic recommendations, competitor intelligence, and comprehensive keyword strategy."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "How is AppearOnAI different from SEO tools?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "AppearOnAI is built specifically for AI visibility, not traditional SEO. We analyze how AI systems like ChatGPT and Claude perceive your brand, provide AI-specific strategic recommendations, and deliver instant comprehensive insights vs expensive monthly SEO subscriptions."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Why choose AppearOnAI over competitors?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "AppearOnAI is the only platform purpose-built for AI visibility. We analyze 7+ AI platforms simultaneously, deliver instant comprehensive insights, and cost a fraction of traditional tools. Our 2,149+ assessments show an average +38% visibility improvement."
+              }
+            }
+          ]
+        }
+      ]
+    }
+    </script>
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://appearonai.com/">
+    <meta property="og:title" content="AppearOnAI - AI Visibility Analysis Platform | Rank Higher in ChatGPT & Claude">
+    <meta property="og:description" content="Discover how AI platforms like ChatGPT, Claude & Perplexity rank your business. Get comprehensive AI visibility analysis with strategic recommendations to dominate AI-powered search results.">
+    <!-- Social share image removed - just using logo -->
+    <meta property="og:site_name" content="AppearOnAI">
+    <meta property="og:locale" content="en_US">
+    
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:site" content="@AppearOnAI">
+    <meta name="twitter:creator" content="@AppearOnAI">
+    <meta name="twitter:url" content="https://appearonai.com/">
+    <meta name="twitter:title" content="AppearOnAI | AI Visibility Analysis Platform">
+    <meta name="twitter:description" content="See how ChatGPT, Claude & Perplexity rank your business. Get AI visibility analysis with strategic recommendations and weekly monitoring to improve your AI search presence.">
+    <!-- Twitter image removed - just using logo -->
+    <script type="module" crossorigin src="/assets/index-BwTyWKqM.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-C1ohlSGV.css">
+  </head>
+  <body>
+    <!-- Google Tag Manager (noscript) -->
+    <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-574LJ9T7"
+    height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+    <!-- End Google Tag Manager (noscript) -->
+    
+    <!-- Meta Pixel Code (noscript) -->
+    <noscript><img height="1" width="1" style="display:none"
+    src="https://www.facebook.com/tr?id=1436615727487244&ev=PageView&noscript=1"
+    /></noscript>
+    <!-- End Meta Pixel Code (noscript) -->
+    
+    <div id="root"></div>
+    <script>
+      // Always use light mode regardless of user preferences
+      document.documentElement.classList.remove("dark");
+      localStorage.setItem("theme", "light");
+    </script>
+  </body>
+</html>

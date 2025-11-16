@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html class="h-full">
+  <head>
+    
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="csrf-param" content="authenticity_token" />
+<meta name="csrf-token" content="JKvKGnlZThlbUUnWSRSGdkeIZFwrs09ED7twYj1WWrvociDNWHOXmr-kf0J-oVyRD7rkRtYZvW9OUd5w16EXbw" />
+
+
+<!-- Canonical URL: always point to knowatoa.com without www and without query parameters -->
+  <link rel="canonical" href="https://knowatoa.com/blog" />
+
+<!-- Preconnect to PostHog for faster analytics loading -->
+<link rel="preconnect" href="https://us.i.posthog.com">
+<link rel="preconnect" href="https://us-assets.i.posthog.com">
+
+<!-- Preload critical images for homepage -->
+
+<!-- Font Awesome - Custom build with only needed icons (68KB) - Deferred to not block rendering -->
+<link rel="stylesheet" href="/assets/fontawesome-custom-e8cc92fb84a52e42b4ef9df0d481026cfdf349a6ee0f3039218073cef819d5e8.css" data-turbo-track="reload" media="print" onload="this.media=&#39;all&#39;" />
+<noscript><link rel="stylesheet" href="/assets/fontawesome-custom-e8cc92fb84a52e42b4ef9df0d481026cfdf349a6ee0f3039218073cef819d5e8.css" data-turbo-track="reload" /></noscript>
+
+<link rel="icon" type="image/x-icon" href="/assets/favicon/favicon-ee6c1d436bae791d00dcfe88e8230fd331681d252b261e5579fca8985f67dfa4.ico" />
+
+<link rel="stylesheet" href="/assets/fonts-1987346ed148c8d63aeeb959c93520cb42c483de32dc410a9db78e4c04c117a4.css" data-turbo-track="reload" />
+<link rel="stylesheet" href="/assets/tailwind-d6c9931b2c4e42d9593691494057a81b6c578776964d227fc6c8ed6bb4296051.css" data-turbo-track="reload" />
+<link rel="stylesheet" href="/assets/application-79d3007719d2fc40bb28edebf1499c7fe9801109a30b600983f4d22cd0ec1ffb.css" data-turbo-track="reload" />
+<script type="importmap" data-turbo-track="reload">{
+  "imports": {
+    "application": "/assets/application-a0a987a5de153bd6412c330ad093eab76b7a63fb2540ca77487499ec7e60e7dc.js",
+    "@hotwired/turbo-rails": "/assets/turbo.min-918a6cf2f2be8ed9555c9a11eee69c7dc2f01770802815576efc931876b327fb.js",
+    "@hotwired/stimulus": "/assets/stimulus.min-dd364f16ec9504dfb72672295637a1c8838773b01c0b441bd41008124c407894.js",
+    "@popperjs/core": "/assets/popper-0dcdb1883c170057db6ee52ed4a1acbe324c09c0dfd8e51dca44e1a5ce240dd6.js",
+    "tippy.js": "/assets/tippy.js-55d38e529e15f0650c71e94b59ef6c7ea290838567a6ac53221bcaccf9bd5e22.js",
+    "controllers/application": "/assets/controllers/application-368d98631bccbf2349e0d4f8269afb3fe9625118341966de054759d96ea86c7e.js",
+    "controllers/browser_locale_controller": "/assets/controllers/browser_locale_controller-5f463a100ecd600ed9eddac85adf899b0024a72b3dd87c7cde3a6ad747ff9326.js",
+    "controllers/button_click_controller": "/assets/controllers/button_click_controller-cc6909fb5ffc7b25e9d4810f6716f3ea683d472dbbe6a521cd67fd7ca5b090c8.js",
+    "controllers/check_stats_controller": "/assets/controllers/check_stats_controller-53c7689c5bf012a55c66d7b77542fc2eff756e6f6eca3e3fb4d9098ccd4928f8.js",
+    "controllers/competitors_controller": "/assets/controllers/competitors_controller-2c2684713a1ed5b39afbb16d0a1a36b06f84787231092a5bb80eb485e1979248.js",
+    "controllers/csv_export_controller": "/assets/controllers/csv_export_controller-305d5f673dd87067ffa1506f91036fa833885d442f16751e7a041da16f6bdcd7.js",
+    "controllers/dropdown_controller": "/assets/controllers/dropdown_controller-2cb49605823566c961f36378d4edcfe57110a3e3bb8828f1dac2d0305f41e63a.js",
+    "controllers/flash_controller": "/assets/controllers/flash_controller-5691cdc4f0868ceb02f6a0516b32cb2eb4adb5ebdda0739be9a42f85e26dc29c.js",
+    "controllers/form_controller": "/assets/controllers/form_controller-4f63dac2b1902d066b9e98d23a597ad9fc67de5f658ff28fcadeac0c2321bbdb.js",
+    "controllers/homepage_tracking_controller": "/assets/controllers/homepage_tracking_controller-3fcc7c7c5939691737270551faa7f9593bf8c2683c65fc185670a6dbbd96af82.js",
+    "controllers/image_upload_controller": "/assets/controllers/image_upload_controller-0ea679785442a26d338591ccfe609642622a53fac1909c39ee34aebf71480508.js",
+    "controllers": "/assets/controllers/index-d32556fc47ed3418a0077e19d6a87c914ea1038ebbeab06a6d3065f5c074878d.js",
+    "controllers/load_ai_models_status_controller": "/assets/controllers/load_ai_models_status_controller-a1bf532dfee88baa4d8f0ee8f4f4b00f098d0fc1bd64fb26dbf2b25cb3127533.js",
+    "controllers/loading_overlay_controller": "/assets/controllers/loading_overlay_controller-75dc4685d3c181d379a3459229b6d3adc253fd37ebcfe543c0d0a2d94571d917.js",
+    "controllers/modal_controller": "/assets/controllers/modal_controller-13f794c63e9f9d29a9a7ee90d703406273e754fbce8a260f08ecf81c77a4480c.js",
+    "controllers/panels_controller": "/assets/controllers/panels_controller-af5f36f09f1a0c35c31c4450763acfbcaa8b49ea17644b3b6d2b9a8e93266c05.js",
+    "controllers/popover_controller": "/assets/controllers/popover_controller-c82b763e7805d3900706acf6a71fa5a67ce24340fbc49c918e78c213dbc0fd2c.js",
+    "controllers/pricing_toggle_controller": "/assets/controllers/pricing_toggle_controller-acbbdbe760cd11dfc71e80386fc184cf5f5aa6de684c95c182a6942c49dc0e56.js",
+    "controllers/prospect_row_controller": "/assets/controllers/prospect_row_controller-326cbac9887315bac3a1d0b676d2b99929b86e5bbf3ebb9e9d6e38f6a540d504.js",
+    "controllers/question_selection_controller": "/assets/controllers/question_selection_controller-8d0418b9ef93c092d3f32cd513e960c744ce0c5f22bd5474ace722fc04abd4c6.js",
+    "controllers/responsive_tables_controller": "/assets/controllers/responsive_tables_controller-036bdad54c133c9a484cf986732eee3fd9ddcb53d0b743d14c4b9808a4816e83.js",
+    "controllers/sidebar_controller": "/assets/controllers/sidebar_controller-c4b66063ec62f47b2411e5acc02fd7f6e18583d1fd7fbfb6a3b817c752782877.js",
+    "controllers/sortable_results_controller": "/assets/controllers/sortable_results_controller-04aed91cadcef4c8cdd760d8db4853e430efadefe9c289b580bda04aee73afb2.js",
+    "controllers/styled_select_controller": "/assets/controllers/styled_select_controller-f1ccee5621914380b92ac1533da01d01ffcf02d9e75c43825df13e0046b3c75c.js",
+    "controllers/subnav_controller": "/assets/controllers/subnav_controller-3444ee7cad2dd1bffe68720fef5491787e49371c4bb561b274ec818e672ab566.js",
+    "controllers/tabs_controller": "/assets/controllers/tabs_controller-9ff48c6c9877021016f1bd1ead21c34b944a0a7cef06489c73893db4b8c63701.js",
+    "controllers/timezone_controller": "/assets/controllers/timezone_controller-44dd7b0ec176d323c5de28cef6563f0e2d92150c98f79c3184deed77276ca0fa.js",
+    "controllers/tippy_controller": "/assets/controllers/tippy_controller-4ea9c9f4b52041a0d46f97efcde5d90d3211b903f03657f0fdc0cfa793a8495c.js",
+    "controllers/toast_controller": "/assets/controllers/toast_controller-0b6fb2c4c5bd79b0cf36e6b110a376f163323e5ec5e4220fda226e0f0590057b.js",
+    "controllers/toggle_controller": "/assets/controllers/toggle_controller-2c9f4956839041938923bc84b31a6a61bac81f373fbb335cac17ccdea9c7c887.js",
+    "controllers/user_agent_check_controller": "/assets/controllers/user_agent_check_controller-0abe64b47475c9e544eea7e7b22d086a483174613fd713997037f013f0cbe864.js",
+    "controllers/visitor_id_controller": "/assets/controllers/visitor_id_controller-710e85b447d46614942fedb78c4109a8fb4a331c36e18bfba0a1eac7ff6d93ad.js"
+  }
+}</script>
+<link rel="modulepreload" href="/assets/application-a0a987a5de153bd6412c330ad093eab76b7a63fb2540ca77487499ec7e60e7dc.js">
+<link rel="modulepreload" href="/assets/turbo.min-918a6cf2f2be8ed9555c9a11eee69c7dc2f01770802815576efc931876b327fb.js">
+<link rel="modulepreload" href="/assets/stimulus.min-dd364f16ec9504dfb72672295637a1c8838773b01c0b441bd41008124c407894.js">
+<script type="module">import "application"</script>
+
+<!-- Google Charts loaded only on pages that need it -->
+
+
+<!-- Page-specific scripts loaded only when needed -->
+
+
+
+
+<!-- Schema.org Organization markup for all pages -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "Knowatoa",
+  "url": "https://knowatoa.com",
+  "logo": "https://knowatoa.com/favicon/favicon.ico",
+  "description": "Turn AI search results into action: uncover where you're winning, losing, and how to improve.",
+  "foundingDate": "2024",
+  "founders": [
+    {
+      "@type": "Person",
+      "name": "Michael Buckbee",
+      "jobTitle": "Co-founder",
+      "sameAs": [
+        "https://twitter.com/mbuckbee",
+        "https://www.linkedin.com/in/michaelbuckbee/",
+        "https://bsky.app/profile/buckbee.bsky.social"
+      ]
+    },
+    {
+      "@type": "Person",
+      "name": "Ryan Castillo",
+      "jobTitle": "Co-founder",
+      "sameAs": [
+        "https://twitter.com/rmcastil",
+        "https://www.linkedin.com/in/rmcastil/",
+        "https://app.bsky.cz/profile/rmcastil.bsky.social"
+      ]
+    }
+  ],
+  "sameAs": [
+    "https://twitter.com/knowatoa",
+    "https://www.linkedin.com/company/knowatoa"
+  ],
+  "address": {
+    "@type": "PostalAddress",
+    "addressCountry": "US"
+  }
+}
+</script>
+
+
+    
+      <script defer data-domain="knowatoa.com" src="https://plausible.io/js/script.js"></script>
+
+      <script>
+        // PostHog
+        !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="init capture register register_once register_for_session unregister unregister_for_session getFeatureFlag getFeatureFlagPayload isFeatureEnabled reloadFeatureFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSessionId getSurveys getActiveMatchingSurveys renderSurvey canRenderSurvey getNextSurveyStep identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException loadToolbar get_property getSessionProperty createPersonProfile opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing clear_opt_in_out_capturing debug".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+          try {
+            posthog.init('phc_8dSjgnN6LCSstYYaiCJaVqpsi3LtlKbeoi7NY1YJM4R',{api_host:'https://us.i.posthog.com', person_profiles: 'identified_only' 
+          })
+        } catch (e) {
+          console.error('PostHog initialization failed:', e);
+        }
+
+        // Reddit Pixel
+        !function(w,d){if(!w.rdt){var p=w.rdt=function(){p.sendEvent?p.sendEvent.apply(p,arguments):p.callQueue.push(arguments)};p.callQueue=[];var t=d.createElement("script");t.src="https://www.redditstatic.com/ads/pixel.js",t.async=!0;var s=d.getElementsByTagName("script")[0];s.parentNode.insertBefore(t,s)}}(window,document);rdt('init','t2_3nwya');
+
+        // Add Turbo page view tracking
+        document.addEventListener('turbo:load', function() {
+          try {
+            posthog.capture('$pageview', {
+              '$current_url': window.location.href,
+              'path': window.location.pathname
+            });
+
+            rdt('track', 'PageVisit');
+
+          } catch (e) {
+            console.error('PostHog pageview tracking failed:', e);
+          }
+        });
+      </script>
+
+
+
+
+    <title>Knowatoa - AI Search Discovery</title>
+    <meta name="description" content="Turn AI search analytics into action: uncover where you&#39;re winning, losing, and how to improve." />
+
+    <meta property="og:title" content="Knowatoa - AI Search Discovery" />
+    <meta property="og:description" content="Turn AI search results into action: uncover where you&#39;re winning, losing, and how to improve." />
+    <meta property="og:image" content="/assets/og-chat-gpt-2fa5b3b8d83582215cf6f27176eda0515f0945111663dd864feede1506446ece.png" />
+    <meta property="og:url" content="https://knowatoa.com/blog" />
+    <meta property="og:type" content="website" />
+
+    
+  </head>
+
+  <body class="h-full">
+    <turbo-frame id="flash_message">
+</turbo-frame>
+    <main class="body-container"
+      data-controller="modal">
+  
+      <div class="space-y-6 px-8 py-4 flex flex-col items-center
+            sm:space-y-0 sm:flex-row sm:justify-between sm:space-x-4">
+  <a class="logo-container" href="/">
+    <img alt="Knowatoa" class="logo
+                            h-7 dark:hidden" src="/assets/knowatoa-50c159a11fbdb0ae7ed63c0f23bbc0247860b4295a954051f9eae242017be3fa.svg" />
+    <img alt="Knowatoa" class="logo
+                            hidden h-7 dark:block" src="/assets/knowatoa-light-e5600b0d6b00fb5c2076be5e998803cd027f881a6c450295668bfb7025f28b4c.svg" />
+</a>
+  <div class="flex items-center space-x-6 font-clean">
+
+
+    <a class="text-primary-600 dark:text-primary-400 font-medium
+                              hover:text-black dark:hover:text-white hidden sm:block" href="/guides/biscuit_framework">B.I.S.C.U.I.T</a>
+
+    <a class="text-primary-600 dark:text-primary-400 font-medium
+                              hover:text-black dark:hover:text-white hidden sm:block" href="/updates">Updates</a>
+
+    <a class="text-primary-600 dark:text-primary-400 font-medium
+                              hover:text-black dark:hover:text-white hidden sm:block" href="/disrupted">Newsletter</a>
+
+    <a class="text-primary-600 dark:text-primary-400 font-medium
+                              hover:text-black dark:hover:text-white hidden sm:block" href="/about">About</a>
+
+    <a class="text-primary-600 dark:text-primary-400 font-medium
+                              hover:text-black dark:hover:text-white hidden sm:block" href="/contact">Contact</a>
+
+    <a class="text-primary-600 dark:text-primary-400 font-medium
+                              hover:text-black dark:hover:text-white" href="/pricing">Pricing</a>
+
+    <a target="_blank" rel="noopener noreferrer" class="btn btn-primary" href="https://savvycal.com/ryancastillo/knowatoa-demos">Schedule Demo</a>
+
+    <a class="text-primary-600 dark:text-primary-400 font-medium
+                              hover:text-black dark:hover:text-white" href="/login">Sign In</a>
+
+  </div>
+
+</div>
+
+
+      <div class="max-w-4xl mx-auto pb-12 pt-20 px-8
+                            max-w-4xl
+                          ">
+        <div class="container mx-auto px-4 py-8">
+  <h1 class="text-4xl font-bold mb-8">Blog</h1>
+
+  <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <a class="block p-6 rounded-lg shadow hover:shadow-md transition-shadow" href="/blog/newsletter-10-05-2025">
+
+          <img class="w-full h-auto mb-4 rounded-sm" src="/assets/content/newsletter-10-05-2025/featured-7f8c281c82a4a6638c979d7a5445e05f26620906430bc807df4a8425737d9e6e.jpg" />
+          <h2 class="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">Search Disrupted Newsletter (Issue 26)</h2>
+          <p class="text-gray-900 dark:text-gray-100 mb-4 text-base">Perplexity launches email assistant, HBR warns about AI &#39;workslop&#39;, Microsoft&#39;s vision for browser AI, Meta&#39;s regulatory pushback, and why we keep underestimating exponential AI growth.</p>
+          <div class="flex items-center text-sm text-gray-900 dark:text-gray-100">
+              <time datetime="2025-10-05">
+                October 05, 2025
+              </time>
+          </div>
+
+</a>      <a class="block p-6 rounded-lg shadow hover:shadow-md transition-shadow" href="/blog/newsletter-09-19-2025">
+
+          <img class="w-full h-auto mb-4 rounded-sm" src="/assets/content/newsletter-09-19-2025/featured-3a7e94a0b566f6f4e32b43bfad027e6f3b073e717dc616541038927cc9d5024d.jpg" />
+          <h2 class="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">Search Disrupted Newsletter (Issue 25)</h2>
+          <p class="text-gray-900 dark:text-gray-100 mb-4 text-base">Claude gets persistent memory, Microsoft-OpenAI enters next phase of partnership, ChatGPT drives $72B economic impact, Alibaba challenges Nvidia with new AI chip, and Google advances AI capabilities across multiple fronts.</p>
+          <div class="flex items-center text-sm text-gray-900 dark:text-gray-100">
+              <time datetime="2025-09-19">
+                September 19, 2025
+              </time>
+          </div>
+
+</a>      <a class="block p-6 rounded-lg shadow hover:shadow-md transition-shadow" href="/blog/newsletter-09-11-2025">
+
+          <img class="w-full h-auto mb-4 rounded-sm" src="/assets/content/newsletter-09-11-2025/featured-cca73d3625bf17423fd704ac91a2ab7145709bae60c599ce68c4626039729647.jpg" />
+          <h2 class="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">Search Disrupted Newsletter (Issue 24)</h2>
+          <p class="text-gray-900 dark:text-gray-100 mb-4 text-base">Anthropic pays record $1.5B copyright settlement, GPT-5&#39;s &#39;Research Goblin&#39; changes mobile research, Google expands AI globally, and publishers unite against AI scraping.</p>
+          <div class="flex items-center text-sm text-gray-900 dark:text-gray-100">
+              <time datetime="2025-09-11">
+                September 11, 2025
+              </time>
+          </div>
+
+</a>      <a class="block p-6 rounded-lg shadow hover:shadow-md transition-shadow" href="/blog/newsletter-09-04-2025">
+
+          <img class="w-full h-auto mb-4 rounded-sm" src="/assets/content/newsletter-09-04-2025/featured-963001bce23cb7c7872fd04e156ab0415b69c4b06536363bab22cd0944f4a6df.jpg" />
+          <h2 class="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">Search Disrupted Newsletter (Issue 23)</h2>
+          <p class="text-gray-900 dark:text-gray-100 mb-4 text-base">Apple enters search with AI web tool, OpenAI democratizes ChatGPT Projects, parental controls arrive, and Atlassian&#39;s browser ambitions shake up enterprise search.</p>
+          <div class="flex items-center text-sm text-gray-900 dark:text-gray-100">
+              <time datetime="2025-09-04">
+                September 04, 2025
+              </time>
+          </div>
+
+</a>      <a class="block p-6 rounded-lg shadow hover:shadow-md transition-shadow" href="/blog/newsletter-08-27-2025">
+
+          <img class="w-full h-auto mb-4 rounded-sm" src="/assets/content/newsletter-08-27-2025/featured-0810212fd285bde5589fc6d54b524ea7e943bcd7850158a36c3828a10c67b46b.jpg" />
+          <h2 class="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">Search Disrupted Newsletter (Issue 22)</h2>
+          <p class="text-gray-900 dark:text-gray-100 mb-4 text-base">AI browsers fail security tests, Gemini expands to smart homes, Reddit blocks Internet Archive, and Meta licenses Midjourney tech.</p>
+          <div class="flex items-center text-sm text-gray-900 dark:text-gray-100">
+              <time datetime="2025-08-27">
+                August 27, 2025
+              </time>
+          </div>
+
+</a>      <a class="block p-6 rounded-lg shadow hover:shadow-md transition-shadow" href="/blog/newsletter-07-28-2025">
+
+          <img class="w-full h-auto mb-4 rounded-sm" src="/assets/content/newsletter-07-28-2025/featured-cae5993886db1ccb41115cbd226a877357744fb4af5491be35706340a0a404a0.jpg" />
+          <h2 class="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">Search Disrupted Newsletter (Issue 21)</h2>
+          <p class="text-gray-900 dark:text-gray-100 mb-4 text-base">Grok adds AI companions, Swiss universities open up their LLM, Google Search Live, ChatGPT Agent, and DuckDuckGo filters AI slop.</p>
+          <div class="flex items-center text-sm text-gray-900 dark:text-gray-100">
+              <time datetime="2025-07-28">
+                July 28, 2025
+              </time>
+          </div>
+
+</a>      <a class="block p-6 rounded-lg shadow hover:shadow-md transition-shadow" href="/blog/newsletter-07-11-2025">
+
+          <img class="w-full h-auto mb-4 rounded-sm" src="/assets/content/newsletter-07-11-2025/featured-3f71ce28dbe455421f7a398d51cba1b1fc7c6f64d668da0241bb32d886ce0a86.jpg" />
+          <h2 class="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">Search Disrupted Newsletter (Issue 20)</h2>
+          <p class="text-gray-900 dark:text-gray-100 mb-4 text-base">Youtube gives and takes away with AI, AI self-identification, and OpenAI browser launching soon.</p>
+          <div class="flex items-center text-sm text-gray-900 dark:text-gray-100">
+              <time datetime="2025-07-11">
+                July 11, 2025
+              </time>
+          </div>
+
+</a>      <a class="block p-6 rounded-lg shadow hover:shadow-md transition-shadow" href="/blog/newsletter-06-20-2025">
+
+          <img class="w-full h-auto mb-4 rounded-sm" src="/assets/content/newsletter-06-20-2025/featured-4c1d230e218ab23932f934e7aee22d351da7592a8a4bedbc7cfc71338a53359e.jpg" />
+          <h2 class="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">Search Disrupted Newsletter (Issue 19)</h2>
+          <p class="text-gray-900 dark:text-gray-100 mb-4 text-base">Sabotauged search results, Buyers&#39; Journey in AI, the organization invites, and data on how searchers aren&#39;t clicking on citations.</p>
+          <div class="flex items-center text-sm text-gray-900 dark:text-gray-100">
+              <time datetime="2025-06-20">
+                June 20, 2025
+              </time>
+          </div>
+
+</a>      <a class="block p-6 rounded-lg shadow hover:shadow-md transition-shadow" href="/blog/newsletter-06-16-2025">
+
+          <img class="w-full h-auto mb-4 rounded-sm" src="/assets/content/newsletter-06-16-2025/featured-7086a9b15e69d616701639f4b736d8383df28f8538a88a2a445a4e2f3d6d30fd.jpg" />
+          <h2 class="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">Search Disrupted Newsletter (Issue 18)</h2>
+          <p class="text-gray-900 dark:text-gray-100 mb-4 text-base">Apple&#39;s on device AI search, Anthropic vs. Reddit, Knowatoa&#39;s new team features, and the Gentle Singularity</p>
+          <div class="flex items-center text-sm text-gray-900 dark:text-gray-100">
+              <time datetime="2025-06-16">
+                June 16, 2025
+              </time>
+          </div>
+
+</a>      <a class="block p-6 rounded-lg shadow hover:shadow-md transition-shadow" href="/blog/newsletter-06-06-2025">
+
+          <img class="w-full h-auto mb-4 rounded-sm" src="/assets/content/newsletter-06-06-2025/featured-66a896fe4ec5cac88e6e02fbc14bd9ee44fe9dfec798d429b8dd67f36fe1eef8.jpg" />
+          <h2 class="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">Search Disrupted Newsletter (Issue 17)</h2>
+          <p class="text-gray-900 dark:text-gray-100 mb-4 text-base">Why SEOs should care about AI Agents, Perplexity Mini Apps, Knowatoa Updates, Google AI Edge, and Sam Altman on Generational AI usage.</p>
+          <div class="flex items-center text-sm text-gray-900 dark:text-gray-100">
+              <time datetime="2025-06-06">
+                June 06, 2025
+              </time>
+          </div>
+
+</a>      <a class="block p-6 rounded-lg shadow hover:shadow-md transition-shadow" href="/blog/newsletter-05-25-2025">
+
+          <img class="w-full h-auto mb-4 rounded-sm" src="/assets/content/newsletter-05-25-2025/featured-a1e1bb7a26ea81cd485928a2c870716370f8427cc5611a161dffe793275a62c0.jpg" />
+          <h2 class="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">Search Disrupted Newsletter (Issue 16)</h2>
+          <p class="text-gray-900 dark:text-gray-100 mb-4 text-base">AI Mode for everybody, a new YT channel from John Doherty, Knowatoa Knowledgebase, updates and when to trust LLMs</p>
+          <div class="flex items-center text-sm text-gray-900 dark:text-gray-100">
+              <time datetime="2025-05-25">
+                May 25, 2025
+              </time>
+          </div>
+
+</a>      <a class="block p-6 rounded-lg shadow hover:shadow-md transition-shadow" href="/blog/newsletter-05-16-2025">
+
+          <img class="w-full h-auto mb-4 rounded-sm" src="/assets/content/newsletter-05-16-2025/featured-8304b8234c5d9a54bcd7d2f800dedf68e2c915b01f760560ae4f51ecf8d8b137.jpg" />
+          <h2 class="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">Search Disrupted Newsletter (Issue 15)</h2>
+          <p class="text-gray-900 dark:text-gray-100 mb-4 text-base">Gemini&#39;s doing it Live, Knowatoa updates, Google&#39;s offering AI certification, Prompt Engineering for SEO, and local AI models are on the rise</p>
+          <div class="flex items-center text-sm text-gray-900 dark:text-gray-100">
+              <time datetime="2025-05-16">
+                May 16, 2025
+              </time>
+          </div>
+
+</a>      <a class="block p-6 rounded-lg shadow hover:shadow-md transition-shadow" href="/blog/newsletter-05-09-2025">
+
+          <img class="w-full h-auto mb-4 rounded-sm" src="/assets/content/newsletter-05-09-2025/featured-44aac8ce705cec43566f0f3ec8efc39035a4280f53326c893d845708ee973567.jpg" />
+          <h2 class="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">Search Disrupted Newsletter (Issue 14)</h2>
+          <p class="text-gray-900 dark:text-gray-100 mb-4 text-base">Referral Ratios, ChatGPT&#39;s stopped sucking up, Reddit&#39;s mainstreamification of AI search, and Vibe Searching with Pinterest</p>
+          <div class="flex items-center text-sm text-gray-900 dark:text-gray-100">
+              <time datetime="2025-05-09">
+                May 09, 2025
+              </time>
+          </div>
+
+</a>      <a class="block p-6 rounded-lg shadow hover:shadow-md transition-shadow" href="/blog/newsletter-05-01-2025">
+
+          <img class="w-full h-auto mb-4 rounded-sm" src="/assets/content/newsletter-05-01-2025/featured-79ae91693dff38c3baeab73496a5c5dbf208f13bf8ab080ae56dc5cef6869f4c.jpg" />
+          <h2 class="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">Search Disrupted Newsletter (Issue 13)</h2>
+          <p class="text-gray-900 dark:text-gray-100 mb-4 text-base">Good vs Correct AI Answers, Meta AI Goes Solo, WhatsApp opens doors to ChatGPT and Perplexity AI, and Practical Use Cases for NotebookLM</p>
+          <div class="flex items-center text-sm text-gray-900 dark:text-gray-100">
+              <time datetime="2025-05-01">
+                May 01, 2025
+              </time>
+          </div>
+
+</a>      <a class="block p-6 rounded-lg shadow hover:shadow-md transition-shadow" href="/blog/newsletter-04-24-2025">
+
+          <img class="w-full h-auto mb-4 rounded-sm" src="/assets/content/newsletter-04-24-2025/featured-32890d395389e4b651bb6b16ab61386172511f6d3a75306c927d99a5f500f408.jpg" />
+          <h2 class="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">Search Disrupted Newsletter (Issue 12)</h2>
+          <p class="text-gray-900 dark:text-gray-100 mb-4 text-base">Actual AI usage stats, ChatGPT wants to buy Chrome, and Perplexity gets a voice assistant.</p>
+          <div class="flex items-center text-sm text-gray-900 dark:text-gray-100">
+              <time datetime="2025-04-24">
+                April 24, 2025
+              </time>
+          </div>
+
+</a>      <a class="block p-6 rounded-lg shadow hover:shadow-md transition-shadow" href="/blog/newsletter-04-17-2025">
+
+          <img class="w-full h-auto mb-4 rounded-sm" src="/assets/content/newsletter-04-17-2025/featured-549f902b255836884898329e508f23110260fe94c96989e912b8261db7a18b2e.jpg" />
+          <h2 class="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">Search Disrupted Newsletter (Issue 11)</h2>
+          <p class="text-gray-900 dark:text-gray-100 mb-4 text-base">AI Switch Scam, Chrome Agentspace, Utility Problem, Human First AI Marketing, and BrowseComp</p>
+          <div class="flex items-center text-sm text-gray-900 dark:text-gray-100">
+              <time datetime="2025-04-17">
+                April 17, 2025
+              </time>
+          </div>
+
+</a>      <a class="block p-6 rounded-lg shadow hover:shadow-md transition-shadow" href="/blog/newsletter-04-04-2025">
+
+          <img class="w-full h-auto mb-4 rounded-sm" src="/assets/content/newsletter-04-04-2025/featured-54125c0d6da0d1d6dd76288d5e2636d7e49610b90782436656b001d95e3bb51e.jpg" />
+          <h2 class="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">Search Disrupted Newsletter (Issue 10)</h2>
+          <p class="text-gray-900 dark:text-gray-100 mb-4 text-base">Bing launches AI Overkills, Chatty Search, Branding in AI Search, and LLM Search Engine deep dives</p>
+          <div class="flex items-center text-sm text-gray-900 dark:text-gray-100">
+              <time datetime="2025-04-04">
+                April 04, 2025
+              </time>
+          </div>
+
+</a>      <a class="block p-6 rounded-lg shadow hover:shadow-md transition-shadow" href="/blog/newsletter-03-28-2025">
+
+          <img class="w-full h-auto mb-4 rounded-sm" src="/assets/content/newsletter-03-28-2025/featured-0d3b03f54905a45c57f7cba2042c42279ab702a42ea638bc169e41e7c6118e6b.jpg" />
+          <h2 class="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">Search Disrupted Newsletter (Issue 9)</h2>
+          <p class="text-gray-900 dark:text-gray-100 mb-4 text-base">Search is eating the world, PerplexiTok, Instagram getting searchy, an AI Labyrinth, and Claude being Brave.</p>
+          <div class="flex items-center text-sm text-gray-900 dark:text-gray-100">
+              <time datetime="2025-03-28">
+                March 28, 2025
+              </time>
+          </div>
+
+</a>      <a class="block p-6 rounded-lg shadow hover:shadow-md transition-shadow" href="/blog/newsletter-03-21-2025">
+
+          <img class="w-full h-auto mb-4 rounded-sm" src="/assets/content/newsletter-03-21-2025/featured-2ec08c45bdd59edc48ea02a4de4fd01df1a08e79553c8b88fa703258d06b1bc3.png" />
+          <h2 class="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">Search Disrupted Newsletter (Issue 8)</h2>
+          <p class="text-gray-900 dark:text-gray-100 mb-4 text-base">Gemini killed Google Assistant, SEO vs Sysadmin Divide, Claude Web Search, and a new LLM search agent tutorial</p>
+          <div class="flex items-center text-sm text-gray-900 dark:text-gray-100">
+              <time datetime="2025-03-21">
+                March 21, 2025
+              </time>
+          </div>
+
+</a>      <a class="block p-6 rounded-lg shadow hover:shadow-md transition-shadow" href="/blog/newsletter-03-14-2025">
+
+          <img class="w-full h-auto mb-4 rounded-sm" src="/assets/content/newsletter-03-14-2025/featured-b0a042ea6a38a9e273bacebb1a74753b5c2a8fbf745efa8f65f65f89a63d4c44.png" />
+          <h2 class="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">Search Disrupted Newsletter (Issue 7)</h2>
+          <p class="text-gray-900 dark:text-gray-100 mb-4 text-base">Apple Delays Siri because Sesame? Gemini is living life live. Build an LLM from scratch (for fun and educating yourself). Crawl and Chat.</p>
+          <div class="flex items-center text-sm text-gray-900 dark:text-gray-100">
+              <time datetime="2025-03-14">
+                March 14, 2025
+              </time>
+          </div>
+
+</a>      <a class="block p-6 rounded-lg shadow hover:shadow-md transition-shadow" href="/blog/newsletter-03-07-2025">
+
+          <img class="w-full h-auto mb-4 rounded-sm" src="/assets/content/newsletter-03-07-2025/featured-002bfbdc44fcb5ae9a42e537fa99c013d7cde4d4b4e68cf915acb8ee15dbe603.png" />
+          <h2 class="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">Search Disrupted Newsletter (Issue 6)</h2>
+          <p class="text-gray-900 dark:text-gray-100 mb-4 text-base">Search surfaces are shifting everywhere, Deep Research emerges as the first mainstream AI Agent, and Google&#39;s AI Mode is Deep Research Done Quick</p>
+          <div class="flex items-center text-sm text-gray-900 dark:text-gray-100">
+              <time datetime="2025-03-07">
+                March 07, 2025
+              </time>
+          </div>
+
+</a>      <a class="block p-6 rounded-lg shadow hover:shadow-md transition-shadow" href="/blog/newsletter-02-27-2025">
+
+          <img class="w-full h-auto mb-4 rounded-sm" src="/assets/content/newsletter-02-27-2025/featured-eefe4a06ee05bda3c594641944c45100440434597084d29a0f6cada80bc38b8b.png" />
+          <h2 class="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">Search Disrupted Newsletter (Issue 5)</h2>
+          <p class="text-gray-900 dark:text-gray-100 mb-4 text-base">Deep Research is the Agent we&#39;ve been looking for, Apple + Gemini are friends, Business Amplifier Chat, Knowatoa Integrations, ChatGPT Saved My Life, and Chegg is mad</p>
+          <div class="flex items-center text-sm text-gray-900 dark:text-gray-100">
+              <time datetime="2025-02-27">
+                February 27, 2025
+              </time>
+          </div>
+
+</a>      <a class="block p-6 rounded-lg shadow hover:shadow-md transition-shadow" href="/blog/newsletter-02-20-2025">
+
+          <img class="w-full h-auto mb-4 rounded-sm" src="/assets/content/newsletter-02-20-2025/featured-628449b2b06166fdfd4e7068f5c83e469f0422b91ff64165b69de0e30fd80129.png" />
+          <h2 class="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">Search Disrupted Newsletter (Issue 4)</h2>
+          <p class="text-gray-900 dark:text-gray-100 mb-4 text-base">Cohere Sued, Grok3 looks good, Voices of Search, Rabbit Agent, and The SEO Community</p>
+          <div class="flex items-center text-sm text-gray-900 dark:text-gray-100">
+              <time datetime="2025-02-20">
+                February 20, 2025
+              </time>
+          </div>
+
+</a>      <a class="block p-6 rounded-lg shadow hover:shadow-md transition-shadow" href="/blog/newsletter-02-13-2025">
+
+          <img class="w-full h-auto mb-4 rounded-sm" src="/assets/content/newsletter-02-13-2025/featured-afef4e10686e520e20b10204051fe61717930ad614945ceb45f8fa8e2616429a.png" />
+          <h2 class="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">Search Disrupted Newsletter (Issue 3)</h2>
+          <p class="text-gray-900 dark:text-gray-100 mb-4 text-base">Payrank Report, Google Project Astra, Thompson Reuters v Ross Gen AI Lawsuit, Perplexity Finance Board</p>
+          <div class="flex items-center text-sm text-gray-900 dark:text-gray-100">
+              <time datetime="2025-02-13">
+                February 13, 2025
+              </time>
+          </div>
+
+</a>      <a class="block p-6 rounded-lg shadow hover:shadow-md transition-shadow" href="/blog/newsletter-02-05-2025">
+
+          <img class="w-full h-auto mb-4 rounded-sm" src="/assets/content/newsletter-02-05-2025/featured-c7324191cce7ec1c0511d02a1b9eb2b04dfb85a0e20d42e0e16312acc6f74cee.png" />
+          <h2 class="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">Search Disrupted Newsletter (Issue 2)</h2>
+          <p class="text-gray-900 dark:text-gray-100 mb-4 text-base">No registrations for ChatGPT, Sonar Reasoning and Gemini Ads</p>
+          <div class="flex items-center text-sm text-gray-900 dark:text-gray-100">
+              <time datetime="2025-02-05">
+                February 05, 2025
+              </time>
+          </div>
+
+</a>      <a class="block p-6 rounded-lg shadow hover:shadow-md transition-shadow" href="/blog/newsletter-01-30-2025">
+
+          <img class="w-full h-auto mb-4 rounded-sm" src="/assets/content/newsletter-01-30-2025/featured-dae60e37937df39294fbe155e78f6d36b344071bfa0ffbae93b0d2ea94535b2d.png" />
+          <h2 class="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">Search Disrupted Newsletter (Issue 1)</h2>
+          <p class="text-gray-900 dark:text-gray-100 mb-4 text-base">Updates on Hubspot, OpenAI, Reddit and Google.</p>
+          <div class="flex items-center text-sm text-gray-900 dark:text-gray-100">
+              <time datetime="2025-01-30">
+                January 30, 2025
+              </time>
+          </div>
+
+</a>  </div>
+</div>
+      </div>
+
+
+</main>
+
+    <footer class="bg-black text-white mt-[100px]">
+  <div class="mx-auto max-w-7xl px-6 py-16 lg:px-8">
+    <div class="border-b border-gray-700 pb-12">
+      <div class="grid grid-cols-2 gap-8 md:grid-cols-5">
+        <!-- Brand/Logo Column -->
+        <div class="col-span-2 md:col-span-1">
+          <div class="flex items-center gap-2 mb-4">
+            <img alt="Knowatoa" class="h-8 w-8" src="/assets/knowatoa-icon-light-6c920de4776e3d195287f15a9cc0e946be48312bc8025cbbb7e4a07954217c26.svg" />
+            <span class="text-lg font-semibold">Knowatoa</span>
+          </div>
+          <p class="text-sm text-white mt-4">
+            AI search visibility monitoring and optimization
+          </p>
+        </div>
+
+        <!-- Platform Column -->
+        <div>
+          <h3 class="text-sm font-semibold text-white text-left uppercase tracking-wider mb-4">Platform</h3>
+          <ul class="space-y-3 list-none pl-0 ml-0 text-left">
+            <li>
+              <a href="/ai-search/ai-overviews" class="text-sm text-white hover:text-gray-300 transition flex items-center gap-2">
+                <img alt="" class="w-4 h-4" src="/assets/series_icon/dark/google-8fb634063d626daa20ab2995a3209dbdef28df55a51dda04e73d4c709725a5c7.svg" />
+                AI Overview Monitoring
+              </a>
+            </li>
+            <li>
+              <a href="/ai-search/ai-mode" class="text-sm text-white hover:text-gray-300 transition flex items-center gap-2">
+                <img alt="" class="w-4 h-4" src="/assets/series_icon/dark/google-8fb634063d626daa20ab2995a3209dbdef28df55a51dda04e73d4c709725a5c7.svg" />
+                AI Mode Monitoring
+              </a>
+            </li>
+            <li>
+              <a href="/ai-search/chatgpt" class="text-sm text-white hover:text-gray-300 transition flex items-center gap-2">
+                <img alt="" class="w-4 h-4" src="/assets/series_icon/dark/chatgpt-4e1bc8496320d0fa8cb4eec8a6cedb4960fdb5b39b8fe0a45692f51dc5912e0f.svg" />
+                ChatGPT Monitoring
+              </a>
+            </li>
+            <li>
+              <a href="/ai-search/claude" class="text-sm text-white hover:text-gray-300 transition flex items-center gap-2">
+                <img alt="" class="w-4 h-4" src="/assets/series_icon/dark/claude-879f78943b92315e807548c81d1f5dac3f5073e609808090681c975dea340bf2.svg" />
+                Claude Monitoring
+              </a>
+            </li>
+            <li>
+              <a href="/ai-search/gemini" class="text-sm text-white hover:text-gray-300 transition flex items-center gap-2">
+                <img alt="" class="w-4 h-4" src="/assets/series_icon/dark/gemini-8dc4c4af3f1d00041c15d1496b03f149273139efd8925dcfc6a1ed8e06153cda.svg" />
+                Gemini Monitoring
+              </a>
+            </li>
+            <li>
+              <a href="/ai-search/meta-ai" class="text-sm text-white hover:text-gray-300 transition flex items-center gap-2">
+                <img alt="" class="w-4 h-4" src="/assets/series_icon/dark/meta-6e2934b12b5ac2b5dc3fa555d303ba1b954a32ae3ea128f4607f80152de76192.svg" />
+                Meta AI Monitoring
+              </a>
+            </li>
+            <li>
+              <a href="/ai-search/perplexity" class="text-sm text-white hover:text-gray-300 transition flex items-center gap-2">
+                <img alt="" class="w-4 h-4" src="/assets/series_icon/dark/perplexity-08a1aa511e73364dc8c2446af4b7662c281bcb67896f836c7da57a63c89027cf.svg" />
+                Perplexity Monitoring
+              </a>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Product Column -->
+        <div>
+          <h3 class="text-sm font-semibold text-white text-left uppercase tracking-wider mb-4">Product</h3>
+          <ul class="space-y-3 list-none pl-0 ml-0 text-left">
+            <li>
+              <a href="/features" class="text-sm text-white hover:text-gray-300 transition">Features</a>
+              <ul class="space-y-2 list-none pl-0 ml-0 mt-2 text-left">
+                <li>
+                  <a href="/features#core-features" class="text-sm text-white hover:text-gray-300 transition">» Core Features</a>
+                </li>
+                <li>
+                  <a href="/features#agency-features" class="text-sm text-white hover:text-gray-300 transition">» Agency Features</a>
+                </li>
+                <li>
+                  <a href="/features#integrations" class="text-sm text-white hover:text-gray-300 transition">» Integrations</a>
+                </li>
+              </ul>
+            </li>
+            <li>
+              <a href="/pricing" class="text-sm text-white hover:text-gray-300 transition">Pricing</a>
+            </li>
+            <li>
+              <a href="/updates" class="text-sm text-white hover:text-gray-300 transition">Updates</a>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Resources Column -->
+        <div>
+          <h3 class="text-sm font-semibold text-white text-left uppercase tracking-wider mb-4">Resources</h3>
+          <ul class="space-y-3 list-none pl-0 ml-0 text-left">
+            <li>
+              <a href="/disrupted" class="text-sm text-white hover:text-gray-300 transition">🚀 Search Disrupted</a>
+            </li>
+            <li>
+              <a href="/guides/biscuit_framework" class="text-sm text-white hover:text-gray-300 transition">BISCUIT Framework</a>
+            </li>
+            <li>
+              <a href="/ai-search-console" class="text-sm text-white hover:text-gray-300 transition">AI Search Console</a>
+            </li>
+            <li>
+              <a href="/payrank" class="text-sm text-white hover:text-gray-300 transition">PayRank Report</a>
+            </li>
+            <li>
+              <a href="https://docs.knowatoa.com" target="_blank" class="text-sm text-white hover:text-gray-300 transition">Documentation</a>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Company Column -->
+        <div>
+          <h3 class="text-sm font-semibold text-white text-left uppercase tracking-wider mb-4">Company</h3>
+          <ul class="space-y-3 list-none pl-0 ml-0 text-left">
+            <li>
+              <a href="/about" class="text-sm text-white hover:text-gray-300 transition">About</a>
+            </li>
+            <li>
+              <a href="/contact" class="text-sm text-white hover:text-gray-300 transition">Contact</a>
+            </li>
+            <li>
+              <a href="/support" class="text-sm text-white hover:text-gray-300 transition">Support</a>
+            </li>
+          </ul>
+          <div class="mt-6">
+            <a href="https://savvycal.com/ryancastillo/knowatoa-demos" target="_blank" class="inline-block bg-orange-600 hover:bg-orange-700 text-white hover:text-white font-semibold py-2 px-4 rounded transition text-sm">
+              Schedule a Demo
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Bar -->
+    <div class="grid grid-cols-1 md:grid-cols-3 items-center pt-8 gap-4">
+      <p class="text-sm text-gray-400 text-center md:text-left">
+        © 2025 Knowatoa. All rights reserved.
+      </p>
+
+      <!-- Legal Links -->
+      <div class="flex gap-6 justify-center">
+        <a href="/tos" class="text-sm text-white hover:text-gray-300 transition">Terms of Service</a>
+        <a href="/privacy-policy" class="text-sm text-white hover:text-gray-300 transition">Privacy Policy</a>
+      </div>
+
+      <!-- Social Media Icons -->
+      <div class="flex space-x-6 justify-center md:justify-end">
+        <!-- LinkedIn -->
+        <a href="https://www.linkedin.com/company/knowatoa" target="_blank" rel="noopener noreferrer" class="text-gray-400 hover:text-white transition" aria-label="LinkedIn">
+          <svg class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M21,3H3v18h18V3z M9,17H6.477v-7H9V17z M7.694,8.717c-0.771,0-1.286-0.514-1.286-1.2s0.514-1.2,1.371-1.2 c0.771,0,1.286,0.514,1.286,1.2S8.551,8.717,7.694,8.717z M18,17h-2.442v-3.826c0-1.058-0.651-1.302-0.895-1.302 s-1.058,0.163-1.058,1.302c0,0.163,0,3.826,0,3.826h-2.523v-7h2.523v0.977C13.93,10.407,14.581,10,15.802,10 C17.023,10,18,10.977,18,13.174V17z"/>
+          </svg>
+        </a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+    
+    
+  </body>
+</html>
