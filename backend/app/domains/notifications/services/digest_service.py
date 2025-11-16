@@ -238,6 +238,164 @@ class DigestService:
             user_prefs=user_prefs,
         )
 
+    def format_digest_for_telegram(
+        self,
+        digest_data: Dict[str, Any],
+        user_prefs: Optional[UserPreferences] = None,
+    ) -> str:
+        """Render digest payload to Telegram-friendly Markdown string."""
+        if not digest_data:
+            return "📰 *Digest*\n\n_No data available._"
+
+        news_count = digest_data.get("news_count", 0) or 0
+        companies_data = digest_data.get("companies") or {}
+
+        timezone_name = getattr(user_prefs, "timezone", "UTC") or "UTC"
+        try:
+            user_tz = pytz.timezone(timezone_name)
+        except pytz.exceptions.UnknownTimeZoneError:
+            logger.warning("Unknown timezone for Telegram digest: %s", timezone_name)
+            user_tz = pytz.UTC
+
+        date_range_text = self._format_period_header(
+            date_from=digest_data.get("date_from"),
+            date_to=digest_data.get("date_to"),
+            timezone_obj=user_tz,
+        )
+        mode_label = self._resolve_digest_mode_label(user_prefs)
+
+        lines: List[str] = []
+        lines.append("📰 *Daily Digest*")
+        if date_range_text:
+            lines.append(date_range_text)
+        lines.append(f"Total news: *{news_count}*")
+        if mode_label:
+            lines.append(mode_label)
+
+        if not companies_data:
+            lines.append("")
+            lines.append("_Nothing matched your filters today._")
+            return "\n".join(lines).strip()
+
+        sorted_companies = sorted(
+            companies_data.values(),
+            key=lambda company: company.get("stats", {}).get("total", 0),
+            reverse=True,
+        )
+
+        for company in sorted_companies:
+            company_info = company.get("company") or {}
+            company_name = self._escape_markdown(company_info.get("name") or "Unknown Company")
+            total_news = company.get("stats", {}).get("total", 0)
+            lines.append("")
+            lines.append(f"🏢 *{company_name}* — {total_news} news")
+
+            for idx, news in enumerate(company.get("news") or []):
+                if idx >= 5:
+                    remaining = total_news - idx
+                    if remaining > 0:
+                        lines.append(f"  • …and {remaining} more")
+                    break
+
+                title = self._escape_markdown(news.get("title") or "Untitled update")
+                published_text = self._format_published_time(news.get("published_at"), user_tz)
+                summary = self._prepare_summary(news)
+                source_url = news.get("source_url")
+
+                bullet = f"  • {title}"
+                if published_text:
+                    bullet += f" ({published_text})"
+                lines.append(bullet)
+
+                if summary:
+                    lines.append(f"    {summary}")
+
+                if source_url:
+                    lines.append(f"    🔗 {self._escape_markdown(source_url)}")
+
+        return "\n".join(lines).strip()
+
+    @staticmethod
+    def _escape_markdown(value: str) -> str:
+        if value is None:
+            return ""
+        escaped = value.replace("\\", "\\\\")
+        for ch in ("_", "*", "[", "]", "(", ")", "~", "`", ">", "#", "+", "-", "=", "|", "{", "}", ".", "!"):
+            escaped = escaped.replace(ch, f"\\{ch}")
+        return escaped
+
+    def _format_period_header(
+        self,
+        date_from: Optional[str],
+        date_to: Optional[str],
+        timezone_obj: pytz.BaseTzInfo,
+    ) -> str:
+        def _parse(dt_str: Optional[str]) -> Optional[datetime]:
+            if not dt_str:
+                return None
+            try:
+                dt = datetime.fromisoformat(dt_str)
+                if dt.tzinfo is None:
+                    dt = pytz.UTC.localize(dt)
+                return dt.astimezone(timezone_obj)
+            except ValueError:
+                logger.warning("Failed to parse digest datetime: %s", dt_str)
+                return None
+
+        start = _parse(date_from)
+        end = _parse(date_to)
+
+        if not start and not end:
+            return ""
+
+        if start and end and start.date() == end.date():
+            date_part = start.strftime("%d %b %Y")
+            start_time = start.strftime("%H:%M")
+            end_time = end.strftime("%H:%M")
+            return f"{date_part} {start_time}–{end_time} ({timezone_obj.zone})"
+
+        formatted_start = start.strftime("%d %b %Y %H:%M") if start else ""
+        formatted_end = end.strftime("%d %b %Y %H:%M") if end else ""
+        return f"{formatted_start} → {formatted_end} ({timezone_obj.zone})".strip()
+
+    def _format_published_time(
+        self,
+        published_iso: Optional[str],
+        timezone_obj: pytz.BaseTzInfo,
+    ) -> Optional[str]:
+        if not published_iso:
+            return None
+
+        try:
+            published_dt = datetime.fromisoformat(published_iso)
+        except ValueError:
+            logger.debug("Unable to parse published_at for Telegram digest: %s", published_iso)
+            return None
+
+        if published_dt.tzinfo is None:
+            published_dt = pytz.UTC.localize(published_dt)
+
+        localized = published_dt.astimezone(timezone_obj)
+        return localized.strftime("%H:%M")
+
+    def _prepare_summary(self, news: Dict[str, Any]) -> str:
+        raw_summary = news.get("summary") or news.get("content") or ""
+        summary = " ".join(raw_summary.split())
+        if len(summary) > 220:
+            summary = summary[:217].rstrip() + "…"
+        return self._escape_markdown(summary) if summary else ""
+
+    @staticmethod
+    def _resolve_digest_mode_label(user_prefs: Optional[UserPreferences]) -> str:
+        if not user_prefs:
+            return ""
+        mode = getattr(user_prefs, "telegram_digest_mode", None)
+        if mode == "tracked":
+            return "_Mode: tracked companies only_"
+        if mode == "all":
+            return "_Mode: all companies_"
+        return ""
+
     async def _format_digest_by_companies(
         self,
         news_items: List[NewsItem],
