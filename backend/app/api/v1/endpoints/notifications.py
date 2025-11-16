@@ -10,9 +10,13 @@ from loguru import logger
 import uuid
 
 from app.core.database import get_db
-from app.api.dependencies import get_current_user, get_current_user_optional
+from app.api.dependencies import (
+    get_current_user,
+    get_current_user_optional,
+    get_notifications_facade,
+)
 from app.models import User, Notification, NotificationSettings
-from app.services.notification_service import NotificationService
+from app.domains.notifications import NotificationsFacade
 
 router = APIRouter()
 
@@ -150,7 +154,7 @@ async def get_unread_notifications(
 async def mark_notification_as_read(
     notification_id: str,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    notifications: NotificationsFacade = Depends(get_notifications_facade),
 ):
     """
     Mark a notification as read
@@ -158,8 +162,7 @@ async def mark_notification_as_read(
     logger.info(f"Mark notification {notification_id} as read for user {current_user.id}")
     
     try:
-        notification_service = NotificationService(db)
-        success = await notification_service.mark_as_read(notification_id, str(current_user.id))
+        success = await notifications.mark_notification_as_read(notification_id, str(current_user.id))
         
         if not success:
             raise HTTPException(status_code=404, detail="Notification not found")
@@ -176,7 +179,7 @@ async def mark_notification_as_read(
 @router.put("/mark-all-read")
 async def mark_all_notifications_as_read(
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    notifications: NotificationsFacade = Depends(get_notifications_facade),
 ):
     """
     Mark all notifications as read for current user
@@ -184,8 +187,7 @@ async def mark_all_notifications_as_read(
     logger.info(f"Mark all notifications as read for user {current_user.id}")
     
     try:
-        notification_service = NotificationService(db)
-        count = await notification_service.mark_all_as_read(str(current_user.id))
+        count = await notifications.mark_all_notifications_as_read(str(current_user.id))
         
         return {
             "status": "success",

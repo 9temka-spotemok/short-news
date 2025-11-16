@@ -7,7 +7,7 @@ from datetime import datetime
 from sqlalchemy import String, Text, Float, DateTime, ForeignKey, Index, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID, TSVECTOR, ENUM
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from pydantic import Field, HttpUrl, validator
+from pydantic import Field, AnyUrl, validator
 import enum
 
 from .base import BaseModel, BaseSchema, BaseResponseSchema
@@ -75,6 +75,56 @@ class SourceType(str, enum.Enum):
         }
 
 
+class NewsTopic(str, enum.Enum):
+    """High-level NLP topic labels"""
+    PRODUCT = "product"
+    STRATEGY = "strategy"
+    FINANCE = "finance"
+    TECHNOLOGY = "technology"
+    SECURITY = "security"
+    RESEARCH = "research"
+    COMMUNITY = "community"
+    TALENT = "talent"
+    REGULATION = "regulation"
+    MARKET = "market"
+    OTHER = "other"
+
+    @classmethod
+    def get_descriptions(cls) -> Dict[str, str]:
+        """Get human-readable descriptions for topics"""
+        return {
+            cls.PRODUCT: "Product launches, feature updates and packaging changes",
+            cls.STRATEGY: "Company strategy, positioning and GTM initiatives",
+            cls.FINANCE: "Funding rounds, financial metrics and pricing moves",
+            cls.TECHNOLOGY: "Technology stack, architecture and engineering updates",
+            cls.SECURITY: "Security incidents, compliance and governance",
+            cls.RESEARCH: "Research milestones, benchmarks and publications",
+            cls.COMMUNITY: "Community programs, ecosystem and advocacy",
+            cls.TALENT: "Hiring, leadership and organisational updates",
+            cls.REGULATION: "Policy, regulations and governance news",
+            cls.MARKET: "Market trends, competitive moves and customer wins",
+            cls.OTHER: "Items that do not fit predefined topics",
+        }
+
+
+class SentimentLabel(str, enum.Enum):
+    """Sentiment labels for NLP analysis"""
+    POSITIVE = "positive"
+    NEUTRAL = "neutral"
+    NEGATIVE = "negative"
+    MIXED = "mixed"
+
+    @classmethod
+    def get_descriptions(cls) -> Dict[str, str]:
+        """Get human-readable descriptions for sentiment labels"""
+        return {
+            cls.POSITIVE: "Overall positive sentiment",
+            cls.NEUTRAL: "Neutral or informational sentiment",
+            cls.NEGATIVE: "Negative sentiment or risks",
+            cls.MIXED: "Mixed positive and negative signals",
+        }
+
+
 # Define PostgreSQL ENUMs that already exist in database
 source_type_enum = ENUM(
     'blog', 'twitter', 'github', 'reddit', 'news_site', 'press_release',
@@ -88,6 +138,19 @@ news_category_enum = ENUM(
     'partnership', 'acquisition', 'integration', 'security_update',
     'api_update', 'model_release', 'performance_improvement', 'feature_deprecation',
     name='newscategory',
+    create_type=False
+)
+
+news_topic_enum = ENUM(
+    'product', 'strategy', 'finance', 'technology', 'security', 'research',
+    'community', 'talent', 'regulation', 'market', 'other',
+    name='newstopic',
+    create_type=False
+)
+
+sentiment_enum = ENUM(
+    'positive', 'neutral', 'negative', 'mixed',
+    name='sentimentlabel',
     create_type=False
 )
 
@@ -130,10 +193,25 @@ class NewsItem(BaseModel):
         comment="News category classification"
     )
     priority_score: Mapped[float] = mapped_column(
-        Float, 
+        Float,
         default=0.5,
         nullable=False,
         comment="Priority score for news ranking (0.0-1.0)"
+    )
+    topic: Mapped[Optional[NewsTopic]] = mapped_column(
+        news_topic_enum,
+        nullable=True,
+        comment="High-level NLP topic label"
+    )
+    sentiment: Mapped[Optional[SentimentLabel]] = mapped_column(
+        sentiment_enum,
+        nullable=True,
+        comment="Sentiment label derived from NLP analysis"
+    )
+    raw_snapshot_url: Mapped[Optional[str]] = mapped_column(
+        String(1000),
+        nullable=True,
+        comment="Link to stored raw HTML snapshot of the source page"
     )
     published_at: Mapped[datetime] = mapped_column(
         DateTime, 
@@ -158,7 +236,12 @@ class NewsItem(BaseModel):
         cascade="all, delete-orphan"
     )
     activities: Mapped[List["UserActivity"]] = relationship(
-        "UserActivity", 
+        "UserActivity",
+        back_populates="news_item",
+        cascade="all, delete-orphan"
+    )
+    nlp_logs: Mapped[List["NewsNLPLog"]] = relationship(
+        "NewsNLPLog",
         back_populates="news_item",
         cascade="all, delete-orphan"
     )
@@ -212,12 +295,15 @@ class NewsBaseSchema(BaseSchema):
     title: str = Field(..., max_length=500, description="News item title")
     content: Optional[str] = Field(None, description="Full content of the news item")
     summary: Optional[str] = Field(None, description="AI-generated summary")
-    source_url: HttpUrl = Field(..., description="Original URL of the news item")
+    source_url: AnyUrl = Field(..., description="Original URL of the news item")
     source_type: SourceType = Field(..., description="Type of the news source")
     company_id: Optional[str] = Field(None, description="Associated company ID")
     category: Optional[NewsCategory] = Field(None, description="News category")
     priority_score: float = Field(0.5, ge=0.0, le=1.0, description="Priority score")
     published_at: datetime = Field(..., description="Publication date")
+    topic: Optional[NewsTopic] = Field(None, description="NLP topic classification")
+    sentiment: Optional[SentimentLabel] = Field(None, description="Sentiment label")
+    raw_snapshot_url: Optional[AnyUrl] = Field(None, description="Link to raw page snapshot for provenance")
     
     @validator('title')
     def validate_title(cls, v):
@@ -247,6 +333,9 @@ class NewsUpdateSchema(BaseSchema):
     summary: Optional[str] = Field(None, description="AI-generated summary")
     category: Optional[NewsCategory] = Field(None, description="News category")
     priority_score: Optional[float] = Field(None, ge=0.0, le=1.0, description="Priority score")
+    topic: Optional[NewsTopic] = Field(None, description="NLP topic classification")
+    sentiment: Optional[SentimentLabel] = Field(None, description="Sentiment label")
+    raw_snapshot_url: Optional[AnyUrl] = Field(None, description="Link to raw page snapshot for provenance")
 
 
 class NewsResponseSchema(BaseResponseSchema, NewsBaseSchema):

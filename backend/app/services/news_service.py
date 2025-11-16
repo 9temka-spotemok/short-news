@@ -3,16 +3,26 @@ Enhanced News service with improved architecture and error handling
 """
 
 from typing import List, Optional, Dict, Any, Tuple
-from datetime import datetime, timedelta
+from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, or_, desc, func, distinct, case
+from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from loguru import logger
 from uuid import UUID
 
+from app.domains.news.repositories import (
+    NewsRepository,
+    NewsFilters,
+    CompanyRepository,
+)
+from app.domains.news.services.ingestion_service import NewsIngestionService
 from app.models.news import (
-    NewsItem, NewsCategory, SourceType, 
-    NewsCreateSchema, NewsUpdateSchema, NewsSearchSchema, NewsStatsSchema
+    NewsItem,
+    NewsCategory,
+    SourceType,
+    NewsUpdateSchema,
+    NewsSearchSchema,
+    NewsStatsSchema,
 )
 from app.models.company import Company
 from app.core.exceptions import NewsServiceError, ValidationError, NotFoundError
@@ -20,11 +30,14 @@ from app.core.exceptions import NewsServiceError, ValidationError, NotFoundError
 
 class NewsService:
     """Enhanced service for managing news items with improved error handling"""
-    
+
     def __init__(self, db: AsyncSession):
         self.db = db
         self._cache: Dict[str, Any] = {}
-    
+        self._repo = NewsRepository(db)
+        self._company_repo = CompanyRepository(db)
+        self._ingestion = NewsIngestionService(db)
+
     async def create_news_item(self, news_data: Dict[str, Any]) -> NewsItem:
         """
         Create a new news item with enhanced validation and error handling
@@ -40,94 +53,16 @@ class NewsService:
             NewsServiceError: If creation fails
         """
         try:
-            # Validate input data
-            validated_data = await self._validate_news_data(news_data)
-            
-            # Check if news item already exists
-            existing = await self.get_news_by_url(validated_data['source_url'])
-            if existing:
-                logger.info(f"News item already exists: {validated_data['source_url']}")
-                return existing
-            
-            # Create news item
-            news_item = NewsItem(**validated_data)
-            self.db.add(news_item)
-            await self.db.flush()  # Flush to get the ID
-            
-            # Update search vector
-            await self._update_search_vector(news_item)
-            
-            await self.db.commit()
-            await self.db.refresh(news_item)
-            
+            news_item = await self._ingestion.create_news_item(news_data)
+            cache_key = f"news_url:{news_item.source_url}"
+            self._cache[cache_key] = news_item
             logger.info(f"Created news item: {news_item.title[:50]}...")
             return news_item
-            
-        except ValidationError:
+        except (ValidationError, NewsServiceError):
             raise
         except Exception as e:
             logger.error(f"Failed to create news item: {e}")
-            await self.db.rollback()
             raise NewsServiceError(f"Failed to create news item: {str(e)}")
-    
-    async def _validate_news_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Validate and normalize news data
-        
-        Args:
-            data: Raw news data
-            
-        Returns:
-            Validated and normalized data
-            
-        Raises:
-            ValidationError: If validation fails
-        """
-        try:
-            # Use Pydantic for validation
-            validated = NewsCreateSchema(**data)
-            result = validated.model_dump()
-            
-            # Coerce enums if provided as strings
-            if isinstance(result.get('source_type'), str):
-                try:
-                    result['source_type'] = SourceType(result['source_type'])
-                except ValueError:
-                    logger.warning(f"Unknown source_type '{result['source_type']}', defaulting to BLOG")
-                    result['source_type'] = SourceType.BLOG
-
-            if isinstance(result.get('category'), str):
-                try:
-                    result['category'] = NewsCategory(result['category'])
-                except ValueError:
-                    result.pop('category', None)
-
-            # Resolve company ID if company name is provided
-            if result.get('company_id') and isinstance(result['company_id'], str):
-                company = await self.get_company_by_name(result['company_id'])
-                if company:
-                    result['company_id'] = company.id
-                else:
-                    result['company_id'] = None
-            
-            return result
-            
-        except Exception as e:
-            raise ValidationError(f"Invalid news data: {str(e)}")
-    
-    async def _update_search_vector(self, news_item: NewsItem) -> None:
-        """
-        Update full-text search vector for news item
-        
-        Args:
-            news_item: News item to update
-        """
-        try:
-            # Create search vector from title and content
-            search_text = f"{news_item.title} {news_item.content or ''} {news_item.summary or ''}"
-            news_item.search_vector = func.to_tsvector('english', search_text)
-        except Exception as e:
-            logger.warning(f"Failed to update search vector: {e}")
     
     async def get_news_by_url(self, url: str) -> Optional[NewsItem]:
         """
@@ -145,12 +80,7 @@ class NewsService:
             if cache_key in self._cache:
                 return self._cache[cache_key]
             
-            result = await self.db.execute(
-                select(NewsItem)
-                .options(selectinload(NewsItem.company))
-                .where(NewsItem.source_url == url)
-            )
-            news_item = result.scalar_one_or_none()
+            news_item = await self._repo.fetch_by_url(url)
             
             # Cache result
             if news_item:
@@ -194,75 +124,21 @@ class NewsService:
             Tuple of (news items list, total count)
         """
         try:
-            # Build base query with eager loading
-            query = select(NewsItem).options(
-                selectinload(NewsItem.company),
-                selectinload(NewsItem.keywords)
+            repo_filters = NewsFilters(
+                category=category,
+                company_id=company_id,
+                company_ids=company_ids,
+                limit=limit,
+                offset=offset,
+                search_query=search_query,
+                source_type=source_type,
+                start_date=start_date,
+                end_date=end_date,
+                min_priority=min_priority,
             )
-            count_query = select(func.count(NewsItem.id))
-            
-            # Apply filters
-            filters = []
-            
-            if category:
-                # Convert enum to string value for database comparison
-                category_value = category.value if hasattr(category, 'value') else str(category)
-                filters.append(NewsItem.category == category_value)
-            
-            if company_ids:
-                filters.append(NewsItem.company_id.in_(company_ids))
-            elif company_id:
-                filters.append(NewsItem.company_id == company_id)
-            
-            if source_type:
-                # Convert enum to string value for database comparison
-                source_type_value = source_type.value if hasattr(source_type, 'value') else str(source_type)
-                filters.append(NewsItem.source_type == source_type_value)
-            
-            if start_date:
-                filters.append(NewsItem.published_at >= start_date)
-            
-            if end_date:
-                filters.append(NewsItem.published_at <= end_date)
-            
-            if min_priority is not None:
-                filters.append(NewsItem.priority_score >= min_priority)
-            
-            if search_query:
-                # Use full-text search if available, otherwise fallback to ILIKE
-                if hasattr(NewsItem, 'search_vector'):
-                    filters.append(NewsItem.search_vector.match(search_query))
-                else:
-                    like = f"%{search_query}%"
-                    filters.append(
-                        or_(
-                            NewsItem.title.ilike(like),
-                            NewsItem.content.ilike(like),
-                            NewsItem.summary.ilike(like)
-                        )
-                    )
-            
-            # Apply filters to both queries
-            if filters:
-                query = query.where(and_(*filters))
-                count_query = count_query.where(and_(*filters))
-            
-            # Get total count
-            count_result = await self.db.execute(count_query)
-            total_count = count_result.scalar()
-            
-            # Order by published date (newest first) and priority
-            query = query.order_by(
-                desc(NewsItem.published_at),
-                desc(NewsItem.priority_score)
-            )
-            
-            # Apply pagination
-            query = query.offset(offset).limit(limit)
-            
-            result = await self.db.execute(query)
-            news_items = result.scalars().all()
-            
+
+            news_items, total_count = await self._repo.list_news(repo_filters)
+
             logger.info(f"Retrieved {len(news_items)} news items (total: {total_count})")
             return news_items, total_count
             
@@ -341,60 +217,14 @@ class NewsService:
             NewsStatsSchema with statistics
         """
         try:
-            # Total count
-            total_count = await self.db.execute(select(func.count(NewsItem.id)))
-            total_count = total_count.scalar()
+            stats = await self._repo.aggregate_statistics()
             
-            # Category counts
-            category_counts = await self.db.execute(
-                select(
-                    NewsItem.category,
-                    func.count(NewsItem.id).label('count')
-                )
-                .group_by(NewsItem.category)
-            )
-            category_dict = {
-                str(row.category): row.count 
-                for row in category_counts 
-                if row.category
-            }
-            
-            # Source type counts
-            source_counts = await self.db.execute(
-                select(
-                    NewsItem.source_type,
-                    func.count(NewsItem.id).label('count')
-                )
-                .group_by(NewsItem.source_type)
-            )
-            source_dict = {
-                str(row.source_type): row.count 
-                for row in source_counts 
-                if row.source_type
-            }
-            
-            # Recent news count (last 24 hours)
-            recent_cutoff = datetime.utcnow() - timedelta(hours=24)
-            recent_count = await self.db.execute(
-                select(func.count(NewsItem.id))
-                .where(NewsItem.published_at >= recent_cutoff)
-            )
-            recent_count = recent_count.scalar()
-            
-            # High priority count
-            high_priority_count = await self.db.execute(
-                select(func.count(NewsItem.id))
-                .where(NewsItem.priority_score >= 0.8)
-            )
-            high_priority_count = high_priority_count.scalar()
-            
-            # Ensure all values are properly set
             return NewsStatsSchema(
-                total_count=total_count or 0,
-                category_counts=category_dict or {},
-                source_type_counts=source_dict or {},
-                recent_count=recent_count or 0,
-                high_priority_count=high_priority_count or 0
+                total_count=stats.total_count,
+                category_counts=stats.category_counts,
+                source_type_counts=stats.source_type_counts,
+                recent_count=stats.recent_count,
+                high_priority_count=stats.high_priority_count
             )
             
         except Exception as e:
@@ -412,73 +242,14 @@ class NewsService:
             NewsStatsSchema with statistics filtered by companies
         """
         try:
-            # Build base query with company filter
-            base_query = select(NewsItem).where(NewsItem.company_id.in_(company_ids))
+            stats = await self._repo.aggregate_statistics_for_companies(company_ids)
             
-            # Total count
-            total_count = await self.db.execute(
-                select(func.count(NewsItem.id)).where(NewsItem.company_id.in_(company_ids))
-            )
-            total_count = total_count.scalar()
-            
-            # Category counts
-            category_counts = await self.db.execute(
-                select(
-                    NewsItem.category,
-                    func.count(NewsItem.id).label('count')
-                )
-                .where(NewsItem.company_id.in_(company_ids))
-                .group_by(NewsItem.category)
-            )
-            category_dict = {
-                str(row.category): row.count 
-                for row in category_counts 
-                if row.category
-            }
-            
-            # Source type counts
-            source_counts = await self.db.execute(
-                select(
-                    NewsItem.source_type,
-                    func.count(NewsItem.id).label('count')
-                )
-                .where(NewsItem.company_id.in_(company_ids))
-                .group_by(NewsItem.source_type)
-            )
-            source_dict = {
-                str(row.source_type): row.count 
-                for row in source_counts 
-                if row.source_type
-            }
-            
-            # Recent news count (last 24 hours)
-            recent_cutoff = datetime.utcnow() - timedelta(hours=24)
-            recent_count = await self.db.execute(
-                select(func.count(NewsItem.id))
-                .where(
-                    NewsItem.company_id.in_(company_ids),
-                    NewsItem.published_at >= recent_cutoff
-                )
-            )
-            recent_count = recent_count.scalar()
-            
-            # High priority count
-            high_priority_count = await self.db.execute(
-                select(func.count(NewsItem.id))
-                .where(
-                    NewsItem.company_id.in_(company_ids),
-                    NewsItem.priority_score >= 0.8
-                )
-            )
-            high_priority_count = high_priority_count.scalar()
-            
-            # Ensure all values are properly set
             return NewsStatsSchema(
-                total_count=total_count or 0,
-                category_counts=category_dict or {},
-                source_type_counts=source_dict or {},
-                recent_count=recent_count or 0,
-                high_priority_count=high_priority_count or 0
+                total_count=stats.total_count,
+                category_counts=stats.category_counts,
+                source_type_counts=stats.source_type_counts,
+                recent_count=stats.recent_count,
+                high_priority_count=stats.high_priority_count
             )
             
         except Exception as e:
@@ -490,10 +261,7 @@ class NewsService:
         Get company by name
         """
         try:
-            result = await self.db.execute(
-                select(Company).where(Company.name.ilike(f'%{name}%'))
-            )
-            return result.scalar_one_or_none()
+            return await self._company_repo.fetch_by_name(name)
         except Exception as e:
             logger.error(f"Failed to get company by name: {e}")
             return None
@@ -508,19 +276,19 @@ class NewsService:
         Get total count of news items
         """
         try:
-            query = select(func.count(NewsItem.id))
-            
+            category_enum = None
             if category:
-                # Category is now a string, not enum
-                query = query.where(NewsItem.category == category)
-            
-            if company_ids:
-                query = query.where(NewsItem.company_id.in_(company_ids))
-            elif company_id:
-                query = query.where(NewsItem.company_id == company_id)
-            
-            result = await self.db.execute(query)
-            return result.scalar() or 0
+                try:
+                    category_enum = NewsCategory(category)
+                except ValueError:
+                    logger.warning(f"Unknown category '{category}' provided to get_news_count")
+
+            filters = NewsFilters(
+                category=category_enum,
+                company_id=company_id,
+                company_ids=company_ids,
+            )
+            return await self._repo.count_news(filters)
             
         except Exception as e:
             logger.error(f"Failed to get news count: {e}")
@@ -531,14 +299,7 @@ class NewsService:
         Get recent news items from the last N hours
         """
         try:
-            cutoff_time = datetime.now() - timedelta(hours=hours)
-            
-            query = select(NewsItem).where(
-                NewsItem.published_at >= cutoff_time
-            ).order_by(desc(NewsItem.published_at)).limit(limit)
-            
-            result = await self.db.execute(query)
-            return result.scalars().all()
+            return await self._repo.fetch_recent(hours=hours, limit=limit)
             
         except Exception as e:
             logger.error(f"Failed to get recent news: {e}")
@@ -549,23 +310,12 @@ class NewsService:
         Update news item
         """
         try:
-            news_item = await self.get_news_item_by_id(news_id)
-            if not news_item:
-                return None
-            
-            for key, value in update_data.items():
-                if hasattr(news_item, key):
-                    setattr(news_item, key, value)
-            
-            await self.db.commit()
-            await self.db.refresh(news_item)
-            
-            logger.info(f"Updated news item: {news_item.title[:50]}...")
+            news_item = await self._ingestion.update_news_item(news_id, update_data)
+            if news_item:
+                logger.info(f"Updated news item: {news_item.title[:50]}...")
             return news_item
-            
-        except Exception as e:
-            logger.error(f"Failed to update news item: {e}")
-            await self.db.rollback()
+        except NewsServiceError as e:
+            logger.error(str(e))
             return None
     
     async def delete_news_item(self, news_id: str) -> bool:
@@ -573,19 +323,12 @@ class NewsService:
         Delete news item
         """
         try:
-            news_item = await self.get_news_item_by_id(news_id)
-            if not news_item:
-                return False
-            
-            await self.db.delete(news_item)
-            await self.db.commit()
-            
-            logger.info(f"Deleted news item: {news_id}")
-            return True
-            
-        except Exception as e:
-            logger.error(f"Failed to delete news item: {e}")
-            await self.db.rollback()
+            success = await self._ingestion.delete_news_item(news_id)
+            if success:
+                logger.info(f"Deleted news item: {news_id}")
+            return success
+        except NewsServiceError as e:
+            logger.error(str(e))
             return False
     
     async def get_category_statistics(self, category: NewsCategory, company_ids: Optional[List[str]] = None) -> Dict[str, Any]:
@@ -600,57 +343,8 @@ class NewsService:
             Dictionary with category statistics
         """
         try:
-            # Build base query for top companies
-            query = select(
-                Company.name,
-                func.count(NewsItem.id).label('count')
-            ).select_from(NewsItem).join(Company, NewsItem.company_id == Company.id)
-            
-            # Apply filters
-            # Convert enum to string value for database comparison
-            category_value = category.value if hasattr(category, 'value') else str(category)
-            filters = [NewsItem.category == category_value]
-            if company_ids:
-                filters.append(NewsItem.company_id.in_(company_ids))
-            
-            # Get top 5 companies by news count in this category
-            top_companies_query = await self.db.execute(
-                query.where(and_(*filters))
-                .group_by(Company.name)
-                .order_by(desc(func.count(NewsItem.id)))
-                .limit(5)
-            )
-            top_companies = [
-                {"name": row.name, "count": row.count}
-                for row in top_companies_query
-            ]
-            
-            # Get source distribution for this category
-            source_query = select(
-                NewsItem.source_type,
-                func.count(NewsItem.id).label('count')
-            )
-            source_distribution_query = await self.db.execute(
-                source_query.where(and_(*filters))
-                .group_by(NewsItem.source_type)
-            )
-            source_distribution = {
-                str(row.source_type): row.count
-                for row in source_distribution_query
-            }
-            
-            # Get total count for this category
-            total_count = await self.db.execute(
-                select(func.count(NewsItem.id))
-                .where(and_(*filters))
-            )
-            total_in_category = total_count.scalar() or 0
-            
-            return {
-                "top_companies": top_companies,
-                "source_distribution": source_distribution,
-                "total_in_category": total_in_category
-            }
+            stats = await self._repo.category_statistics(category, company_ids)
+            return stats
             
         except Exception as e:
             logger.error(f"Failed to get category statistics: {e}")

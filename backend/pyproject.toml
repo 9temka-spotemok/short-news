@@ -3,7 +3,8 @@ name = "shot-news-backend"
 version = "0.1.0"
 description = "AI Competitor Insight Hub Backend API"
 authors = ["AI Competitor Insight Hub Team <team@shot-news.com>"]
-readme = "README.md"
+readme = "../README.md"
+package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.11"
@@ -17,6 +18,7 @@ celery = "^5.4.0"
 httpx = "^0.27.0"
 beautifulsoup4 = "^4.12.3"
 lxml = "^5.3.0"
+asgiref = "^3.8.1"
 playwright = "^1.47.0"
 tweepy = "^4.14.0"
 praw = "^7.7.1"
@@ -37,6 +39,11 @@ langdetect = "^1.0.9"
 nltk = "^3.9.1"
 tiktoken = "^0.8.0"
 nest-asyncio = "^1.6.0"
+aiosqlite = "^0.21.0"
+aiohttp = "^3.10.0"
+prometheus-client = "^0.23.1"
+opentelemetry-sdk = "^1.38.0"
+opentelemetry-exporter-prometheus = "^0.59b0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.0"

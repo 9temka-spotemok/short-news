@@ -3,7 +3,7 @@ Enhanced User models with improved typing and validation
 """
 
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import String, Boolean, DateTime, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from pydantic import EmailStr, Field, validator
@@ -82,7 +82,11 @@ class User(BaseModel):
         """Check if password reset token is still valid"""
         if not self.password_reset_token or not self.password_reset_expires:
             return False
-        return datetime.utcnow() < self.password_reset_expires
+        now = datetime.now(timezone.utc)
+        expires = self.password_reset_expires
+        if expires.tzinfo is None:
+            expires = expires.replace(tzinfo=timezone.utc)
+        return now < expires
     
     def __repr__(self) -> str:
         return f"<User(id={self.id}, email={self.email}, active={self.is_active})>"

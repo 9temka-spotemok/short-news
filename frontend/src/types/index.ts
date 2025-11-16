@@ -93,6 +93,298 @@ export type SourceType =
   | 'news_site'
   | 'press_release'
 
+export type NewsTopic =
+  | 'product'
+  | 'strategy'
+  | 'finance'
+  | 'technology'
+  | 'security'
+  | 'research'
+  | 'community'
+  | 'talent'
+  | 'regulation'
+  | 'market'
+  | 'other'
+
+export type SentimentLabel = 'positive' | 'neutral' | 'negative' | 'mixed'
+
+export type AnalyticsPeriod = 'daily' | 'weekly' | 'monthly'
+
+export type ImpactComponentType =
+  | 'news_signal'
+  | 'pricing_change'
+  | 'feature_release'
+  | 'funding_event'
+  | 'community_event'
+  | 'other'
+
+export type AnalyticsEntityType =
+  | 'company'
+  | 'news_item'
+  | 'change_event'
+  | 'pricing_snapshot'
+  | 'product'
+  | 'feature'
+  | 'team'
+  | 'metric'
+  | 'external'
+
+export type RelationshipType =
+  | 'causes'
+  | 'correlated_with'
+  | 'follows'
+  | 'amplifies'
+  | 'depends_on'
+
+export interface ImpactComponent {
+  id: string
+  component_type: ImpactComponentType
+  weight: number
+  score_contribution: number
+  metadata: Record<string, any>
+}
+
+export interface CompanyAnalyticsSnapshot {
+  id: string
+  company_id: string
+  period: AnalyticsPeriod
+  period_start: string
+  period_end: string
+  news_total: number
+  news_positive: number
+  news_negative: number
+  news_neutral: number
+  news_average_sentiment: number
+  news_average_priority: number
+  pricing_changes: number
+  feature_updates: number
+  funding_events: number
+  impact_score: number
+  innovation_velocity: number
+  trend_delta: number
+  metric_breakdown: Record<string, any>
+  components: ImpactComponent[]
+}
+
+export interface SnapshotSeries {
+  company_id: string
+  period: AnalyticsPeriod
+  snapshots: CompanyAnalyticsSnapshot[]
+}
+
+export interface KnowledgeGraphEdge {
+  id: string
+  company_id: string | null
+  source_entity_type: AnalyticsEntityType
+  source_entity_id: string
+  target_entity_type: AnalyticsEntityType
+  target_entity_id: string
+  relationship_type: RelationshipType
+  confidence: number
+  weight: number
+  metadata: Record<string, any>
+}
+
+export interface ReportPreset {
+  id: string
+  user_id: string
+  name: string
+  description: string | null
+  companies: string[]
+  filters: Record<string, any>
+  visualization_config: Record<string, any>
+  is_favorite: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface ComparisonFilters {
+  topics: string[]
+  sentiments: string[]
+  source_types: string[]
+  min_priority?: number | null
+}
+
+export interface ComparisonSubjectRequest {
+  subject_type: 'company' | 'preset'
+  reference_id: string
+  label?: string
+  color?: string
+}
+
+export interface ComparisonCompanySummary {
+  id: string
+  name: string
+  category?: string | null
+  logo_url?: string | null
+}
+
+export interface AggregatedImpactComponent {
+  component_type: string
+  score_contribution: number
+  weight: number
+}
+
+export interface CompanyAnalyticsSnapshotSummary {
+  period_start: string
+  impact_score: number
+  innovation_velocity: number
+  trend_delta?: number | null
+  news_total: number
+  news_positive: number
+  news_negative: number
+  news_neutral: number
+  pricing_changes: number
+  feature_updates: number
+  funding_events: number
+  components: AggregatedImpactComponent[]
+}
+
+export interface ComparisonSubjectSummary {
+  subject_key: string
+  subject_id: string
+  subject_type: 'company' | 'preset'
+  label: string
+  company_ids: string[]
+  preset_id?: string | null
+  color?: string | null
+  companies: ComparisonCompanySummary[]
+  filters: ComparisonFilters
+}
+
+export interface ComparisonSeriesPoint {
+  period_start: string
+  impact_score: number
+  innovation_velocity: number
+  trend_delta?: number | null
+  news_total: number
+  news_positive: number
+  news_negative: number
+  news_neutral: number
+  pricing_changes: number
+  feature_updates: number
+  funding_events: number
+}
+
+export interface ComparisonSeries {
+  subject_key: string
+  subject_id: string
+  snapshots: ComparisonSeriesPoint[]
+}
+
+export interface ComparisonMetricSummary {
+  subject_key: string
+  subject_id: string
+  news_volume: number
+  activity_score: number
+  avg_priority: number
+  impact_score: number
+  trend_delta: number
+  innovation_velocity: number
+  sentiment_distribution: Record<string, number>
+  category_distribution: Record<string, number>
+  topic_distribution: Record<string, number>
+  daily_activity: Record<string, number>
+  top_news: Array<{
+    id: string
+    title: string
+    category: string | null
+    topic: string | null
+    sentiment: string | null
+    source_type: string | null
+    published_at: string
+    source_url: string
+    priority_score: number
+  }>
+  impact_components: AggregatedImpactComponent[]
+  snapshot: CompanyAnalyticsSnapshotSummary | null
+}
+
+export interface ComparisonResponse {
+  generated_at: string
+  period: AnalyticsPeriod
+  lookback: number
+  date_from: string
+  date_to: string
+  subjects: ComparisonSubjectSummary[]
+  metrics: ComparisonMetricSummary[]
+  series: ComparisonSeries[]
+  change_log: Record<string, CompetitorChangeEvent[]>
+  knowledge_graph: Record<string, KnowledgeGraphEdge[]>
+}
+
+export interface ComparisonRequestPayload {
+  subjects: ComparisonSubjectRequest[]
+  period?: AnalyticsPeriod
+  lookback?: number
+  date_from?: string
+  date_to?: string
+  filters?: ComparisonFilters
+  include_series?: boolean
+  include_components?: boolean
+  include_change_log?: boolean
+  include_knowledge_graph?: boolean
+  change_log_limit?: number
+  knowledge_graph_limit?: number
+  top_news_limit?: number
+}
+
+export interface ExportIncludeOptions {
+  include_notifications: boolean
+  include_presets: boolean
+}
+
+export interface AnalyticsExportRequestPayload extends ComparisonRequestPayload {
+  export_format?: 'json' | 'pdf' | 'csv'
+  include?: ExportIncludeOptions
+}
+
+export interface NotificationSettingsSummary {
+  notification_frequency: string
+  digest_enabled: boolean
+  digest_frequency: string
+  digest_format: string
+  digest_custom_schedule: Record<string, any>
+  subscribed_companies: string[]
+  interested_categories: string[]
+  keywords: string[]
+  telegram_enabled: boolean
+  telegram_chat_id?: string | null
+  telegram_digest_mode: string
+  timezone?: string | null
+  week_start_day?: number | null
+}
+
+export interface AnalyticsExportResponse {
+  version: string
+  generated_at: string
+  export_format?: string | null
+  timeframe: {
+    period: AnalyticsPeriod
+    lookback: number
+    date_from: string
+    date_to: string
+  }
+  comparison: ComparisonResponse
+  notification_settings?: NotificationSettingsSummary | null
+  presets: ReportPreset[]
+}
+
+export interface AnalyticsChangeLogResponse {
+  events: CompetitorChangeEvent[]
+  next_cursor: string | null
+  total: number
+}
+
+export interface ReportPresetCreateRequest {
+  name: string
+  description?: string | null
+  companies?: string[]
+  filters?: Record<string, any>
+  visualization_config?: Record<string, any>
+  is_favorite?: boolean
+}
+
 export interface NewsCategoryInfo {
   value: NewsCategory
   description: string
@@ -120,6 +412,9 @@ export interface NewsItem {
   source_type: SourceType
   company_id: string | null
   category: NewsCategory | null
+  topic?: NewsTopic | null
+  sentiment?: SentimentLabel | null
+  raw_snapshot_url?: string | null
   priority_score: number
   priority_level: 'High' | 'Medium' | 'Low'
   published_at: string
@@ -325,6 +620,35 @@ export interface ComparisonMetrics {
   activity_score: Record<string, number>
   daily_activity?: Record<string, Record<string, number>>
   top_news?: Record<string, NewsItem[]>
+  topic_distribution?: Record<string, Record<string, number>>
+  sentiment_distribution?: Record<string, Record<string, number>>
+  avg_priority?: Record<string, number>
+}
+
+export type ChangeProcessingStatus = 'success' | 'skipped' | 'error'
+export type ChangeNotificationStatus = 'pending' | 'sent' | 'failed' | 'skipped'
+
+export interface CompetitorSnapshotReference {
+  id: string | null
+  parser_version: string | null
+  raw_snapshot_url: string | null
+  extraction_metadata: Record<string, any>
+  warnings: string[]
+  processing_status: ChangeProcessingStatus
+}
+
+export interface CompetitorChangeEvent {
+  id: string
+  company_id: string
+  source_type: SourceType
+  change_summary: string
+  changed_fields: Array<Record<string, any>>
+  raw_diff: Record<string, any>
+  detected_at: string
+  processing_status: ChangeProcessingStatus
+  notification_status: ChangeNotificationStatus
+  current_snapshot: CompetitorSnapshotReference | null
+  previous_snapshot: CompetitorSnapshotReference | null
 }
 
 export interface CompareRequest {
@@ -332,4 +656,111 @@ export interface CompareRequest {
   date_from?: string
   date_to?: string
   name?: string
+  topics?: NewsTopic[]
+  sentiments?: SentimentLabel[]
+  source_types?: SourceType[]
+  min_priority?: number
+}
+
+// Company scanning types
+export interface CompanyScanRequest {
+  website_url: string
+  news_page_url?: string
+  max_articles?: number  // Количество статей для сканирования (по умолчанию 10)
+  sources?: ScraperSourceOverride[]
+}
+
+export interface CompanyScanResult {
+  company_preview: {
+    name: string
+    website: string
+    description?: string
+    logo_url?: string
+    category?: string
+  }
+  news_preview: {
+    total_found: number
+    categories: Record<string, number>
+    source_types: Record<string, number>
+    sample_items: Array<{
+      title: string
+      source_url: string
+      source_type: string
+      category: string
+      topic?: string | null
+      sentiment?: string | null
+      raw_snapshot_url?: string | null
+      published_at: string
+    }>
+  }
+  all_news_items: Array<{
+    title: string
+    content?: string
+    summary?: string
+    source_url: string
+    source_type: string
+    category: string
+    topic?: string | null
+    sentiment?: string | null
+    raw_snapshot_url?: string | null
+    priority_score?: number
+    published_at: string
+  }>
+}
+
+export interface ScraperSourceOverride {
+  id?: string
+  url?: string
+  urls?: string[]
+  source_type?: string
+  timeout?: number
+  retry?: {
+    attempts?: number
+    backoff_factor?: number
+  }
+  rate_limit?: {
+    requests?: number
+    interval?: number
+  }
+  min_delay?: number
+  use_headless?: boolean
+  use_proxy?: boolean
+  max_articles?: number
+  selectors?: string[]
+}
+
+export interface CreateCompanyRequest {
+  company: {
+    name: string
+    website: string
+    description?: string
+    logo_url?: string
+    category?: string
+    twitter_handle?: string
+    github_org?: string
+  }
+  news_items: Array<{
+    title: string
+    content?: string
+    summary?: string
+    source_url: string
+    source_type: string
+    category: string
+    topic?: string | null
+    sentiment?: string | null
+    raw_snapshot_url?: string | null
+    priority_score?: number
+    published_at: string
+  }>
+}
+
+export interface CreateCompanyResponse {
+  status: string
+  action: 'created' | 'updated'
+  company: Company
+  news_stats: {
+    saved: number
+    skipped: number
+    total: number
+  }
 }

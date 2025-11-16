@@ -1,74 +1,52 @@
 """
-NLP processing tasks
+Celery tasks for NLP processing.
 """
 
-from celery import current_task
+from __future__ import annotations
+
 from loguru import logger
 
 from app.celery_app import celery_app
+from app.domains.news.tasks import (
+    classify_news as classify_news_async,
+    summarise_news as summarise_news_async,
+    extract_keywords as extract_keywords_async,
+    run_in_loop,
+)
 
 
-@celery_app.task(bind=True)
+@celery_app.task(bind=True, autoretry_for=(Exception,), retry_backoff=60, retry_kwargs={"max_retries": 3})
 def classify_news(self, news_id: str):
     """
-    Classify news item using AI
+    Classify news item (topic, sentiment, priority score).
     """
-    logger.info(f"Starting news classification for ID: {news_id}")
-    
-    try:
-        # TODO: Implement news classification
-        # 1. Fetch news item from database
-        # 2. Send to OpenAI API for classification
-        # 3. Parse response and update database
-        # 4. Log classification result
-        
-        logger.info(f"News classification completed for ID: {news_id}")
-        return {"status": "success", "news_id": news_id, "category": "product_update"}
-        
-    except Exception as e:
-        logger.error(f"News classification failed for ID {news_id}: {e}")
-        raise self.retry(exc=e, countdown=60, max_retries=3)
+    logger.info("Starting news classification for ID: %s", news_id)
+    result = run_in_loop(lambda: classify_news_async(news_id))
+    logger.info("News classification completed for ID: %s | %s", news_id, result)
+    return {"status": "success", **result}
 
 
-@celery_app.task(bind=True)
-def summarize_news(self, news_id: str):
+@celery_app.task(bind=True, autoretry_for=(Exception,), retry_backoff=60, retry_kwargs={"max_retries": 3})
+def summarize_news(self, news_id: str, force: bool = False):
     """
-    Generate summary for news item
+    Generate or refresh summary for news item.
     """
-    logger.info(f"Starting news summarization for ID: {news_id}")
-    
-    try:
-        # TODO: Implement news summarization
-        # 1. Fetch news item from database
-        # 2. Send to OpenAI API for summarization
-        # 3. Parse response and update database
-        # 4. Log summarization result
-        
-        logger.info(f"News summarization completed for ID: {news_id}")
-        return {"status": "success", "news_id": news_id, "summary": "Generated summary"}
-        
-    except Exception as e:
-        logger.error(f"News summarization failed for ID {news_id}: {e}")
-        raise self.retry(exc=e, countdown=60, max_retries=3)
+    logger.info("Starting news summarisation for ID: %s", news_id)
+    result = run_in_loop(lambda: summarise_news_async(news_id, force=force))
+    logger.info("News summarisation completed for ID: %s", news_id)
+    return {"status": "success", **result}
 
 
-@celery_app.task(bind=True)
-def extract_keywords(self, news_id: str):
+@celery_app.task(bind=True, autoretry_for=(Exception,), retry_backoff=60, retry_kwargs={"max_retries": 3})
+def extract_keywords(self, news_id: str, limit: int = 8):
     """
-    Extract keywords from news item
+    Extract keywords from news item content/title.
     """
-    logger.info(f"Starting keyword extraction for ID: {news_id}")
-    
-    try:
-        # TODO: Implement keyword extraction
-        # 1. Fetch news item from database
-        # 2. Process text for keyword extraction
-        # 3. Update database with keywords
-        # 4. Log extraction result
-        
-        logger.info(f"Keyword extraction completed for ID: {news_id}")
-        return {"status": "success", "news_id": news_id, "keywords": ["AI", "machine learning"]}
-        
-    except Exception as e:
-        logger.error(f"Keyword extraction failed for ID {news_id}: {e}")
-        raise self.retry(exc=e, countdown=60, max_retries=3)
+    logger.info("Starting keyword extraction for ID: %s", news_id)
+    result = run_in_loop(lambda: extract_keywords_async(news_id, limit=limit))
+    logger.info("Keyword extraction completed for ID: %s (%d keywords)", news_id, len(result.get("keywords", [])))
+    return {"status": "success", **result}
+"""
+NLP processing tasks
+"""
+

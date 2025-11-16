@@ -1,123 +1,254 @@
 import { useAuthStore } from '@/store/authStore'
 import type {
-    ApiResponse,
-    AuthResponse,
-    Company,
-    LoginRequest,
-    NewsCategoryInfo,
-    NewsFilter,
-    NewsItem,
-    NewsListResponse,
-    NewsSearchResponse,
-    NewsStats,
-    RefreshTokenRequest,
-    RefreshTokenResponse,
-    RegisterRequest,
-    SearchRequest,
-    SourceTypeInfo,
-    User
+  AnalyticsChangeLogResponse,
+  AnalyticsExportRequestPayload,
+  AnalyticsExportResponse,
+  AnalyticsPeriod,
+  ApiResponse,
+  AuthResponse,
+  ChangeProcessingStatus,
+  Company,
+  CompanyAnalyticsSnapshot,
+  CompanyScanRequest,
+  CompanyScanResult,
+  ComparisonFilters,
+  ComparisonRequestPayload,
+  ComparisonResponse,
+  CompetitorChangeEvent,
+  CreateCompanyRequest,
+  CreateCompanyResponse,
+  KnowledgeGraphEdge,
+  LoginRequest,
+  NewsCategoryInfo,
+  NewsFilter,
+  NewsItem,
+  NewsListResponse,
+  NewsSearchResponse,
+  NewsStats,
+  RefreshTokenRequest,
+  RefreshTokenResponse,
+  RegisterRequest,
+  ReportPreset,
+  ReportPresetCreateRequest,
+  SearchRequest,
+  SnapshotSeries,
+  SourceTypeInfo,
+  User
 } from '@/types'
-import axios, { AxiosError, AxiosResponse } from 'axios'
+import axios, { AxiosError, AxiosInstance, AxiosResponse } from 'axios'
+import JSZip from 'jszip'
 import toast from 'react-hot-toast'
 
-const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000'
+const normalizeUrl = (value?: string | null): string | null => {
+  if (typeof value !== 'string') {
+    return null
+  }
 
-// Create axios instance with enhanced configuration
+  const trimmed = value.trim()
+  if (!trimmed.length) {
+    return null
+  }
+
+  return trimmed.replace(/\/$/, '')
+}
+
+const resolveApiBaseUrl = (): string => {
+  const envUrl = normalizeUrl((import.meta as any).env?.VITE_API_URL)
+  if (envUrl) {
+    return envUrl
+  }
+
+  let runtimeUrl: string | null = null
+  if (typeof window !== 'undefined') {
+    runtimeUrl = normalizeUrl((window as any).__SHOT_NEWS_API_URL__)
+  }
+  if (runtimeUrl) {
+    console.warn(
+      '[shot-news] VITE_API_URL не задан. Используется window.__SHOT_NEWS_API_URL__. Задайте переменную окружения, чтобы избавиться от предупреждения.'
+    )
+    return runtimeUrl
+  }
+
+  const devFallback = normalizeUrl((import.meta as any).env?.VITE_DEV_API_URL)
+  if (devFallback) {
+    console.warn(
+      '[shot-news] VITE_API_URL не задан. Используется fallback из VITE_DEV_API_URL. Задайте основную переменную для фронтенда.'
+    )
+    return devFallback
+  }
+
+  if (typeof window !== 'undefined') {
+    const { hostname } = window.location
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      console.warn(
+        '[shot-news] VITE_API_URL не задан. Используется fallback http://localhost:8000. Установите переменную, чтобы исключить таймауты за пределами dev-сервера.'
+      )
+      return 'http://localhost:8000'
+    }
+  }
+
+  console.error(
+    '[shot-news] API base URL не сконфигурирован. Установите VITE_API_URL в frontend/.env или определите window.__SHOT_NEWS_API_URL__.'
+  )
+  return ''
+}
+
+const API_BASE_URL = resolveApiBaseUrl()
+const API_V1_BASE = API_BASE_URL ? `${API_BASE_URL}/api/v1` : '/api/v1'
+const API_V2_BASE = API_BASE_URL ? `${API_BASE_URL}/api/v2` : '/api/v2'
+
+const attachInterceptors = (instance: AxiosInstance) => {
+  instance.interceptors.request.use(
+    (config) => {
+      const { accessToken } = useAuthStore.getState()
+      if (accessToken) {
+        config.headers.Authorization = `Bearer ${accessToken}`
+      }
+
+      if ((import.meta as any).env?.DEV) {
+        // Для GET запросов показываем params, для POST/PUT/PATCH - data
+        const requestData = config.method?.toUpperCase() === 'GET' ? config.params : config.data
+        console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${config.url}`, requestData)
+      }
+
+      return config
+    },
+    (error) => {
+      console.error('Request interceptor error:', error)
+      return Promise.reject(error)
+    }
+  )
+
+  instance.interceptors.response.use(
+    (response: AxiosResponse) => {
+      if ((import.meta as any).env?.DEV) {
+        console.log(`✅ API Response: ${response.config.method?.toUpperCase()} ${response.config.url}`, response.data)
+      }
+      return response
+    },
+    async (error: AxiosError) => {
+      const { response, config, code } = error
+
+      // Handle timeout errors (ECONNABORTED) silently for polling endpoints
+      const isTimeoutError = code === 'ECONNABORTED'
+      const isPollingEndpoint = config?.url?.includes('/notifications/unread') || 
+                                config?.url?.includes('/news/')
+      
+      if (isTimeoutError && isPollingEndpoint) {
+        // Silently ignore timeout errors for polling endpoints
+        if ((import.meta as any).env?.DEV) {
+          console.warn(`⚠️ Request timeout (silent): ${config?.method?.toUpperCase()} ${config?.url}`)
+        }
+        return Promise.reject(error)
+      }
+
+      const requestUrl = config?.url ?? ''
+      const suppressNotFoundToast =
+        requestUrl.includes('/analytics/companies/') &&
+        (requestUrl.includes('/impact/latest') || requestUrl.includes('/snapshots'))
+      const isAnalytics404 = suppressNotFoundToast && response?.status === 404
+      const isAnalyticsGraph404 = requestUrl.includes('/analytics/graph') && response?.status === 404
+
+      if ((import.meta as any).env?.DEV) {
+        // Для 404 на аналитике не логируем - это ожидаемое поведение (аналитика может быть еще не построена)
+        if (!isAnalytics404 && !isAnalyticsGraph404) {
+          console.error(`❌ API Error: ${config?.method?.toUpperCase()} ${config?.url}`, error.response?.data)
+        }
+      }
+
+      // Handle timeout errors for non-polling endpoints
+      // Don't show toast for recompute/sync endpoints - they have their own error handling
+      const isRecomputeEndpoint = requestUrl.includes('/recompute') || requestUrl.includes('/graph/sync')
+      if (isTimeoutError && !isPollingEndpoint && !isRecomputeEndpoint) {
+        toast.error('Request timeout. Please check your connection and try again.')
+        return Promise.reject(error)
+      }
+      
+      // For recompute/sync endpoints, just reject without extra toast (already handled in component)
+      if (isTimeoutError && isRecomputeEndpoint) {
+        return Promise.reject(error)
+      }
+
+      switch (response?.status) {
+        case 401: {
+          const isLoginRequest = config?.url?.includes('/auth/login')
+          const isOnLoginPage = window.location.pathname === '/login'
+
+          if (isLoginRequest || isOnLoginPage) {
+            const errorData = response.data as ApiResponse<any>
+            toast.error(errorData?.message || 'Неверный email или пароль')
+          } else {
+            useAuthStore.getState().logout()
+            toast.error('Session expired. Please log in again.')
+            window.location.href = '/login'
+          }
+
+          break
+        }
+
+        case 403:
+          toast.error('Access denied. You don\'t have permission to perform this action.')
+          break
+
+        case 404:
+          if (!suppressNotFoundToast) {
+            toast.error('Resource not found.')
+          }
+          break
+
+        case 422: {
+          const validationError = response.data as ApiResponse<any>
+          toast.error(validationError.message || 'Validation failed. Please check your input.')
+          break
+        }
+
+        case 429:
+          toast.error('Too many requests. Please try again later.')
+          break
+
+        case 500:
+          toast.error('Server error. Please try again later.')
+          break
+
+        default: {
+          const errorData = response?.data as ApiResponse<any>
+          toast.error(errorData?.message || 'An unexpected error occurred.')
+        }
+      }
+
+      return Promise.reject(error)
+    }
+  )
+}
+
 export const api = axios.create({
-  baseURL: `${API_BASE_URL}/api/v1`,
+  baseURL: API_V1_BASE,
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 30000, // 30 seconds timeout
+  timeout: 30000,
 })
 
-// Request interceptor to add auth token and handle request logging
-api.interceptors.request.use(
-  (config) => {
-    const { accessToken } = useAuthStore.getState()
-    if (accessToken) {
-      config.headers.Authorization = `Bearer ${accessToken}`
-    }
-    
-    // Log requests in development
-    if ((import.meta as any).env?.DEV) {
-      console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${config.url}`, config.params)
-    }
-    
-    return config
+export const apiV2 = axios.create({
+  baseURL: API_V2_BASE,
+  headers: {
+    'Content-Type': 'application/json',
   },
-  (error) => {
-    console.error('Request interceptor error:', error)
-    return Promise.reject(error)
-  }
-)
+  timeout: 30000,
+})
 
-// Enhanced response interceptor with better error handling
-api.interceptors.response.use(
-  (response: AxiosResponse) => {
-    // Log responses in development
-    if ((import.meta as any).env?.DEV) {
-      console.log(`✅ API Response: ${response.config.method?.toUpperCase()} ${response.config.url}`, response.data)
-    }
-    return response
+// API для сканирования с увеличенным таймаутом (90 секунд)
+export const apiScan = axios.create({
+  baseURL: API_V1_BASE,
+  headers: {
+    'Content-Type': 'application/json',
   },
-  async (error: AxiosError) => {
-    const { response, config } = error
-    
-    // Log errors in development
-    if ((import.meta as any).env?.DEV) {
-      console.error(`❌ API Error: ${config?.method?.toUpperCase()} ${config?.url}`, error.response?.data)
-    }
-    
-    // Handle different error status codes
-    switch (response?.status) {
-      case 401:
-        // Check if this is a login request - don't redirect if we're already on login page
-        const isLoginRequest = config?.url?.includes('/auth/login')
-        const isOnLoginPage = window.location.pathname === '/login'
-        
-        if (isLoginRequest || isOnLoginPage) {
-          // This is a login error or we're already on login page - just show error
-          const errorData = response.data as ApiResponse<any>
-          toast.error(errorData?.message || 'Неверный email или пароль')
-        } else {
-          // Token expired or invalid - redirect to login
-          useAuthStore.getState().logout()
-          toast.error('Session expired. Please log in again.')
-          window.location.href = '/login'
-        }
-        break
-        
-      case 403:
-        toast.error('Access denied. You don\'t have permission to perform this action.')
-        break
-        
-      case 404:
-        toast.error('Resource not found.')
-        break
-        
-      case 422:
-        // Validation error
-        const validationError = response.data as ApiResponse<any>
-        toast.error(validationError.message || 'Validation failed. Please check your input.')
-        break
-        
-      case 429:
-        toast.error('Too many requests. Please try again later.')
-        break
-        
-      case 500:
-        toast.error('Server error. Please try again later.')
-        break
-        
-      default:
-        const errorData = response?.data as ApiResponse<any>
-        toast.error(errorData?.message || 'An unexpected error occurred.')
-    }
-    
-    return Promise.reject(error)
-  }
-)
+  timeout: 90000, // 90 секунд для сканирования
+})
+
+attachInterceptors(api)
+attachInterceptors(apiV2)
+attachInterceptors(apiScan)
 
 // Enhanced API service with typed methods
 export class ApiService {
@@ -251,7 +382,7 @@ export class ApiService {
   }
   
   static async updateUser(userData: Partial<User>): Promise<User> {
-    const response = await api.patch<User>('/users/me', userData)
+    const response = await api.put<User>('/users/me', userData)
     return response.data
   }
   
@@ -427,6 +558,10 @@ export class ApiService {
     date_from?: string
     date_to?: string
     name?: string
+    topics?: string[]
+    sentiments?: string[]
+    source_types?: string[]
+    min_priority?: number
   }): Promise<{
     companies: Company[]
     date_from: string
@@ -436,7 +571,16 @@ export class ApiService {
       category_distribution: Record<string, Record<string, number>>
       activity_score: Record<string, number>
       daily_activity?: Record<string, Record<string, number>>
-      top_news?: Record<string, any[]>
+      top_news?: Record<string, NewsItem[]>
+      topic_distribution?: Record<string, Record<string, number>>
+      sentiment_distribution?: Record<string, Record<string, number>>
+      avg_priority?: Record<string, number>
+    }
+    filters?: {
+      topics?: string[]
+      sentiments?: string[]
+      source_types?: string[]
+      min_priority?: number
     }
   }> {
     console.log('API Service - compareCompanies request:', request)
@@ -447,6 +591,47 @@ export class ApiService {
     const response = await api.post('/competitors/compare', request)
     return response.data
   }
+
+  static async getCompetitorChangeEvents(
+    companyId: string,
+    params: {
+      limit?: number
+      status?: ChangeProcessingStatus
+    } = {}
+  ): Promise<{
+    events: CompetitorChangeEvent[]
+    total: number
+  }> {
+    const response = await api.get(`/competitors/changes/${companyId}`, { params })
+    return response.data
+  }
+
+  static async recomputeCompetitorChangeEvent(eventId: string): Promise<CompetitorChangeEvent> {
+    const response = await api.post(`/competitors/changes/${eventId}/recompute`)
+    return response.data
+  }
+
+  // Company scanning endpoints
+  static async scanCompany(request: CompanyScanRequest): Promise<CompanyScanResult> {
+    const response = await apiScan.post<CompanyScanResult>('/companies/scan', request)
+    return response.data
+  }
+
+  static async createCompany(request: CreateCompanyRequest): Promise<CreateCompanyResponse> {
+    const response = await api.post<CreateCompanyResponse>('/companies/', request)
+    return response.data
+  }
+
+  // TODO: Add async scanning methods for large sites
+  // static async scanCompanyAsync(request: CompanyScanRequest): Promise<{ task_id: string }> {
+  //   const response = await api.post('/companies/scan/async', request)
+  //   return response.data
+  // }
+  //
+  // static async getScanStatus(taskId: string): Promise<ScanStatus> {
+  //   const response = await api.get(`/companies/scan/status/${taskId}`)
+  //   return response.data
+  // }
 
   // Health check
   static async healthCheck(): Promise<{
@@ -459,39 +644,180 @@ export class ApiService {
     return response.data
   }
 
+  // Analytics v2 endpoints
+  static async getAnalyticsSnapshots(
+    companyId: string,
+    period: AnalyticsPeriod = 'daily',
+    limit = 60
+  ): Promise<SnapshotSeries> {
+    const response = await apiV2.get<SnapshotSeries>(`/analytics/companies/${companyId}/snapshots`, {
+      params: { period, limit }
+    })
+    return response.data
+  }
+
+  static async getLatestAnalyticsSnapshot(
+    companyId: string,
+    period: AnalyticsPeriod = 'daily'
+  ): Promise<CompanyAnalyticsSnapshot> {
+    const response = await apiV2.get<CompanyAnalyticsSnapshot>(`/analytics/companies/${companyId}/impact/latest`, {
+      params: { period }
+    })
+    return response.data
+  }
+
+  static async triggerAnalyticsRecompute(
+    companyId: string,
+    period: AnalyticsPeriod = 'daily',
+    lookback = 30
+  ): Promise<{ status: string; task_id: string }> {
+    const response = await apiV2.post<{ status: string; task_id: string }>(
+      `/analytics/companies/${companyId}/recompute`,
+      null,
+      { 
+        params: { period, lookback },
+        timeout: 15000 // 15 секунд - увеличен для надежности (бэкенд проверяет Redis и может занять время)
+      }
+    )
+    
+    // Validate response data
+    if (!response.data || !response.data.task_id) {
+      throw new Error('Invalid response: task_id is missing')
+    }
+    
+    return response.data
+  }
+
+  static async triggerKnowledgeGraphSync(
+    companyId: string,
+    periodStartIso: string,
+    period: AnalyticsPeriod = 'daily'
+  ): Promise<{ status: string; task_id: string }> {
+    const response = await apiV2.post<{ status: string; task_id: string }>(
+      `/analytics/companies/${companyId}/graph/sync`,
+      null,
+      { 
+        params: { period_start: periodStartIso, period },
+        timeout: 15000 // 15 секунд - увеличен для надежности
+      }
+    )
+    
+    // Validate response data
+    if (!response.data || !response.data.task_id) {
+      throw new Error('Invalid response: task_id is missing')
+    }
+    
+    return response.data
+  }
+
+  static async getAnalyticsGraph(
+    companyId?: string,
+    relationship?: string,
+    limit = 100
+  ): Promise<KnowledgeGraphEdge[]> {
+    const params = new URLSearchParams()
+    if (companyId) params.append('company_id', companyId)
+    if (relationship) params.append('relationship', relationship)
+    if (limit) params.append('limit', limit.toString())
+
+    const response = await apiV2.get<KnowledgeGraphEdge[]>('/analytics/graph', { params })
+    return response.data
+  }
+
+  static async getAnalyticsChangeLog(params: {
+    companyId?: string
+    subjectKey?: string
+    period?: AnalyticsPeriod
+    cursor?: string | null
+    limit?: number
+    filters?: ComparisonFilters
+  }): Promise<AnalyticsChangeLogResponse> {
+    const queryParams: Record<string, any> = {}
+
+    if (params.companyId) {
+      queryParams.company_id = params.companyId
+    }
+    if (params.subjectKey) {
+      queryParams.subject_key = params.subjectKey
+    }
+    if (params.period) {
+      queryParams.period = params.period
+    }
+    if (params.cursor) {
+      queryParams.cursor = params.cursor
+    }
+    if (typeof params.limit === 'number') {
+      queryParams.limit = params.limit
+    }
+    if (params.filters) {
+      if (params.filters.topics?.length) {
+        queryParams.topics = params.filters.topics
+      }
+      if (params.filters.sentiments?.length) {
+        queryParams.sentiments = params.filters.sentiments
+      }
+      if (params.filters.source_types?.length) {
+        queryParams.source_types = params.filters.source_types
+      }
+      if (
+        params.filters.min_priority !== undefined &&
+        params.filters.min_priority !== null
+      ) {
+        queryParams.min_priority = params.filters.min_priority
+      }
+    }
+
+    const response = await apiV2.get<AnalyticsChangeLogResponse>('/analytics/change-log', {
+      params: queryParams
+    })
+    return response.data
+  }
+
+  static async listReportPresets(): Promise<ReportPreset[]> {
+    const response = await apiV2.get<ReportPreset[]>('/analytics/reports/presets')
+    return response.data
+  }
+
+  static async createReportPreset(payload: ReportPresetCreateRequest): Promise<ReportPreset> {
+    const response = await apiV2.post<ReportPreset>('/analytics/reports/presets', payload)
+    return response.data
+  }
+
+  static async getAnalyticsComparison(payload: ComparisonRequestPayload): Promise<ComparisonResponse> {
+    const response = await apiV2.post<ComparisonResponse>('/analytics/comparisons', payload)
+    return response.data
+  }
+
+  static async buildAnalyticsExport(payload: AnalyticsExportRequestPayload): Promise<AnalyticsExportResponse> {
+    const response = await apiV2.post<AnalyticsExportResponse>('/analytics/export', payload)
+    return response.data
+  }
+
   // Export methods
   static async exportAnalysis(
-    analysisData: any,
+    exportData: AnalyticsExportResponse,
     format: 'json' | 'pdf' | 'csv'
   ): Promise<void> {
     switch (format) {
       case 'json':
-        this.exportAsJson(analysisData)
+        this.exportAsJson(exportData)
         break
       case 'pdf':
-        await this.exportAsPdf(analysisData)
+        await this.exportAsPdf(exportData)
         break
       case 'csv':
-        this.exportAsCsv(analysisData)
+        await this.exportAsCsv(exportData)
         break
     }
   }
 
-  private static exportAsJson(data: any): void {
+  private static exportAsJson(data: AnalyticsExportResponse): void {
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `competitor-analysis-${new Date().toISOString().split('T')[0]}.json`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
+    this.triggerDownload(blob, `analytics-export-${this.today()}.json`, 'application/json')
   }
 
-  private static async exportAsPdf(data: any): Promise<void> {
-    // Для PDF используем простой HTML-to-PDF подход
-    const html = this.generatePdfHtml(data)
+  private static async exportAsPdf(data: AnalyticsExportResponse): Promise<void> {
+    const html = this.generateAnalyticsPdfHtml(data)
     const printWindow = window.open('', '_blank')
     if (printWindow) {
       printWindow.document.write(html)
@@ -502,30 +828,188 @@ export class ApiService {
     }
   }
 
-  private static exportAsCsv(data: any): void {
-    const csvContent = this.generateCsvContent(data)
-    const blob = new Blob([csvContent], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `competitor-analysis-${new Date().toISOString().split('T')[0]}.csv`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
+  private static async exportAsCsv(data: AnalyticsExportResponse): Promise<void> {
+    const csvFiles = this.generateCsvFiles(data)
+    const zip = new JSZip()
+
+    Object.entries(csvFiles).forEach(([filename, content]) => {
+      zip.file(filename, content)
+    })
+
+    const blob = await zip.generateAsync({ type: 'blob' })
+    this.triggerDownload(blob, `analytics-export-${this.today()}.zip`, 'application/zip')
   }
 
-  private static generatePdfHtml(data: any): string {
-    const companies = data.companies || []
-    const metrics = data.metrics || {}
-    const report = data.report || {}
-    const mainCompany = report.company || companies[0]
-    
+
+  private static generateAnalyticsPdfHtml(data: AnalyticsExportResponse): string {
+    const { comparison, notification_settings: notifications, presets, timeframe } = data
+    const subjects = comparison.subjects
+    const knowledgeBySubject = comparison.knowledge_graph || {}
+    const changeLogBySubject = comparison.change_log || {}
+
+    const subjectRows = subjects
+      .map(subject => {
+        const companies = subject.companies.map(company => company.name).join(', ')
+        return `
+          <tr>
+            <td>${subject.label}</td>
+            <td>${subject.subject_type}</td>
+            <td>${companies || '—'}</td>
+            <td>${subject.filters.topics.join(', ') || '—'}</td>
+            <td>${subject.filters.sentiments.join(', ') || '—'}</td>
+            <td>${subject.filters.source_types.join(', ') || '—'}</td>
+            <td>${subject.filters.min_priority ?? ''}</td>
+          </tr>
+        `
+      })
+      .join('')
+
+    const metricRows = comparison.metrics
+      .map(metric => {
+        const subject = subjects.find(item => item.subject_key === metric.subject_key)
+        const snapshot = metric.snapshot
+        const knowledgeCount = knowledgeBySubject[metric.subject_key]?.length || 0
+        const changeCount = changeLogBySubject[metric.subject_key]?.length || 0
+        return `
+          <tr>
+            <td>${subject?.label || metric.subject_key}</td>
+            <td>${metric.impact_score.toFixed(2)}</td>
+            <td>${metric.trend_delta.toFixed(2)}%</td>
+            <td>${metric.news_volume}</td>
+            <td>${metric.activity_score.toFixed(2)}</td>
+            <td>${metric.avg_priority.toFixed(2)}</td>
+            <td>${metric.innovation_velocity.toFixed(2)}</td>
+            <td>${snapshot?.news_positive ?? 0}/${snapshot?.news_negative ?? 0}/${snapshot?.news_neutral ?? 0}</td>
+            <td>${knowledgeCount}</td>
+            <td>${changeCount}</td>
+          </tr>
+        `
+      })
+      .join('')
+
+    const componentsSections = comparison.metrics
+      .map(metric => {
+        if (!metric.impact_components.length) return ''
+        const subject = subjects.find(item => item.subject_key === metric.subject_key)
+        const rows = metric.impact_components
+          .map(component => `
+            <tr>
+              <td>${component.component_type}</td>
+              <td>${component.score_contribution.toFixed(2)}</td>
+              <td>${component.weight.toFixed(2)}</td>
+            </tr>
+          `)
+          .join('')
+        return `
+          <div class="section">
+            <h3>${subject?.label || metric.subject_key}: Impact Components</h3>
+            <table>
+              <tr><th>Component</th><th>Score Contribution</th><th>Avg Weight</th></tr>
+              ${rows}
+            </table>
+          </div>
+        `
+      })
+      .join('')
+
+    const knowledgeSections = Object.entries(knowledgeBySubject)
+      .map(([subjectKey, edges]) => {
+        if (!edges.length) return ''
+        const subject = subjects.find(item => item.subject_key === subjectKey)
+        const rows = edges
+          .map(edge => `
+            <tr>
+              <td>${edge.relationship_type}</td>
+              <td>${edge.source_entity_type}</td>
+              <td>${edge.target_entity_type}</td>
+              <td>${(edge.confidence * 100).toFixed(0)}%</td>
+              <td>${edge.metadata?.category || '—'}</td>
+              <td>${edge.metadata?.change_detected_at ? new Date(edge.metadata.change_detected_at).toLocaleDateString() : '—'}</td>
+            </tr>
+          `)
+          .join('')
+        return `
+          <div class="section">
+            <h3>${subject?.label || subjectKey}: Knowledge Graph Highlights</h3>
+            <table>
+              <tr><th>Relationship</th><th>Source</th><th>Target</th><th>Confidence</th><th>Category</th><th>Detected</th></tr>
+              ${rows}
+            </table>
+          </div>
+        `
+      })
+      .join('')
+
+    const changeLogSections = Object.entries(changeLogBySubject)
+      .map(([subjectKey, events]) => {
+        if (!events.length) return ''
+        const subject = subjects.find(item => item.subject_key === subjectKey)
+        const rows = events
+          .map(event => `
+            <tr>
+              <td>${new Date(event.detected_at).toLocaleString()}</td>
+              <td>${event.source_type}</td>
+              <td>${event.change_summary}</td>
+              <td>${event.changed_fields?.map(field => field.type || 'field').join(', ') || '—'}</td>
+              <td>${event.processing_status}</td>
+            </tr>
+          `)
+          .join('')
+        return `
+          <div class="section">
+            <h3>${subject?.label || subjectKey}: Change Log</h3>
+            <table>
+              <tr><th>Detected At</th><th>Source</th><th>Summary</th><th>Changed Fields</th><th>Status</th></tr>
+              ${rows}
+            </table>
+          </div>
+        `
+      })
+      .join('')
+
+    const presetsSection = presets.length
+      ? `
+        <div class="section">
+          <h2>User Presets</h2>
+          <table>
+            <tr><th>Name</th><th>Description</th><th>Companies</th><th>Created</th><th>Updated</th></tr>
+            ${presets
+              .map(preset => `
+                <tr>
+                  <td>${preset.name}</td>
+                  <td>${preset.description || '—'}</td>
+                  <td>${(preset.companies || []).length}</td>
+                  <td>${new Date(preset.created_at).toLocaleDateString()}</td>
+                  <td>${new Date(preset.updated_at).toLocaleDateString()}</td>
+                </tr>
+              `)
+              .join('')}
+          </table>
+        </div>
+      `
+      : ''
+
+    const notificationsSection = notifications
+      ? `
+        <div class="section">
+          <h2>Notification Settings</h2>
+          <p><strong>Frequency:</strong> ${notifications.notification_frequency || '—'}</p>
+          <p><strong>Digest Enabled:</strong> ${notifications.digest_enabled ? 'Yes' : 'No'}</p>
+          <p><strong>Digest Frequency:</strong> ${notifications.digest_frequency || '—'}</p>
+          <p><strong>Digest Format:</strong> ${notifications.digest_format || '—'}</p>
+          <p><strong>Subscribed Companies:</strong> ${(notifications.subscribed_companies || []).length}</p>
+          <p><strong>Interested Categories:</strong> ${(notifications.interested_categories || []).join(', ') || '—'}</p>
+          <p><strong>Keywords:</strong> ${(notifications.keywords || []).join(', ') || '—'}</p>
+          <p><strong>Telegram Enabled:</strong> ${notifications.telegram_enabled ? 'Yes' : 'No'}</p>
+        </div>
+      `
+      : ''
+
     return `
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Competitor Analysis Report - ${mainCompany?.name || 'Unknown Company'}</title>
+        <title>Analytics Comparison Report</title>
         <style>
           body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; }
           h1 { color: #2563eb; border-bottom: 2px solid #2563eb; padding-bottom: 10px; }
@@ -534,213 +1018,338 @@ export class ApiService {
           table { width: 100%; border-collapse: collapse; margin: 15px 0; }
           th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
           th { background-color: #f3f4f6; font-weight: bold; }
-          .metric-card { display: inline-block; margin: 10px; padding: 15px; border: 1px solid #ddd; border-radius: 8px; background-color: #f9fafb; }
           .section { margin: 25px 0; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; }
           .highlight { background-color: #fef3c7; padding: 10px; border-radius: 5px; margin: 10px 0; }
         </style>
       </head>
       <body>
-        <h1>Competitor Analysis Report</h1>
+        <h1>Analytics Comparison Report</h1>
         <div class="highlight">
-          <p><strong>Company:</strong> ${mainCompany?.name || 'N/A'}</p>
-          <p><strong>Analysis Date:</strong> ${report.analysisDate ? new Date(report.analysisDate).toLocaleDateString() : 'N/A'}</p>
-          <p><strong>Date Range:</strong> ${data.date_from} to ${data.date_to}</p>
-          <p><strong>Analysis Mode:</strong> ${report.analysisMode || 'N/A'}</p>
+          <p><strong>Generated:</strong> ${new Date(data.generated_at).toLocaleString()}</p>
+          <p><strong>Timeframe:</strong> ${new Date(timeframe.date_from).toLocaleDateString()} — ${new Date(timeframe.date_to).toLocaleDateString()} (${timeframe.period})</p>
+          <p><strong>Subjects Compared:</strong> ${subjects.length}</p>
         </div>
         
         <div class="section">
-          <h2>Company Overview</h2>
+          <h2>Subjects</h2>
           <table>
-            <tr><th>Name</th><th>Category</th><th>Website</th><th>Description</th></tr>
+            <tr><th>Label</th><th>Type</th><th>Companies</th><th>Topics</th><th>Sentiments</th><th>Sources</th><th>Min Priority</th></tr>
+            ${subjectRows}
+          </table>
+        </div>
+        
+        <div class="section">
+          <h2>Metric Summary</h2>
+          <table>
             <tr>
-              <td>${mainCompany?.name || 'N/A'}</td>
-              <td>${mainCompany?.category || 'N/A'}</td>
-              <td>${mainCompany?.website || 'N/A'}</td>
-              <td>${mainCompany?.description || 'N/A'}</td>
+              <th>Subject</th>
+              <th>Impact Score</th>
+              <th>Trend Δ</th>
+              <th>News Volume</th>
+              <th>Activity Score</th>
+              <th>Avg Priority</th>
+              <th>Innovation Velocity</th>
+              <th>Positive/Negative/Neutral</th>
+              <th>Knowledge Links</th>
+              <th>Change Events</th>
             </tr>
+            ${metricRows}
           </table>
         </div>
         
-        <div class="section">
-          <h2>Business Intelligence</h2>
-          <p><strong>Total Activity:</strong> ${report.businessIntelligence?.totalActivity || 0}</p>
-          <p><strong>Activity Score:</strong> ${report.businessIntelligence?.activityScore?.toFixed(2) || '0.00'}/10</p>
-          <p><strong>Competitor Count:</strong> ${report.businessIntelligence?.competitorCount || 0}</p>
-          
-          <h3>Business Intelligence Metrics</h3>
-          <table>
-            <tr><th>Metric</th><th>Count</th></tr>
-            <tr><td>Funding News</td><td>${report.businessIntelligence?.metrics?.funding_news || 0}</td></tr>
-            <tr><td>Partnerships</td><td>${report.businessIntelligence?.metrics?.partnership || 0}</td></tr>
-            <tr><td>Acquisitions</td><td>${report.businessIntelligence?.metrics?.acquisition || 0}</td></tr>
-            <tr><td>Strategic Announcements</td><td>${report.businessIntelligence?.metrics?.strategic_announcement || 0}</td></tr>
-            <tr><td>Integrations</td><td>${report.businessIntelligence?.metrics?.integration || 0}</td></tr>
-          </table>
-          
-          <h3>Top Activity Categories</h3>
-          <table>
-            <tr><th>Category</th><th>Count</th></tr>
-            ${Object.entries(report.businessIntelligence?.metrics || {})
-              .filter(([key]) => !['funding_news', 'partnership', 'acquisition', 'strategic_announcement', 'integration'].includes(key))
-              .sort(([, a], [, b]) => Number(b) - Number(a))
-              .slice(0, 5)
-              .map(([cat, count]) => `<tr><td>${cat.replace(/_/g, ' ').replace(/\\b\\w/g, l => l.toUpperCase())}</td><td>${count}</td></tr>`)
-              .join('')}
-          </table>
-        </div>
+        ${componentsSections}
+        ${knowledgeSections}
+        ${changeLogSections}
+        ${notificationsSection}
+        ${presetsSection}
         
         <div class="section">
-          <h2>Innovation & Technology</h2>
-          <p><strong>Total News:</strong> ${report.innovationTechnology?.totalNews || 0}</p>
-          <p><strong>Technical Activity:</strong> ${report.innovationTechnology?.technicalActivity || 0}</p>
-          
-          <h3>Technology Metrics</h3>
-          <table>
-            <tr><th>Category</th><th>Count</th></tr>
-            <tr><td>Technical Updates</td><td>${report.innovationTechnology?.metrics?.technical_update || 0}</td></tr>
-            <tr><td>API Updates</td><td>${report.innovationTechnology?.metrics?.api_update || 0}</td></tr>
-            <tr><td>Research Papers</td><td>${report.innovationTechnology?.metrics?.research_paper || 0}</td></tr>
-            <tr><td>Model Releases</td><td>${report.innovationTechnology?.metrics?.model_release || 0}</td></tr>
-            <tr><td>Performance Improvements</td><td>${report.innovationTechnology?.metrics?.performance_improvement || 0}</td></tr>
-            <tr><td>Security Updates</td><td>${report.innovationTechnology?.metrics?.security_update || 0}</td></tr>
-          </table>
-        </div>
-        
-        <div class="section">
-          <h2>Team & Culture</h2>
-          <p><strong>Total News:</strong> ${report.teamCulture?.totalNews || 0}</p>
-          <p><strong>Activity Score:</strong> ${report.teamCulture?.activityScore?.toFixed(2) || '0.00'}/10</p>
-          <p><strong>Team Activity:</strong> ${report.teamCulture?.teamActivity || 0}</p>
-          
-          <h3>Team Metrics</h3>
-          <table>
-            <tr><th>Category</th><th>Count</th></tr>
-            <tr><td>Community Events</td><td>${report.teamCulture?.metrics?.community_event || 0}</td></tr>
-            <tr><td>Strategic Announcements</td><td>${report.teamCulture?.metrics?.strategic_announcement || 0}</td></tr>
-            <tr><td>Research Papers</td><td>${report.teamCulture?.metrics?.research_paper || 0}</td></tr>
-          </table>
-        </div>
-        
-        <div class="section">
-          <h2>Market Position</h2>
-          <p><strong>News Volume:</strong> ${report.marketPosition?.metrics?.news_volume || 0}</p>
-          <p><strong>Activity Score:</strong> ${report.marketPosition?.metrics?.activity_score?.toFixed(2) || '0.00'}/10</p>
-          <p><strong>Total Market News:</strong> ${report.marketPosition?.totalNews || 0}</p>
-          <p><strong>Competitors:</strong> ${report.marketPosition?.competitors?.length || 0}</p>
-          
-          <h3>Top Categories</h3>
-          <table>
-            <tr><th>Category</th><th>Count</th></tr>
-            ${Object.entries(report.marketPosition?.metrics?.category_distribution || {})
-              .sort(([, a], [, b]) => Number(b) - Number(a))
-              .map(([cat, count]) => `<tr><td>${cat.replace(/_/g, ' ').replace(/\\b\\w/g, l => l.toUpperCase())}</td><td>${count}</td></tr>`)
-              .join('')}
-          </table>
-        </div>
-        
-        <div class="section">
-          <h2>News Volume Comparison</h2>
-          <table>
-            <tr><th>Company</th><th>Total News</th><th>Activity Score</th><th>Avg Priority</th></tr>
-            ${companies.map((company: any) => {
-              const volume = metrics.news_volume?.[company.id] || 0
-              const activity = metrics.activity_score?.[company.id] || 0
-              const priority = metrics.avg_priority?.[company.id] || 0
-              return `<tr><td>${company.name}</td><td>${volume}</td><td>${activity.toFixed(2)}</td><td>${priority.toFixed(2)}</td></tr>`
-            }).join('')}
-          </table>
-        </div>
-        
-        <div class="section">
-          <h2>Detailed Category Distribution</h2>
-          ${companies.map((company: any) => {
-            const categories = metrics.category_distribution?.[company.id] || {}
-            const categoryRows = Object.entries(categories).map(([cat, count]) => 
-              `<tr><td>${cat.replace(/_/g, ' ').replace(/\\b\\w/g, l => l.toUpperCase())}</td><td>${count}</td></tr>`
-            ).join('')
-            return `
-              <h3>${company.name}</h3>
-              <table>
-                <tr><th>Category</th><th>Count</th></tr>
-                ${categoryRows}
-              </table>
-            `
-          }).join('')}
+          <p style="text-align: center; color: #9ca3af; font-size: 12px;">
+            Generated by Shot News Analytics Platform
+          </p>
         </div>
       </body>
       </html>
     `
   }
 
-  private static generateCsvContent(data: any): string {
-    const companies = data.companies || []
-    const metrics = data.metrics || {}
-    const report = data.report || {}
-    const mainCompany = report.company || companies[0]
-    
-    let csv = `Competitor Analysis Report - ${mainCompany?.name || 'Unknown Company'}\n`
-    csv += `Analysis Date,${report.analysisDate ? new Date(report.analysisDate).toLocaleDateString() : 'N/A'}\n`
-    csv += `Date Range,${data.date_from} to ${data.date_to}\n`
-    csv += `Analysis Mode,${report.analysisMode || 'N/A'}\n\n`
-    
-    // Company Overview
-    csv += `COMPANY OVERVIEW\n`
-    csv += `Name,Category,Website,Description\n`
-    csv += `"${mainCompany?.name || 'N/A'}","${mainCompany?.category || 'N/A'}","${mainCompany?.website || 'N/A'}","${mainCompany?.description || 'N/A'}"\n\n`
-    
-    // Business Intelligence
-    csv += `BUSINESS INTELLIGENCE\n`
-    csv += `Metric,Value\n`
-    csv += `Total Activity,${report.businessIntelligence?.totalActivity || 0}\n`
-    csv += `Activity Score,${report.businessIntelligence?.activityScore?.toFixed(2) || '0.00'}\n`
-    csv += `Competitor Count,${report.businessIntelligence?.competitorCount || 0}\n`
-    csv += `Funding News,${report.businessIntelligence?.metrics?.funding_news || 0}\n`
-    csv += `Partnerships,${report.businessIntelligence?.metrics?.partnership || 0}\n`
-    csv += `Acquisitions,${report.businessIntelligence?.metrics?.acquisition || 0}\n`
-    csv += `Strategic Announcements,${report.businessIntelligence?.metrics?.strategic_announcement || 0}\n`
-    csv += `Integrations,${report.businessIntelligence?.metrics?.integration || 0}\n\n`
-    
-    // Innovation & Technology
-    csv += `INNOVATION & TECHNOLOGY\n`
-    csv += `Metric,Value\n`
-    csv += `Total News,${report.innovationTechnology?.totalNews || 0}\n`
-    csv += `Technical Activity,${report.innovationTechnology?.technicalActivity || 0}\n`
-    csv += `Technical Updates,${report.innovationTechnology?.metrics?.technical_update || 0}\n`
-    csv += `API Updates,${report.innovationTechnology?.metrics?.api_update || 0}\n`
-    csv += `Research Papers,${report.innovationTechnology?.metrics?.research_paper || 0}\n`
-    csv += `Model Releases,${report.innovationTechnology?.metrics?.model_release || 0}\n`
-    csv += `Performance Improvements,${report.innovationTechnology?.metrics?.performance_improvement || 0}\n`
-    csv += `Security Updates,${report.innovationTechnology?.metrics?.security_update || 0}\n\n`
-    
-    // Team & Culture
-    csv += `TEAM & CULTURE\n`
-    csv += `Metric,Value\n`
-    csv += `Total News,${report.teamCulture?.totalNews || 0}\n`
-    csv += `Activity Score,${report.teamCulture?.activityScore?.toFixed(2) || '0.00'}\n`
-    csv += `Team Activity,${report.teamCulture?.teamActivity || 0}\n`
-    csv += `Community Events,${report.teamCulture?.metrics?.community_event || 0}\n`
-    csv += `Strategic Announcements,${report.teamCulture?.metrics?.strategic_announcement || 0}\n`
-    csv += `Research Papers,${report.teamCulture?.metrics?.research_paper || 0}\n\n`
-    
-    // Market Position
-    csv += `MARKET POSITION\n`
-    csv += `Metric,Value\n`
-    csv += `News Volume,${report.marketPosition?.metrics?.news_volume || 0}\n`
-    csv += `Activity Score,${report.marketPosition?.metrics?.activity_score?.toFixed(2) || '0.00'}\n`
-    csv += `Total Market News,${report.marketPosition?.totalNews || 0}\n`
-    csv += `Competitors,${report.marketPosition?.competitors?.length || 0}\n\n`
-    
-    // News Volume Comparison
-    csv += `NEWS VOLUME COMPARISON\n`
-    csv += `Company,Category,Total News,Activity Score,Avg Priority\n`
-    companies.forEach((company: any) => {
-      const volume = metrics.news_volume?.[company.id] || 0
-      const activity = metrics.activity_score?.[company.id] || 0
-      const priority = metrics.avg_priority?.[company.id] || 0
-      csv += `"${company.name}","${company.category}",${volume},${activity.toFixed(2)},${priority.toFixed(2)}\n`
+  private static generateCsvFiles(data: AnalyticsExportResponse): Record<string, string> {
+    const files: Record<string, string> = {}
+    const { comparison, notification_settings: notifications } = data
+
+    const subjectHeaders = [
+      'subject_key',
+      'label',
+      'subject_type',
+      'company_ids',
+      'preset_id',
+      'filters_topics',
+      'filters_sentiments',
+      'filters_source_types',
+      'filters_min_priority'
+    ]
+    const subjectRows = comparison.subjects.map(subject => [
+      subject.subject_key,
+      subject.label,
+      subject.subject_type,
+      subject.company_ids.join('|'),
+      subject.preset_id || '',
+      subject.filters.topics.join('|'),
+      subject.filters.sentiments.join('|'),
+      subject.filters.source_types.join('|'),
+      subject.filters.min_priority ?? ''
+    ])
+    files['subjects.csv'] = this.toCsv(subjectHeaders, subjectRows)
+
+    const metricHeaders = [
+      'subject_key',
+      'impact_score',
+      'trend_delta',
+      'news_volume',
+      'activity_score',
+      'avg_priority',
+      'innovation_velocity',
+      'news_positive',
+      'news_negative',
+      'news_neutral',
+      'knowledge_links',
+      'change_events'
+    ]
+    const knowledgeBySubject = comparison.knowledge_graph || {}
+    const changeLogBySubject = comparison.change_log || {}
+    const metricRows = comparison.metrics.map(metric => {
+      const snapshot = metric.snapshot
+      const knowledgeCount = knowledgeBySubject[metric.subject_key]?.length || 0
+      const changeCount = changeLogBySubject[metric.subject_key]?.length || 0
+      return [
+        metric.subject_key,
+        metric.impact_score.toFixed(2),
+        metric.trend_delta.toFixed(2),
+        metric.news_volume,
+        metric.activity_score.toFixed(2),
+        metric.avg_priority.toFixed(2),
+        metric.innovation_velocity.toFixed(2),
+        snapshot?.news_positive ?? 0,
+        snapshot?.news_negative ?? 0,
+        snapshot?.news_neutral ?? 0,
+        knowledgeCount,
+        changeCount
+      ]
     })
-    
-    return csv
+    files['metrics.csv'] = this.toCsv(metricHeaders, metricRows)
+
+    const componentHeaders = ['subject_key', 'component_type', 'score_contribution', 'weight']
+    const componentRows: Array<(string | number)>[] = []
+    comparison.metrics.forEach(metric => {
+      metric.impact_components.forEach(component => {
+        componentRows.push([
+          metric.subject_key,
+          component.component_type,
+          component.score_contribution.toFixed(2),
+          component.weight.toFixed(2)
+        ])
+      })
+    })
+    files['impact_components.csv'] = this.toCsv(componentHeaders, componentRows)
+
+    const seriesHeaders = [
+      'subject_key',
+      'period_start',
+      'impact_score',
+      'innovation_velocity',
+      'trend_delta',
+      'news_total',
+      'news_positive',
+      'news_negative',
+      'news_neutral',
+      'pricing_changes',
+      'feature_updates',
+      'funding_events'
+    ]
+    const seriesRows: Array<(string | number)>[] = []
+    comparison.series.forEach(series => {
+      series.snapshots.forEach(snapshot => {
+        seriesRows.push([
+          series.subject_key,
+          snapshot.period_start,
+          snapshot.impact_score.toFixed(2),
+          snapshot.innovation_velocity.toFixed(2),
+          snapshot.trend_delta?.toFixed(2) ?? '',
+          snapshot.news_total,
+          snapshot.news_positive,
+          snapshot.news_negative,
+          snapshot.news_neutral,
+          snapshot.pricing_changes,
+          snapshot.feature_updates,
+          snapshot.funding_events
+        ])
+      })
+    })
+    files['series.csv'] = this.toCsv(seriesHeaders, seriesRows)
+
+    const topNewsHeaders = [
+      'subject_key',
+      'news_id',
+      'title',
+      'category',
+      'topic',
+      'sentiment',
+      'source_type',
+      'priority_score',
+      'published_at',
+      'source_url'
+    ]
+    const topNewsRows: Array<(string | number)>[] = []
+    comparison.metrics.forEach(metric => {
+      metric.top_news.forEach(news => {
+        topNewsRows.push([
+          metric.subject_key,
+          news.id,
+          news.title,
+          news.category || '',
+          news.topic || '',
+          news.sentiment || '',
+          news.source_type || '',
+          news.priority_score.toFixed(2),
+          news.published_at,
+          news.source_url
+        ])
+      })
+    })
+    files['top_news.csv'] = this.toCsv(topNewsHeaders, topNewsRows)
+
+    const kgHeaders = [
+      'subject_key',
+      'edge_id',
+      'relationship_type',
+      'source_entity_type',
+      'target_entity_type',
+      'confidence',
+      'category',
+      'detected_at'
+    ]
+    const kgRows: Array<(string | number)>[] = []
+    Object.entries(knowledgeBySubject).forEach(([subjectKey, edges]) => {
+      edges.forEach(edge => {
+        kgRows.push([
+          subjectKey,
+          edge.id,
+          edge.relationship_type,
+          edge.source_entity_type,
+          edge.target_entity_type,
+          (edge.confidence * 100).toFixed(2),
+          edge.metadata?.category || '',
+          edge.metadata?.change_detected_at || ''
+        ])
+      })
+    })
+    files['knowledge_graph.csv'] = this.toCsv(kgHeaders, kgRows)
+
+    const changeHeaders = [
+      'subject_key',
+      'event_id',
+      'detected_at',
+      'source_type',
+      'processing_status',
+      'notification_status',
+      'change_summary'
+    ]
+    const changeRows: Array<(string | number)>[] = []
+    Object.entries(changeLogBySubject).forEach(([subjectKey, events]) => {
+      events.forEach(event => {
+        changeRows.push([
+          subjectKey,
+          event.id,
+          event.detected_at,
+          event.source_type,
+          event.processing_status,
+          event.notification_status,
+          event.change_summary
+        ])
+      })
+    })
+    files['change_log.csv'] = this.toCsv(changeHeaders, changeRows)
+
+    if (notifications) {
+      const notificationHeaders = [
+        'notification_frequency',
+        'digest_enabled',
+        'digest_frequency',
+        'digest_format',
+        'subscribed_companies',
+        'interested_categories',
+        'keywords',
+        'telegram_enabled',
+        'telegram_chat_id',
+        'telegram_digest_mode',
+        'timezone',
+        'week_start_day'
+      ]
+      const notificationRow = [[
+        notifications.notification_frequency,
+        notifications.digest_enabled ? 'true' : 'false',
+        notifications.digest_frequency,
+        notifications.digest_format,
+        notifications.subscribed_companies.join('|'),
+        notifications.interested_categories.join('|'),
+        notifications.keywords.join('|'),
+        notifications.telegram_enabled ? 'true' : 'false',
+        notifications.telegram_chat_id || '',
+        notifications.telegram_digest_mode,
+        notifications.timezone || '',
+        notifications.week_start_day ?? ''
+      ]]
+      files['notification_settings.csv'] = this.toCsv(notificationHeaders, notificationRow)
+    }
+
+    if (data.presets?.length) {
+      const presetHeaders = ['preset_id', 'name', 'description', 'companies', 'is_favorite', 'created_at', 'updated_at']
+      const presetRows = data.presets.map(preset => [
+        preset.id,
+        preset.name,
+        preset.description || '',
+        (preset.companies || []).join('|'),
+        preset.is_favorite ? 'true' : 'false',
+        preset.created_at,
+        preset.updated_at
+      ])
+      files['presets.csv'] = this.toCsv(presetHeaders, presetRows)
+    }
+
+    return files
+  }
+
+  private static toCsv(headers: (string | number)[], rows: Array<Array<string | number>>): string {
+    const headerRow = headers.map(this.escapeCsv).join(',')
+    const dataRows = rows.map(row => row.map(this.escapeCsv).join(','))
+    return [headerRow, ...dataRows].join('\n')
+  }
+
+  private static escapeCsv(value: string | number | undefined | null): string {
+    if (value === null || value === undefined) {
+      return ''
+    }
+    const stringValue = String(value)
+    if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+      return `"${stringValue.replace(/"/g, '""')}"`
+    }
+    return stringValue
+  }
+
+  private static triggerDownload(blob: Blob, filename: string, mime: string): void {
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = filename
+    link.type = mime
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
+
+  private static today(): string {
+    return new Date().toISOString().split('T')[0]
   }
 }
 

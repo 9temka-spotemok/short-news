@@ -4,13 +4,16 @@ Competitor analysis service
 
 from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Any, Optional
-from sqlalchemy.ext.asyncio import AsyncSession
+
 from sqlalchemy import select, and_, func, desc
+
+from sqlalchemy.ext.asyncio import AsyncSession
 from loguru import logger
 import uuid
 import math
 
-from app.models import NewsItem, Company, CompetitorComparison
+from app.models import NewsItem, Company, CompetitorComparison, NewsTopic, SentimentLabel, SourceType
+from app.domains.competitors.repositories import CompetitorRepository
 
 
 class CompetitorAnalysisService:
@@ -18,6 +21,7 @@ class CompetitorAnalysisService:
     
     def __init__(self, db: AsyncSession):
         self.db = db
+        self._competitor_repo = CompetitorRepository(db)
     
     async def compare_companies(
         self,
@@ -25,7 +29,8 @@ class CompetitorAnalysisService:
         date_from: datetime,
         date_to: datetime,
         user_id: Optional[str] = None,  # Пока не используется
-        comparison_name: Optional[str] = None  # Пока не используется
+        comparison_name: Optional[str] = None,  # Пока не используется
+        filters: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """
         Compare multiple companies
@@ -49,38 +54,32 @@ class CompetitorAnalysisService:
         metrics = {
             "news_volume": {},
             "category_distribution": {},
+            "topic_distribution": {},
+            "sentiment_distribution": {},
             "activity_score": {},
+            "avg_priority": {},
             "daily_activity": {},
             "top_news": {}
         }
         
         for company_id in company_ids:
             company_uuid = uuid.UUID(company_id)
-            
-            # News volume
-            metrics["news_volume"][company_id] = await self.get_news_volume(
-                company_uuid, date_from, date_to
+            company_metrics = await self.build_company_metrics(
+                company_uuid,
+                date_from,
+                date_to,
+                filters=filters,
+                top_news_limit=5,
             )
-            
-            # Category distribution
-            metrics["category_distribution"][company_id] = await self.get_category_distribution(
-                company_uuid, date_from, date_to
-            )
-            
-            # Activity score
-            metrics["activity_score"][company_id] = await self.get_activity_score(
-                company_uuid, date_from, date_to
-            )
-            
-            # Daily activity
-            metrics["daily_activity"][company_id] = await self.get_daily_activity(
-                company_uuid, date_from, date_to
-            )
-            
-            # Top news
-            metrics["top_news"][company_id] = await self.get_top_news(
-                company_uuid, date_from, date_to, limit=5
-            )
+
+            metrics["news_volume"][company_id] = company_metrics["news_volume"]
+            metrics["category_distribution"][company_id] = company_metrics["category_distribution"]
+            metrics["topic_distribution"][company_id] = company_metrics["topic_distribution"]
+            metrics["sentiment_distribution"][company_id] = company_metrics["sentiment_distribution"]
+            metrics["activity_score"][company_id] = company_metrics["activity_score"]
+            metrics["avg_priority"][company_id] = company_metrics["avg_priority"]
+            metrics["daily_activity"][company_id] = company_metrics["daily_activity"]
+            metrics["top_news"][company_id] = company_metrics["top_news"]
         
         comparison_data = {
             "companies": [
@@ -94,9 +93,17 @@ class CompetitorAnalysisService:
             ],
             "date_from": date_from.isoformat(),
             "date_to": date_to.isoformat(),
-            "metrics": metrics
+            "metrics": metrics,
         }
-        
+
+        if filters:
+            comparison_data["filters"] = {
+                "topics": [topic.value for topic in filters.get("topics", [])],
+                "sentiments": [sent.value for sent in filters.get("sentiments", [])],
+                "source_types": [stype.value for stype in filters.get("source_types", [])],
+                "min_priority": filters.get("min_priority"),
+            }
+
         # TODO: Временно убираем сохранение в БД для исправления ошибки 500
         # Позже добавим полную функциональность сохранения отчетов
         # if user_id:
@@ -106,22 +113,48 @@ class CompetitorAnalysisService:
         
         return comparison_data
     
+    def _build_conditions(
+        self,
+        company_id: uuid.UUID,
+        date_from: datetime,
+        date_to: datetime,
+        filters: Optional[Dict[str, Any]] = None,
+    ) -> List[Any]:
+        conditions = [
+            NewsItem.company_id == company_id,
+            NewsItem.published_at >= date_from,
+            NewsItem.published_at <= date_to,
+        ]
+
+        if filters:
+            topics = filters.get("topics") or []
+            sentiments = filters.get("sentiments") or []
+            source_types = filters.get("source_types") or []
+            min_priority = filters.get("min_priority")
+
+            if topics:
+                conditions.append(NewsItem.topic.in_(topics))
+            if sentiments:
+                conditions.append(NewsItem.sentiment.in_(sentiments))
+            if source_types:
+                conditions.append(NewsItem.source_type.in_(source_types))
+            if min_priority is not None:
+                conditions.append(NewsItem.priority_score >= float(min_priority))
+
+        return conditions
+
     async def get_news_volume(
         self,
         company_id: uuid.UUID,
         date_from: datetime,
-        date_to: datetime
+        date_to: datetime,
+        filters: Optional[Dict[str, Any]] = None
     ) -> int:
         """Get total news volume for a company"""
+        conditions = self._build_conditions(company_id, date_from, date_to, filters)
         result = await self.db.execute(
             select(func.count(NewsItem.id))
-            .where(
-                and_(
-                    NewsItem.company_id == company_id,
-                    NewsItem.published_at >= date_from,
-                    NewsItem.published_at <= date_to
-                )
-            )
+            .where(and_(*conditions))
         )
         return result.scalar() or 0
     
@@ -129,18 +162,14 @@ class CompetitorAnalysisService:
         self,
         company_id: uuid.UUID,
         date_from: datetime,
-        date_to: datetime
+        date_to: datetime,
+        filters: Optional[Dict[str, Any]] = None
     ) -> Dict[str, int]:
         """Get category distribution for a company"""
+        conditions = self._build_conditions(company_id, date_from, date_to, filters)
         result = await self.db.execute(
             select(NewsItem.category, func.count(NewsItem.id).label('count'))
-            .where(
-                and_(
-                    NewsItem.company_id == company_id,
-                    NewsItem.published_at >= date_from,
-                    NewsItem.published_at <= date_to
-                )
-            )
+            .where(and_(*conditions))
             .group_by(NewsItem.category)
         )
         
@@ -150,12 +179,55 @@ class CompetitorAnalysisService:
                 distribution[category] = count
         
         return distribution
+
+    async def get_topic_distribution(
+        self,
+        company_id: uuid.UUID,
+        date_from: datetime,
+        date_to: datetime,
+        filters: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, int]:
+        conditions = self._build_conditions(company_id, date_from, date_to, filters)
+        result = await self.db.execute(
+            select(NewsItem.topic, func.count(NewsItem.id).label('count'))
+            .where(and_(*conditions))
+            .group_by(NewsItem.topic)
+        )
+
+        distribution: Dict[str, int] = {}
+        for topic, count in result.all():
+            if topic:
+                topic_value = topic.value if hasattr(topic, "value") else str(topic)
+                distribution[topic_value] = count
+        return distribution
+
+    async def get_sentiment_distribution(
+        self,
+        company_id: uuid.UUID,
+        date_from: datetime,
+        date_to: datetime,
+        filters: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, int]:
+        conditions = self._build_conditions(company_id, date_from, date_to, filters)
+        result = await self.db.execute(
+            select(NewsItem.sentiment, func.count(NewsItem.id).label('count'))
+            .where(and_(*conditions))
+            .group_by(NewsItem.sentiment)
+        )
+
+        distribution: Dict[str, int] = {}
+        for sentiment, count in result.all():
+            if sentiment:
+                sentiment_value = sentiment.value if hasattr(sentiment, "value") else str(sentiment)
+                distribution[sentiment_value] = count
+        return distribution
     
     async def get_activity_score(
         self,
         company_id: uuid.UUID,
         date_from: datetime,
-        date_to: datetime
+        date_to: datetime,
+        filters: Optional[Dict[str, Any]] = None
     ) -> float:
         """
         Calculate activity score for a company
@@ -166,15 +238,10 @@ class CompetitorAnalysisService:
         - Recency of news
         """
         # Get news items
+        conditions = self._build_conditions(company_id, date_from, date_to, filters)
         result = await self.db.execute(
             select(NewsItem)
-            .where(
-                and_(
-                    NewsItem.company_id == company_id,
-                    NewsItem.published_at >= date_from,
-                    NewsItem.published_at <= date_to
-                )
-            )
+            .where(and_(*conditions))
         )
         news_items = result.scalars().all()
         
@@ -199,26 +266,36 @@ class CompetitorAnalysisService:
         total_score = volume_score + diversity_score + recency_score
         
         return round(total_score, 2)
+
+    async def get_average_priority(
+        self,
+        company_id: uuid.UUID,
+        date_from: datetime,
+        date_to: datetime,
+        filters: Optional[Dict[str, Any]] = None
+    ) -> float:
+        conditions = self._build_conditions(company_id, date_from, date_to, filters)
+        result = await self.db.execute(
+            select(func.avg(NewsItem.priority_score)).where(and_(*conditions))
+        )
+        avg_priority = result.scalar()
+        return float(avg_priority) if avg_priority is not None else 0.0
     
     async def get_daily_activity(
         self,
         company_id: uuid.UUID,
         date_from: datetime,
-        date_to: datetime
+        date_to: datetime,
+        filters: Optional[Dict[str, Any]] = None
     ) -> Dict[str, int]:
         """Get daily activity breakdown"""
+        conditions = self._build_conditions(company_id, date_from, date_to, filters)
         result = await self.db.execute(
             select(
                 func.date(NewsItem.published_at).label('date'),
                 func.count(NewsItem.id).label('count')
             )
-            .where(
-                and_(
-                    NewsItem.company_id == company_id,
-                    NewsItem.published_at >= date_from,
-                    NewsItem.published_at <= date_to
-                )
-            )
+            .where(and_(*conditions))
             .group_by(func.date(NewsItem.published_at))
             .order_by(func.date(NewsItem.published_at))
         )
@@ -234,18 +311,14 @@ class CompetitorAnalysisService:
         company_id: uuid.UUID,
         date_from: datetime,
         date_to: datetime,
-        limit: int = 5
+        limit: int = 5,
+        filters: Optional[Dict[str, Any]] = None
     ) -> List[Dict[str, Any]]:
         """Get top news items for a company"""
+        conditions = self._build_conditions(company_id, date_from, date_to, filters)
         result = await self.db.execute(
             select(NewsItem)
-            .where(
-                and_(
-                    NewsItem.company_id == company_id,
-                    NewsItem.published_at >= date_from,
-                    NewsItem.published_at <= date_to
-                )
-            )
+            .where(and_(*conditions))
             .order_by(desc(NewsItem.priority_score), desc(NewsItem.published_at))
             .limit(limit)
         )
@@ -256,13 +329,55 @@ class CompetitorAnalysisService:
             {
                 "id": str(item.id),
                 "title": item.title,
-                "category": item.category,
+                "category": item.category.value if hasattr(item.category, "value") else item.category,
+                "topic": item.topic.value if hasattr(item.topic, "value") else item.topic,
+                "sentiment": item.sentiment.value if hasattr(item.sentiment, "value") else item.sentiment,
+                "source_type": item.source_type.value if hasattr(item.source_type, "value") else item.source_type,
                 "published_at": item.published_at.isoformat(),
                 "source_url": item.source_url,
                 "priority_score": item.priority_score
             }
             for item in news_items
         ]
+    
+    async def build_company_metrics(
+        self,
+        company_id: uuid.UUID,
+        date_from: datetime,
+        date_to: datetime,
+        *,
+        filters: Optional[Dict[str, Any]] = None,
+        top_news_limit: int = 5,
+    ) -> Dict[str, Any]:
+        """
+        Build the complete metrics bundle for a single company within the requested window.
+        The method is shared across comparison endpoints to avoid duplicated aggregation logic.
+        """
+        news_volume = await self.get_news_volume(company_id, date_from, date_to, filters)
+        category_distribution = await self.get_category_distribution(company_id, date_from, date_to, filters)
+        topic_distribution = await self.get_topic_distribution(company_id, date_from, date_to, filters)
+        sentiment_distribution = await self.get_sentiment_distribution(company_id, date_from, date_to, filters)
+        activity_score = await self.get_activity_score(company_id, date_from, date_to, filters)
+        avg_priority = await self.get_average_priority(company_id, date_from, date_to, filters)
+        daily_activity = await self.get_daily_activity(company_id, date_from, date_to, filters)
+        top_news = await self.get_top_news(
+            company_id,
+            date_from,
+            date_to,
+            limit=top_news_limit,
+            filters=filters,
+        )
+
+        return {
+            "news_volume": news_volume,
+            "category_distribution": category_distribution,
+            "topic_distribution": topic_distribution,
+            "sentiment_distribution": sentiment_distribution,
+            "activity_score": activity_score,
+            "avg_priority": avg_priority,
+            "daily_activity": daily_activity,
+            "top_news": top_news,
+        }
     
     def _get_mock_companies(self, company_ids: List[str]) -> List[Company]:
         """Get mock company objects when DB is unavailable"""
@@ -306,28 +421,7 @@ class CompetitorAnalysisService:
     async def _get_companies(self, company_ids: List[str]) -> List[Company]:
         """Get company objects"""
         try:
-            uuids = []
-            for cid in company_ids:
-                try:
-                    uuids.append(uuid.UUID(cid))
-                except ValueError:
-                    logger.error(f"Invalid UUID format: {cid}")
-                    raise ValueError(f"Invalid company ID format: {cid}")
-            
-            result = await self.db.execute(
-                select(Company).where(Company.id.in_(uuids))
-            )
-            companies = list(result.scalars().all())
-            
-            # Check if all companies were found
-            found_ids = {str(c.id) for c in companies}
-            missing_ids = set(company_ids) - found_ids
-            
-            if missing_ids:
-                logger.warning(f"Companies not found: {missing_ids}")
-                # Continue with found companies instead of raising error
-            
-            return companies
+            return await self._competitor_repo.fetch_companies(company_ids)
         except Exception as e:
             logger.error(f"Error getting companies: {e}")
             raise
@@ -343,25 +437,17 @@ class CompetitorAnalysisService:
     ) -> CompetitorComparison:
         """Save comparison to database"""
         try:
-            comparison = CompetitorComparison(
-                id=uuid.uuid4(),
-                user_id=uuid.UUID(user_id),
-                company_ids=[uuid.UUID(cid) for cid in company_ids],
+            comparison = await self._competitor_repo.save_comparison(
+                user_id=user_id,
+                company_ids=company_ids,
                 date_from=date_from,
                 date_to=date_to,
-                name=name or f"Comparison {datetime.now(timezone.utc).strftime('%Y-%m-%d')}",
+                name=name,
                 metrics=metrics,
-                created_at=datetime.now(timezone.utc).replace(tzinfo=None),
-                updated_at=datetime.now(timezone.utc).replace(tzinfo=None)
             )
-            
-            self.db.add(comparison)
-            await self.db.commit()
-            await self.db.refresh(comparison)
-            
+
             logger.info(f"Comparison saved: {comparison.id}")
             return comparison
-            
         except Exception as e:
             logger.error(f"Error saving comparison: {e}")
             await self.db.rollback()
@@ -369,40 +455,11 @@ class CompetitorAnalysisService:
     
     async def get_user_comparisons(self, user_id: str, limit: int = 10) -> List[Dict[str, Any]]:
         """Get user's saved comparisons"""
-        result = await self.db.execute(
-            select(CompetitorComparison)
-            .where(CompetitorComparison.user_id == uuid.UUID(user_id))
-            .order_by(desc(CompetitorComparison.created_at))
-            .limit(limit)
-        )
-        
-        comparisons = result.scalars().all()
-        
-        return [
-            {
-                "id": str(c.id),
-                "name": c.name,
-                "company_ids": [str(cid) for cid in c.company_ids],
-                "date_from": c.date_from.isoformat(),
-                "date_to": c.date_to.isoformat(),
-                "created_at": c.created_at.isoformat()
-            }
-            for c in comparisons
-        ]
+        return await self._competitor_repo.list_user_comparisons(user_id, limit)
     
     async def get_comparison(self, comparison_id: str, user_id: str) -> Optional[Dict[str, Any]]:
         """Get specific comparison"""
-        result = await self.db.execute(
-            select(CompetitorComparison)
-            .where(
-                and_(
-                    CompetitorComparison.id == uuid.UUID(comparison_id),
-                    CompetitorComparison.user_id == uuid.UUID(user_id)
-                )
-            )
-        )
-        
-        comparison = result.scalar_one_or_none()
+        comparison = await self._competitor_repo.get_comparison(comparison_id, user_id)
         if not comparison:
             return None
         
@@ -429,24 +486,7 @@ class CompetitorAnalysisService:
     async def delete_comparison(self, comparison_id: str, user_id: str) -> bool:
         """Delete comparison"""
         try:
-            result = await self.db.execute(
-                select(CompetitorComparison)
-                .where(
-                    and_(
-                        CompetitorComparison.id == uuid.UUID(comparison_id),
-                        CompetitorComparison.user_id == uuid.UUID(user_id)
-                    )
-                )
-            )
-            
-            comparison = result.scalar_one_or_none()
-            if comparison:
-                await self.db.delete(comparison)
-                await self.db.commit()
-                return True
-            
-            return False
-            
+            return await self._competitor_repo.delete_comparison(comparison_id, user_id)
         except Exception as e:
             logger.error(f"Error deleting comparison: {e}")
             await self.db.rollback()

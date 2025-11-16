@@ -12,8 +12,9 @@ sys.path.append(str(Path(__file__).parent.parent))
 
 # Import the other scripts
 from scripts.import_competitors_from_csv import parse_csv_file, import_companies_to_db
-from scripts.scrape_all_companies import get_all_companies, save_news_items
-from app.scrapers.universal_scraper import UniversalBlogScraper
+from scripts.scrape_all_companies import get_all_companies, ingest_company_news
+from app.core.database import AsyncSessionLocal
+from app.domains.news import NewsFacade
 
 
 async def main():
@@ -53,43 +54,23 @@ async def main():
     print("-"*70)
     print(f"   This may take a few minutes...\n")
     
-    scraper = UniversalBlogScraper()
+    total_ingested = 0
+    async with AsyncSessionLocal() as db:
+        facade = NewsFacade(db)
+        for company in companies:
+            result = await ingest_company_news(facade, company, max_articles=5)
+            total_ingested += result["ingested"]
+
+    print(f"\n[SUCCESS] News ingestion completed: {total_ingested} items ingested")
     
-    try:
-        news_items = await scraper.scrape_multiple_companies(
-            companies,
-            max_articles_per_company=5
-        )
-        
-        print(f"\n[SUCCESS] Scraped {len(news_items)} total news items")
-        
-        # Step 4: Save news to database
-        if news_items:
-            print(f"\nSTEP 4: Saving news items to database...")
-            print("-"*70)
-            
-            save_result = await save_news_items(news_items)
-            
-            print(f"\n[SUCCESS] Save Results:")
-            print(f"   - Total scraped: {len(news_items)} news items")
-            print(f"   - Saved: {save_result['saved']} new items")
-            print(f"   - Skipped: {save_result['skipped']} duplicates")
-            print(f"   - Errors: {save_result['errors']} failed items")
-        else:
-            print(f"\n[WARNING] No news items were scraped")
-        
-        # Final summary
-        print("\n" + "="*70)
-        print("  [SUCCESS] IMPORT PROCESS COMPLETED SUCCESSFULLY!")
-        print("="*70)
-        print(f"\nSummary:")
-        print(f"   - Companies in database: {import_result['total']}")
-        print(f"   - News items scraped: {len(news_items)}")
-        print(f"   - News items saved: {save_result.get('saved', 0)}")
-        print("\n")
-        
-    finally:
-        await scraper.close()
+    # Final summary
+    print("\n" + "="*70)
+    print("  [SUCCESS] IMPORT PROCESS COMPLETED SUCCESSFULLY!")
+    print("="*70)
+    print(f"\nSummary:")
+    print(f"   - Companies in database: {import_result['total']}")
+    print(f"   - News items ingested: {total_ingested}")
+    print("\n")
 
 
 if __name__ == "__main__":

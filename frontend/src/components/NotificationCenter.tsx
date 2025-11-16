@@ -40,8 +40,11 @@ export default function NotificationCenter() {
         const extra = Math.max(0, prev - base)
         return base + extra
       })
-    } catch (error) {
-      console.error('Error fetching notifications:', error)
+    } catch (error: any) {
+      // Only log non-timeout errors to avoid console spam
+      if (error?.code !== 'ECONNABORTED') {
+        console.error('Error fetching notifications:', error)
+      }
     }
   }
 

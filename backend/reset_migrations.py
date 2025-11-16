@@ -66,10 +66,10 @@ async def reset_migrations():
                 conn.execute(text("""
                     DO $$ BEGIN
                         CREATE TYPE news_category AS ENUM (
-                            'PRODUCT_UPDATE', 'PRICING_CHANGE', 'STRATEGIC_ANNOUNCEMENT', 
-                            'TECHNICAL_UPDATE', 'FUNDING_NEWS', 'RESEARCH_PAPER', 'COMMUNITY_EVENT',
-                            'PARTNERSHIP', 'ACQUISITION', 'INTEGRATION', 'SECURITY_UPDATE',
-                            'API_UPDATE', 'MODEL_RELEASE', 'PERFORMANCE_IMPROVEMENT', 'FEATURE_DEPRECATION'
+                            'product_update', 'pricing_change', 'strategic_announcement', 
+                            'technical_update', 'funding_news', 'research_paper', 'community_event',
+                            'partnership', 'acquisition', 'integration', 'security_update',
+                            'api_update', 'model_release', 'performance_improvement', 'feature_deprecation'
                         );
                     EXCEPTION
                         WHEN duplicate_object THEN null;

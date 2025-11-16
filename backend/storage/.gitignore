@@ -1,0 +1,4 @@
+# Persisted scraper snapshots are generated at runtime.
+*
+!.gitignore
+

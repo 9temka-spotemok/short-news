@@ -3,19 +3,52 @@ Notification tasks
 """
 
 import asyncio
-from datetime import datetime, timedelta
+import threading
+from datetime import datetime, timedelta, timezone
+
 from celery import current_task
 from loguru import logger
-import nest_asyncio
-
-# Apply nest_asyncio to allow asyncio.run() in Celery
-nest_asyncio.apply()
+from sqlalchemy import and_, select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
 
 from app.celery_app import celery_app
-from app.core.database import AsyncSessionLocal
+from app.core.config import settings
+from app.domains.notifications import NotificationsFacade
 from app.models import NewsItem, Notification
-from app.services.notification_service import NotificationService
-from sqlalchemy import select, and_
+
+_ASYNC_EVENT_LOOP = None
+_ASYNC_LOCK = threading.Lock()
+
+_TASK_ENGINE = create_async_engine(
+    settings.DATABASE_URL,
+    echo=settings.DEBUG,
+    pool_pre_ping=True,
+    poolclass=NullPool,
+)
+_TaskSessionLocal = async_sessionmaker(
+    _TASK_ENGINE,
+    class_=AsyncSession,
+    expire_on_commit=False,
+)
+
+
+def _get_event_loop() -> asyncio.AbstractEventLoop:
+    global _ASYNC_EVENT_LOOP
+    if _ASYNC_EVENT_LOOP is None or _ASYNC_EVENT_LOOP.is_closed():
+        _ASYNC_EVENT_LOOP = asyncio.new_event_loop()
+    return _ASYNC_EVENT_LOOP
+
+
+def _run_async(fn, *args, **kwargs):
+    """Выполнить асинхронную корутину в выделенном event loop текущего процесса."""
+    coro = fn(*args, **kwargs)
+    with _ASYNC_LOCK:
+        loop = _get_event_loop()
+        asyncio.set_event_loop(loop)
+        result = loop.run_until_complete(coro)
+        loop.run_until_complete(loop.shutdown_asyncgens())
+        return result
 
 
 @celery_app.task(bind=True)
@@ -29,7 +62,7 @@ def process_new_news_notifications(self, news_id: str):
     logger.info(f"Processing notifications for news: {news_id}")
     
     try:
-        result = asyncio.run(_process_new_news_notifications_async(news_id))
+        result = _run_async(_process_new_news_notifications_async, news_id)
         logger.info(f"Processed notifications: {result['notifications_created']} created")
         return result
         
@@ -42,7 +75,10 @@ async def _process_new_news_notifications_async(news_id: str):
     """Async implementation of news notification processing"""
     import uuid
     
-    async with AsyncSessionLocal() as db:
+    async with _TaskSessionLocal() as db:
+        notifications_facade = NotificationsFacade(db)
+        notification_service = notifications_facade.notification_service
+
         # Get news item
         result = await db.execute(
             select(NewsItem).where(NewsItem.id == uuid.UUID(news_id))
@@ -53,13 +89,12 @@ async def _process_new_news_notifications_async(news_id: str):
             return {"status": "error", "message": "News item not found"}
         
         # Check triggers
-        notification_service = NotificationService(db)
-        notifications = await notification_service.check_new_news_triggers(news_item)
+        created_notifications = await notification_service.check_new_news_triggers(news_item)
         
         return {
             "status": "success",
             "news_id": news_id,
-            "notifications_created": len(notifications)
+            "notifications_created": len(created_notifications)
         }
 
 
@@ -71,7 +106,7 @@ def check_daily_trends(self):
     logger.info("Checking daily trends")
     
     try:
-        result = asyncio.run(_check_daily_trends_async())
+        result = _run_async(_check_daily_trends_async)
         logger.info(f"Daily trends checked: {result['notifications_created']} notifications")
         return result
         
@@ -82,8 +117,9 @@ def check_daily_trends(self):
 
 async def _check_daily_trends_async():
     """Async implementation of daily trends checking"""
-    async with AsyncSessionLocal() as db:
-        notification_service = NotificationService(db)
+    async with _TaskSessionLocal() as db:
+        notifications_facade = NotificationsFacade(db)
+        notification_service = notifications_facade.notification_service
         
         # Check category trends
         category_notifications = await notification_service.check_category_trends(hours=24, threshold=5)
@@ -102,7 +138,7 @@ def check_company_activity(self):
     logger.info("Checking company activity")
     
     try:
-        result = asyncio.run(_check_company_activity_async())
+        result = _run_async(_check_company_activity_async)
         logger.info(f"Company activity checked: {result['notifications_created']} notifications")
         return result
         
@@ -113,8 +149,9 @@ def check_company_activity(self):
 
 async def _check_company_activity_async():
     """Async implementation of company activity checking"""
-    async with AsyncSessionLocal() as db:
-        notification_service = NotificationService(db)
+    async with _TaskSessionLocal() as db:
+        notifications_facade = NotificationsFacade(db)
+        notification_service = notifications_facade.notification_service
         
         # Check for companies with 3+ news in last 24 hours
         activity_notifications = await notification_service.check_company_activity(hours=24)
@@ -133,7 +170,7 @@ def cleanup_old_notifications(self):
     logger.info("Starting notification cleanup")
     
     try:
-        result = asyncio.run(_cleanup_old_notifications_async())
+        result = _run_async(_cleanup_old_notifications_async)
         logger.info(f"Cleanup completed: {result['deleted_count']} notifications deleted")
         return result
         
@@ -144,8 +181,8 @@ def cleanup_old_notifications(self):
 
 async def _cleanup_old_notifications_async():
     """Async implementation of notification cleanup"""
-    async with AsyncSessionLocal() as db:
-        cutoff_date = datetime.utcnow() - timedelta(days=30)
+    async with _TaskSessionLocal() as db:
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=30)
         
         # Get old notifications
         result = await db.execute(
@@ -170,6 +207,53 @@ async def _cleanup_old_notifications_async():
             "status": "success",
             "deleted_count": deleted_count,
             "cutoff_date": cutoff_date.isoformat()
+        }
+
+
+@celery_app.task(bind=True)
+def dispatch_notification_deliveries(self):
+    """
+    Dispatch pending notification deliveries across channels.
+    """
+    logger.info("Dispatching pending notification deliveries")
+
+    try:
+        result = _run_async(_dispatch_notification_deliveries_async)
+        logger.info(
+            "Notification deliveries dispatched: %s sent, %s failed",
+            result["sent"],
+            result["failed"],
+        )
+        return result
+
+    except Exception as e:
+        logger.error(f"Failed to dispatch notification deliveries: {e}")
+        raise self.retry(exc=e, countdown=60, max_retries=3)
+
+
+async def _dispatch_notification_deliveries_async():
+    """Async implementation for dispatching notification deliveries."""
+    async with _TaskSessionLocal() as db:
+        notifications_facade = NotificationsFacade(db)
+        dispatcher = notifications_facade.dispatcher
+        executor = notifications_facade.delivery_executor
+
+        deliveries = await dispatcher.get_pending_deliveries(limit=25)
+        sent = 0
+        failed = 0
+
+        for delivery in deliveries:
+            success = await executor.process_delivery(delivery)
+            if success:
+                sent += 1
+            else:
+                failed += 1
+
+        return {
+            "status": "success",
+            "sent": sent,
+            "failed": failed,
+            "total": len(deliveries),
         }
 
 

@@ -14,6 +14,7 @@ import json
 from app.core.database import get_db
 from app.api.dependencies import get_current_user, get_current_user_optional
 from app.models import User, UserPreferences
+from app.models.user import UserUpdateSchema
 
 router = APIRouter()
 
@@ -76,29 +77,44 @@ async def get_current_user_profile(
 
 @router.put("/me")
 async def update_current_user(
-    full_name: str = None,
-    email: str = None,
+    user_update: UserUpdateSchema,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Update current user profile
     """
-    logger.info("Update current user profile request")
+    logger.info(f"Update current user profile request for user {current_user.id}")
     
-    # TODO: Implement update user profile
-    # 1. Extract user from JWT token
-    # 2. Validate input data
-    # 3. Update user profile in database
-    # 4. Return updated profile
-    
-    return {
-        "message": "Update user endpoint - TODO: Implement",
-        "user": {
-            "id": "dummy_id",
-            "email": email or "user@example.com",
-            "full_name": full_name or "Dummy User"
+    try:
+        # Update user fields if provided
+        if user_update.full_name is not None:
+            current_user.full_name = user_update.full_name
+            logger.info(f"Updating full_name for user {current_user.id}")
+        
+        if user_update.is_active is not None:
+            # Only allow users to update their own active status (or admin logic could go here)
+            current_user.is_active = user_update.is_active
+        
+        await db.commit()
+        await db.refresh(current_user)
+        
+        logger.info(f"Successfully updated user {current_user.id}")
+        
+        return {
+            "id": str(current_user.id),
+            "email": current_user.email,
+            "full_name": current_user.full_name,
+            "is_active": current_user.is_active,
+            "is_verified": current_user.is_verified,
+            "created_at": current_user.created_at.isoformat(),
+            "updated_at": current_user.updated_at.isoformat()
         }
-    }
+        
+    except Exception as e:
+        logger.error(f"Error updating user profile: {e}")
+        await db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to update user profile")
 
 
 @router.get("/preferences")

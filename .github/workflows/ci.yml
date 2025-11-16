@@ -1,0 +1,162 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: shotnews_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+    env:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/shotnews_test
+      TEST_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/shotnews_test
+      ENABLE_ANALYTICS_V2: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+      - name: Install Poetry
+        run: pip install poetry
+      - name: Install backend dependencies
+        working-directory: backend
+        run: poetry install
+      - name: Run database migrations
+        working-directory: backend
+        run: poetry run alembic upgrade head
+      - name: Guard against raw SQL in app
+        working-directory: backend
+        run: poetry run python scripts/check_no_raw_sql.py
+      - name: Verify OpenAPI snapshot
+        working-directory: backend
+        run: |
+          poetry run python scripts/generate_openapi.py
+          git diff --exit-code ../openapi.json || (echo "::error::OpenAPI snapshot is outdated. Regenerate and commit openapi.json." && exit 1)
+      - name: Backend tests
+        working-directory: backend
+        run: poetry run pytest
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Lint
+        working-directory: frontend
+        run: npm run lint
+      - name: Unit tests
+        working-directory: frontend
+        run: npm test -- --run
+
+  e2e:
+    needs:
+      - backend
+      - frontend
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: shotnews_e2e
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+    env:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/shotnews_e2e
+      TEST_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/shotnews_e2e
+      ENABLE_ANALYTICS_V2: "1"
+      E2E_API_URL: http://127.0.0.1:8000
+      E2E_BASE_URL: http://127.0.0.1:4173
+      E2E_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
+      E2E_USER_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install Poetry
+        run: pip install poetry
+      - name: Install backend dependencies
+        working-directory: backend
+        run: poetry install
+      - name: Run migrations
+        working-directory: backend
+        run: poetry run alembic upgrade head
+      - name: Start backend API
+        working-directory: backend
+        run: |
+          poetry run uvicorn main:app --host 0.0.0.0 --port 8000 &
+          echo "BACKEND_PID=$!" >> $GITHUB_ENV
+          sleep 8
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+      - name: Install Playwright browsers
+        working-directory: frontend
+        run: npx playwright install --with-deps
+      - name: Run Playwright tests
+        working-directory: frontend
+        run: npm run test:e2e
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/playwright-report
+      - name: Stop backend server
+        if: env.BACKEND_PID != ''
+        run: kill $BACKEND_PID || true
+

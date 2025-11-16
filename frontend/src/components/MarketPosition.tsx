@@ -1,6 +1,23 @@
 import { Award, BarChart3, Globe, Target, TrendingUp, Users } from 'lucide-react'
 import React from 'react'
 
+type SuggestedCompetitor = {
+  company?: {
+    id: string
+    name: string
+  }
+  similarity_score?: number
+  id?: string
+  name?: string
+  [key: string]: any
+}
+
+type NormalizedCompetitor = {
+  id: string
+  name: string
+  similarity_score: number
+}
+
 interface MarketPositionProps {
   company: {
     id: string
@@ -13,11 +30,7 @@ interface MarketPositionProps {
     activity_score: number
     category_distribution: Record<string, number>
   }
-  competitors: Array<{
-    id: string
-    name: string
-    similarity_score: number
-  }>
+  competitors: Array<SuggestedCompetitor | NormalizedCompetitor>
   totalNews: number
 }
 
@@ -27,10 +40,28 @@ export const MarketPosition: React.FC<MarketPositionProps> = ({
   competitors,
   totalNews
 }) => {
+  const normalizedCompetitors: NormalizedCompetitor[] = competitors.map((competitor, index) => {
+    if ('company' in competitor && competitor.company) {
+      return {
+        id: competitor.company.id ?? `suggestion-${index}`,
+        name: competitor.company.name ?? `Suggested competitor #${index + 1}`,
+        similarity_score: typeof competitor.similarity_score === 'number' ? competitor.similarity_score : 0
+      }
+    }
+
+    return {
+      id: competitor.id ?? `competitor-${index}`,
+      name: competitor.name ?? `Competitor #${index + 1}`,
+      similarity_score: typeof competitor.similarity_score === 'number' ? competitor.similarity_score : 0
+    }
+  })
+
   // Market position analysis
   const marketAnalysis = {
-    totalCompetitors: competitors.length,
-    avgSimilarity: competitors.length > 0 ? competitors.reduce((sum, c) => sum + c.similarity_score, 0) / competitors.length : 0,
+    totalCompetitors: normalizedCompetitors.length,
+    avgSimilarity: normalizedCompetitors.length > 0
+      ? normalizedCompetitors.reduce((sum, c) => sum + c.similarity_score, 0) / normalizedCompetitors.length
+      : 0,
     marketShare: totalNews > 0 ? (metrics.news_volume / totalNews) * 100 : 0,
     activityLevel: metrics.activity_score
   }
@@ -53,10 +84,11 @@ export const MarketPosition: React.FC<MarketPositionProps> = ({
   const PositionIcon = position.icon
 
   // Top categories by activity
-  const topCategories = Object.entries(metrics.category_distribution)
-    .sort(([,a], [,b]) => b - a)
+  const topCategoryEntries = Object.entries(metrics.category_distribution)
+    .sort(([, a], [, b]) => b - a)
     .slice(0, 5)
-    .map(([category, count]) => ({ category, count }))
+  const topCategories = topCategoryEntries.map(([category, count]) => ({ category, count }))
+  const maxCategoryCount = topCategories.reduce((max, item) => Math.max(max, item.count), 0)
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -142,20 +174,23 @@ export const MarketPosition: React.FC<MarketPositionProps> = ({
             Top Categories
           </h4>
           <div className="space-y-2">
-            {topCategories.map((item, index) => (
-              <div key={index} className="flex items-center justify-between text-sm">
-                <span className="text-gray-600 capitalize">{item.category.replace('_', ' ')}</span>
+            {topCategories.map((item, index) => {
+              const normalizedKey = item.category?.length ? item.category : `unknown-${index}`
+              return (
+                <div key={normalizedKey} className="flex items-center justify-between text-sm">
+                <span className="text-gray-600 capitalize">{item.category.replace(/_/g, ' ')}</span>
                 <div className="flex items-center space-x-2">
                   <div className="w-16 bg-gray-200 rounded-full h-2">
                     <div 
                       className="bg-blue-500 h-2 rounded-full"
-                      style={{ width: `${(item.count / Math.max(...topCategories.map(c => c.count))) * 100}%` }}
+                      style={{ width: `${maxCategoryCount ? (item.count / maxCategoryCount) * 100 : 0}%` }}
                     ></div>
                   </div>
                   <span className="font-medium text-gray-900 w-8 text-right">{item.count}</span>
                 </div>
-              </div>
-            ))}
+                </div>
+              )
+            })}
           </div>
         </div>
       </div>
@@ -166,9 +201,9 @@ export const MarketPosition: React.FC<MarketPositionProps> = ({
           <Users className="w-4 h-4 mr-2 text-gray-500" />
           Main Competitors
         </h4>
-        {competitors.length > 0 ? (
+        {normalizedCompetitors.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {competitors.slice(0, 6).map((competitor, index) => (
+            {normalizedCompetitors.slice(0, 6).map((competitor, index) => (
               <div key={competitor.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
                 <div className="flex items-center space-x-3">
                   <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">

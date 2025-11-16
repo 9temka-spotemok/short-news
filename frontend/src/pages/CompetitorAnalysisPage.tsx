@@ -1,17 +1,37 @@
-import { ArrowLeft, ArrowRight, BarChart3, Building2, Download, Users } from 'lucide-react'
-import { useEffect, useState } from 'react'
-import BrandPreview from '../components/BrandPreview'
-import { BusinessIntelligence } from '../components/BusinessIntelligence'
-import CompanySelector from '../components/CompanySelector'
-import CompetitorSuggestions from '../components/CompetitorSuggestions'
-import { ExportMenu } from '../components/ExportMenu'
-import { InnovationMetrics } from '../components/InnovationMetrics'
-import { MarketPosition } from '../components/MarketPosition'
+import { useQueryClient } from '@tanstack/react-query'
+import { ArrowLeft, BarChart3 } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import toast from 'react-hot-toast'
 import ProgressSteps from '../components/ProgressSteps'
-import { TeamInsights } from '../components/TeamInsights'
-import ThemeAnalysis from '../components/ThemeAnalysis'
+import {
+    AnalysisModeSelection,
+    AnalysisResultsStep,
+    AnalyticsTabs,
+    CompanyAnalysisFlow,
+    companyAnalyticsInsightsQueryKey,
+    CompanySelectionStep,
+    CompetitorSuggestionStep,
+    fetchCompanyAnalyticsInsights,
+    ImpactPanel,
+    PresetManager,
+    useAnalysisFlow,
+    useAnalyticsExportHandler,
+    useChangeEventsQuery,
+    useCompanyAnalyticsInsights,
+    useComparisonManager,
+    useExportAnalyticsMutation,
+    useFiltersState,
+    usePrefetchAnalytics,
+    useRecomputeChangeEventMutation,
+    useReportPresetActions,
+    useReportPresetsQuery
+} from '../features/competitor-analysis'
 import { ApiService } from '../services/api'
-import { Company } from '../types'
+import {
+    CompanyAnalyticsSnapshot,
+    ComparisonSubjectRequest,
+    ReportPreset
+} from '../types'
 
 type AnalysisMode = 'company' | 'custom'
 type Step = 'select' | 'suggest' | 'analyze'
@@ -19,366 +39,448 @@ type Step = 'select' | 'suggest' | 'analyze'
 export default function CompetitorAnalysisPage() {
   const [analysisMode, setAnalysisMode] = useState<AnalysisMode | null>(null)
   const [step, setStep] = useState<Step>('select')
-  const [selectedCompany, setSelectedCompany] = useState<Company | null>(null)
-  const [suggestedCompetitors, setSuggestedCompetitors] = useState<any[]>([])
-  const [selectedCompetitors, setSelectedCompetitors] = useState<string[]>([])
-  const [manuallyAddedCompetitors, setManuallyAddedCompetitors] = useState<Company[]>([])
-  const [analysisData, setAnalysisData] = useState<any>(null)
-  const [themesData, setThemesData] = useState<any>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [recomputingEventId, setRecomputingEventId] = useState<string | null>(null)
+  const [metricsTab, setMetricsTab] = useState<'persistent' | 'signals'>('persistent')
+  const [focusedImpactPoint, setFocusedImpactPoint] = useState<CompanyAnalyticsSnapshot | null>(null)
+  const [pendingPresetId, setPendingPresetId] = useState('')
+  const [pendingTaskId, setPendingTaskId] = useState<string | null>(null)
+
+  const {
+    sourceTypeFilters,
+    topicFilters,
+    sentimentFilters,
+    minPriorityFilter,
+    hasActiveFilters,
+    toggleSourceType,
+    toggleTopic: toggleTopicFilter,
+    toggleSentiment: toggleSentimentFilter,
+    updateMinPriority: updateMinPriorityFilter,
+    clearFilters,
+    setFilters,
+    applyFiltersToPayload: applyFiltersToPayloadWithState
+  } = useFiltersState()
+
+  const queryClient = useQueryClient()
+
+  const {
+    comparisonData,
+    comparisonLoading,
+    comparisonError,
+    comparisonSubjects,
+    comparisonPeriod,
+    comparisonLookback,
+    analysisRange,
+    abSelection,
+    setAnalysisRange: setComparisonRange,
+    resetComparison,
+    fetchComparisonData,
+    handleComparisonPeriodChange,
+    handleComparisonLookbackChange,
+    handleAbSelectionChange
+  } = useComparisonManager({
+    applyFiltersToPayload: applyFiltersToPayloadWithState
+  })
+
+  const {
+    data: reportPresetsData,
+    isLoading: reportPresetsInitialLoading,
+    isFetching: reportPresetsFetching,
+    isError: isReportPresetsError,
+    error: reportPresetsError,
+    refetch: refetchReportPresets
+  } = useReportPresetsQuery()
+
+  const reportPresets = reportPresetsData ?? []
+  const presetsLoading = reportPresetsInitialLoading || reportPresetsFetching
+  const presetsError =
+    isReportPresetsError && reportPresetsError
+      ? reportPresetsError instanceof Error
+        ? reportPresetsError.message
+        : 'Failed to load report presets'
+      : null
+
+  const filtersStateForAnalysis = useMemo(
+    () => ({
+      sourceTypes: sourceTypeFilters,
+      topics: topicFilters,
+      sentiments: sentimentFilters,
+      minPriority: minPriorityFilter
+    }),
+    [minPriorityFilter, sentimentFilters, sourceTypeFilters, topicFilters]
+  )
+
+  const handleAnalysisComplete = useCallback(
+    async (companyId: string | null) => {
+      if (companyId) {
+        setFocusedImpactPoint(null)
+        await queryClient.fetchQuery({
+          queryKey: companyAnalyticsInsightsQueryKey(companyId),
+          queryFn: () => fetchCompanyAnalyticsInsights(companyId),
+          staleTime: 60 * 1000
+        })
+      }
+      await refetchReportPresets()
+    },
+    [queryClient, refetchReportPresets]
+  )
+
+  const {
+    selectedCompany,
+    setSelectedCompany,
+    selectedCompetitors,
+    setSelectedCompetitors,
+    manuallyAddedCompetitors,
+    setManuallyAddedCompetitors,
+    suggestedCompetitors,
+    setSuggestedCompetitors,
+    analysisData,
+    themesData,
+    loading,
+    error,
+    toggleCompetitor,
+    addManualCompetitor,
+    loadCompetitorSuggestions,
+    runAnalysis,
+    runCompanyAnalysis,
+    resetAnalysisState,
+    clearAnalysisResults
+  } = useAnalysisFlow({
+    applyFiltersToPayload: applyFiltersToPayloadWithState,
+    fetchComparisonData,
+    setComparisonRange,
+    resetComparison,
+    comparisonPeriod,
+    comparisonLookback,
+    filtersState: filtersStateForAnalysis,
+    onAnalysisStart: () => setStep('analyze'),
+    onAnalysisComplete: handleAnalysisComplete
+  })
+
+  const prefetchAnalytics = usePrefetchAnalytics()
+
+  // Prefetch аналитики только в режиме custom или после запуска анализа в режиме company
+  useEffect(() => {
+    if (selectedCompany && (analysisMode === 'custom' || analysisData)) {
+      prefetchAnalytics({ companyId: selectedCompany.id })
+    }
+  }, [prefetchAnalytics, selectedCompany?.id, analysisMode, analysisData])
+
+  const {
+    newPresetName,
+    setNewPresetName,
+    savingPreset,
+    presetApplyingId,
+    createPreset,
+    applyPreset
+  } = useReportPresetActions({
+    selectedCompany,
+    selectedCompetitors,
+    filtersState: filtersStateForAnalysis,
+    refetchReportPresets,
+    setAnalysisMode,
+    setSelectedCompany,
+    setSelectedCompetitors,
+    setManuallyAddedCompetitors,
+    setSuggestedCompetitors,
+    setFilters,
+    runAnalysis
+  })
+
+  const exportAnalyticsMutation = useExportAnalyticsMutation()
+
+  const handleExport = useAnalyticsExportHandler({
+    analysisData,
+    selectedCompany,
+    comparisonSubjects,
+    comparisonPeriod,
+    comparisonLookback,
+    analysisRange,
+    applyFiltersToPayload: applyFiltersToPayloadWithState,
+    exportAnalytics: payload => exportAnalyticsMutation.mutateAsync(payload)
+  })
+
+  const changeEventsLimit = 10
+  const {
+    data: changeEventsResponse,
+    isLoading: changeEventsInitialLoading,
+    isFetching: changeEventsFetching,
+    isError: isChangeEventsError,
+    error: changeEventsQueryError,
+    refetch: refetchChangeEvents
+  } = useChangeEventsQuery({
+    companyId: selectedCompany?.id ?? null,
+    limit: changeEventsLimit,
+    enabled: Boolean(selectedCompany?.id)
+  })
+
+  const changeEvents = changeEventsResponse?.events ?? []
+  const changeEventsLoading = changeEventsInitialLoading || changeEventsFetching
+  const changeEventsError =
+    isChangeEventsError && changeEventsQueryError
+      ? changeEventsQueryError instanceof Error
+        ? changeEventsQueryError.message
+        : 'Failed to load change history'
+      : null
+
+  const recomputeChangeEventMutation = useRecomputeChangeEventMutation()
+
+  // Загружаем аналитику только в режиме custom или после запуска анализа в режиме company
+  const shouldLoadAnalytics = analysisMode === 'custom' || (analysisMode === 'company' && analysisData)
+  
+  const {
+    data: analyticsInsights,
+    isLoading: analyticsInsightsLoading,
+    isFetching: analyticsInsightsFetching,
+    isError: isAnalyticsInsightsError,
+    error: analyticsInsightsError,
+    refetch: refetchAnalyticsInsights
+  } = useCompanyAnalyticsInsights(shouldLoadAnalytics ? selectedCompany?.id ?? null : null)
+
+  const analyticsLoading = analyticsInsightsLoading || analyticsInsightsFetching
+  const analyticsError =
+    analyticsInsights?.message ??
+    (isAnalyticsInsightsError
+      ? (() => {
+          if (analyticsInsightsError instanceof Error) {
+            return analyticsInsightsError.message
+          }
+          const detail =
+            (analyticsInsightsError as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+          return detail ?? 'Failed to load analytics insights'
+        })()
+      : null)
+  const impactSnapshot = analyticsInsights?.snapshot ?? null
+  const impactSeries = analyticsInsights?.series ?? null
+  const analyticsEdges = analyticsInsights?.edges ?? []
+
+  useEffect(() => {
+    if (!pendingTaskId) {
+      return
+    }
+
+    // Prevent infinite requests by ensuring we only refetch once per task_id
+    const currentTaskId = pendingTaskId
+    let isCancelled = false
+
+    const timer = setTimeout(async () => {
+      // Check if this effect is still valid (task_id hasn't changed)
+      if (isCancelled || currentTaskId !== pendingTaskId) {
+        return
+      }
+
+      try {
+        await Promise.all([
+          refetchAnalyticsInsights(),
+          refetchChangeEvents(),
+          refetchReportPresets()
+        ])
+        
+        // Only clear if this is still the current task
+        if (!isCancelled && currentTaskId === pendingTaskId) {
+          setPendingTaskId(null)
+        }
+      } catch (error) {
+        console.error('Error refetching data after task completion:', error)
+        // Clear pendingTaskId even on error to prevent infinite retries
+        if (!isCancelled && currentTaskId === pendingTaskId) {
+          setPendingTaskId(null)
+        }
+      }
+    }, 5_000)
+
+    return () => {
+      isCancelled = true
+      clearTimeout(timer)
+    }
+  }, [pendingTaskId, refetchAnalyticsInsights, refetchChangeEvents, refetchReportPresets])
+
+  const SUBJECT_COLORS = ['#2563eb', '#0ea5e9', '#10b981', '#f97316', '#8b5cf6', '#f43f5e', '#14b8a6', '#d946ef']
+
+  const subjectColorMap = useMemo(() => {
+    if (!comparisonData) {
+      return new Map<string, string>()
+    }
+    const map = new Map<string, string>()
+    comparisonData.subjects.forEach((subject, index) => {
+      const color = subject.color || SUBJECT_COLORS[index % SUBJECT_COLORS.length]
+      map.set(subject.subject_key, color)
+    })
+    return map
+  }, [comparisonData])
 
   // Очищаем данные анализа при смене компании в режиме Company Analysis
   useEffect(() => {
     if (analysisMode === 'company' && selectedCompany) {
-      setAnalysisData(null)
-      setThemesData(null)
+      clearAnalysisResults()
+      setFocusedImpactPoint(null)
     }
-  }, [selectedCompany, analysisMode])
+  }, [analysisMode, clearAnalysisResults, selectedCompany])
 
-  const handleExport = async (format: 'json' | 'pdf' | 'csv') => {
-    if (!analysisData || !selectedCompany) return
-    
+  const handleResetToMenu = useCallback(() => {
+    setAnalysisMode(null)
+    resetAnalysisState()
+    setStep('select')
+    clearFilters()
+  }, [clearFilters, resetAnalysisState])
+
+  const handleSelectCompanyMode = useCallback(() => {
+    setAnalysisMode('company')
+    resetAnalysisState()
+    clearFilters()
+  }, [clearFilters, resetAnalysisState])
+
+  const handleSelectCustomMode = useCallback(() => {
+    setAnalysisMode('custom')
+    setStep('select')
+    resetAnalysisState()
+    clearFilters()
+  }, [clearFilters, resetAnalysisState])
+
+  const currentFilterSnapshot = useMemo(() => ({
+    topics: topicFilters,
+    sentiments: sentimentFilters,
+    source_types: sourceTypeFilters,
+    min_priority: minPriorityFilter
+  }), [topicFilters, sentimentFilters, sourceTypeFilters, minPriorityFilter])
+
+  const handleRecomputeChange = useCallback(
+    async (eventId: string) => {
+      if (!selectedCompany?.id) return
+      setRecomputingEventId(eventId)
+      try {
+        await recomputeChangeEventMutation.mutateAsync({
+          companyId: selectedCompany.id,
+          eventId,
+          limit: changeEventsLimit
+        })
+        await refetchChangeEvents()
+        toast.success('Recompute queued')
+      } catch (err: any) {
+        console.error('Error recomputing change event:', err)
+        const message = err?.response?.data?.detail || err?.message || 'Unable to recompute diff'
+        toast.error(message)
+      } finally {
+        setRecomputingEventId(null)
+      }
+    },
+    [changeEventsLimit, recomputeChangeEventMutation, refetchChangeEvents, selectedCompany?.id]
+  )
+
+  useEffect(() => {
+    setMetricsTab('persistent')
+  }, [selectedCompany?.id])
+
+  const handleAddPresetToComparison = async (presetId: string) => {
+    if (!presetId) return
+    const preset = reportPresets.find((item: ReportPreset) => item.id === presetId)
+    if (!preset) {
+      toast.error('Preset not found')
+      return
+    }
+    if (
+      comparisonSubjects.some(
+        subject => subject.subject_type === 'preset' && subject.reference_id === presetId
+      )
+    ) {
+      toast.error('Preset already added to comparison')
+      setPendingPresetId('')
+      return
+    }
+
+    const nextSubjects: ComparisonSubjectRequest[] = [
+      ...comparisonSubjects,
+      {
+        subject_type: 'preset',
+        reference_id: preset.id,
+        label: preset.name
+      }
+    ]
+
+    await fetchComparisonData(nextSubjects)
+    setPendingPresetId('')
+  }
+
+  useEffect(() => {
+    if (impactSnapshot) {
+      setFocusedImpactPoint(impactSnapshot)
+    }
+  }, [impactSnapshot?.id])
+
+  const handleRecomputeAnalytics = async () => {
+    if (!selectedCompany) return
     try {
-      // Собираем все данные для экспорта
-      const exportData = {
-        // Основные данные анализа
-        ...analysisData,
-        
-        // Дополнительные данные для полного отчета
-        report: {
-          company: selectedCompany,
-          analysisDate: new Date().toISOString(),
-          analysisMode: analysisMode,
-          
-          // Business Intelligence данные
-          businessIntelligence: {
-            metrics: analysisData.metrics.category_distribution[selectedCompany.id] || {},
-            activityScore: analysisData.metrics.activity_score[selectedCompany.id] || 0,
-            competitorCount: suggestedCompetitors.length,
-            totalActivity: Object.values(analysisData.metrics.category_distribution[selectedCompany.id] || {}).reduce((sum: number, v: unknown) => sum + Number(v), 0)
-          },
-          
-          // Innovation & Technology данные
-          innovationTechnology: {
-            metrics: analysisData.metrics.category_distribution[selectedCompany.id] || {},
-            totalNews: analysisData.metrics.news_volume[selectedCompany.id] || 0,
-            technicalActivity: Object.entries(analysisData.metrics.category_distribution[selectedCompany.id] || {})
-              .filter(([key]) => ['technical_update', 'api_update', 'research_paper', 'model_release', 'performance_improvement', 'security_update'].includes(key))
-              .reduce((sum, [, count]) => sum + Number(count), 0)
-          },
-          
-          // Team & Culture данные
-          teamCulture: {
-            metrics: analysisData.metrics.category_distribution[selectedCompany.id] || {},
-            totalNews: analysisData.metrics.news_volume[selectedCompany.id] || 0,
-            activityScore: analysisData.metrics.activity_score[selectedCompany.id] || 0,
-            teamActivity: Object.entries(analysisData.metrics.category_distribution[selectedCompany.id] || {})
-              .filter(([key]) => ['community_event', 'strategic_announcement', 'research_paper'].includes(key))
-              .reduce((sum, [, count]) => sum + Number(count), 0)
-          },
-          
-          // Market Position данные
-          marketPosition: {
-            company: selectedCompany,
-            metrics: {
-              news_volume: analysisData.metrics.news_volume[selectedCompany.id] || 0,
-              activity_score: analysisData.metrics.activity_score[selectedCompany.id] || 0,
-              category_distribution: analysisData.metrics.category_distribution[selectedCompany.id] || {}
-            },
-            competitors: suggestedCompetitors,
-            totalNews: Object.values(analysisData.metrics.news_volume).reduce((sum: number, v: unknown) => sum + Number(v), 0)
-          },
-          
-          // News Volume Comparison данные
-          newsVolumeComparison: {
-            companies: analysisData.companies,
-            metrics: analysisData.metrics.news_volume,
-            dateFrom: analysisData.date_from,
-            dateTo: analysisData.date_to
-          }
-        }
+      const result = await ApiService.triggerAnalyticsRecompute(selectedCompany.id, 'daily', 60)
+      
+      // Validate task_id before setting pendingTaskId
+      if (!result?.task_id) {
+        console.error('Invalid response: task_id is missing', result)
+        toast.error('Failed to queue analytics recompute: Invalid response from server')
+        return
       }
       
-      await ApiService.exportAnalysis(exportData, format)
-    } catch (err) {
-      console.error('Export failed:', err)
-      setError('Export failed. Please try again.')
+      toast.success('Analytics recompute queued')
+      await queryClient.invalidateQueries({
+        queryKey: companyAnalyticsInsightsQueryKey(selectedCompany.id)
+      })
+      setPendingTaskId(result.task_id)
+    } catch (error: any) {
+      console.error('Failed to queue analytics recompute:', error)
+      
+      // Don't set pendingTaskId on error to prevent infinite requests
+      const message = error?.response?.data?.detail || error?.message || 'Failed to queue analytics recompute'
+      toast.error(message)
+      
+      // Clear pendingTaskId if it was set before error
+      setPendingTaskId(null)
     }
   }
 
-  // Главное меню выбора режима анализа
-  const renderModeSelection = () => (
-    <div className="max-w-4xl mx-auto">
-      <div className="text-center mb-8">
-        <h2 className="text-2xl font-bold text-gray-900 mb-4">
-          Choose Analysis Type
-        </h2>
-        <p className="text-gray-600">
-          Select the type of competitor analysis you want to perform
-        </p>
-      </div>
+  const handleSyncKnowledgeGraph = async () => {
+    if (!selectedCompany || !impactSnapshot) return
+    try {
+      const result = await ApiService.triggerKnowledgeGraphSync(
+        selectedCompany.id,
+        impactSnapshot.period_start,
+        impactSnapshot.period
+      )
       
-      <div className="grid md:grid-cols-2 gap-6">
-        {/* Анализ компании */}
-        <div 
-          onClick={() => {
-            setAnalysisMode('company')
-            // Сбрасываем состояние при смене режима
-            setSelectedCompany(null)
-            setAnalysisData(null)
-            setThemesData(null)
-            setError(null)
-          }}
-          className="bg-white rounded-lg shadow-md p-6 cursor-pointer hover:shadow-lg transition-shadow border-2 border-transparent hover:border-blue-200"
-        >
-          <div className="flex items-center mb-4">
-            <Building2 className="w-8 h-8 text-blue-600 mr-3" />
-            <h3 className="text-xl font-semibold text-gray-900">
-              Company Analysis
-            </h3>
-          </div>
-          <p className="text-gray-600 mb-4">
-            Quick analysis of a specific company with AI-suggested competitors. 
-            Perfect for getting immediate insights about a company and its competitive landscape.
-          </p>
-          <ul className="text-sm text-gray-500 space-y-1">
-            <li>• Select target company</li>
-            <li>• AI-powered competitor suggestions</li>
-            <li>• Instant analysis results</li>
-            <li>• Export capabilities</li>
-          </ul>
-        </div>
-
-        {/* Кастомный анализ */}
-        <div 
-          onClick={() => {
-            setAnalysisMode('custom')
-            // Сбрасываем состояние при смене режима
-            setSelectedCompany(null)
-            setAnalysisData(null)
-            setThemesData(null)
-            setError(null)
-            setStep('select')
-            setSelectedCompetitors([])
-            setSuggestedCompetitors([])
-            setManuallyAddedCompetitors([])
-          }}
-          className="bg-white rounded-lg shadow-md p-6 cursor-pointer hover:shadow-lg transition-shadow border-2 border-transparent hover:border-green-200"
-        >
-          <div className="flex items-center mb-4">
-            <Users className="w-8 h-8 text-green-600 mr-3" />
-            <h3 className="text-xl font-semibold text-gray-900">
-              Custom Analysis
-            </h3>
-          </div>
-          <p className="text-gray-600 mb-4">
-            Advanced step-by-step analysis with full control over competitor selection. 
-            Ideal for detailed research and comprehensive competitive intelligence.
-          </p>
-          <ul className="text-sm text-gray-500 space-y-1">
-            <li>• Step-by-step process</li>
-            <li>• Manual competitor selection</li>
-            <li>• Detailed theme analysis</li>
-            <li>• Advanced export options</li>
-          </ul>
-        </div>
-      </div>
-    </div>
-  )
-
-  // Режим анализа компании
-  const renderCompanyAnalysis = () => (
-    <div className="max-w-6xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-semibold text-gray-900">
-            Company Analysis
-          </h2>
-          <p className="text-gray-600 mt-1">
-            Quick analysis with AI-suggested competitors
-          </p>
-        </div>
-        <button
-          onClick={() => {
-            setAnalysisMode(null)
-            // Сбрасываем все состояние при возврате в меню
-            setSelectedCompany(null)
-            setAnalysisData(null)
-            setThemesData(null)
-            setError(null)
-            setStep('select')
-            setSelectedCompetitors([])
-            setSuggestedCompetitors([])
-            setManuallyAddedCompetitors([])
-          }}
-          className="text-gray-600 hover:text-gray-800 flex items-center"
-        >
-          <ArrowLeft className="w-4 h-4 mr-1" />
-          Back to Menu
-        </button>
-      </div>
-
-      {/* Выбор компании */}
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">
-          Select Company to Analyze
-        </h3>
-        <CompanySelector
-          onSelect={setSelectedCompany}
-          selectedCompany={selectedCompany}
-        />
-        
-        {selectedCompany && (
-          <div className="mt-6">
-            <button
-              onClick={runCompanyAnalysis}
-              disabled={loading}
-              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-            >
-              {loading ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Analyzing...
-                </>
-              ) : (
-                <>
-                  <BarChart3 className="w-4 h-4 mr-2" />
-                  Analyze Company
-                </>
-              )}
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Результаты анализа компании */}
-      {analysisData && selectedCompany && (
-        <div className="space-y-6">
-          {/* Analysis Header with Export */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="flex justify-between items-center mb-4">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">{selectedCompany.name}</h2>
-                <p className="text-gray-600">Competitor Analysis Report</p>
-              </div>
-              <ExportMenu onExport={handleExport} />
-            </div>
-          </div>
-
-          {/* Brand Preview */}
-          <BrandPreview
-            company={selectedCompany}
-            stats={{
-              total_news: analysisData.metrics.news_volume[selectedCompany.id] || 0,
-              categories_breakdown: Object.entries(analysisData.metrics.category_distribution[selectedCompany.id] || {}).map(([category, count]) => ({
-                category,
-                count: count as number
-              })),
-              activity_score: analysisData.metrics.activity_score[selectedCompany.id] || 0,
-              avg_priority: 0.5
-            }}
-          />
-
-          {/* Business Intelligence */}
-          <BusinessIntelligence
-            company={selectedCompany}
-            metrics={analysisData.metrics.category_distribution[selectedCompany.id] || {}}
-            activityScore={analysisData.metrics.activity_score[selectedCompany.id] || 0}
-            competitorCount={suggestedCompetitors.length}
-          />
-
-          {/* Innovation & Technology */}
-          <InnovationMetrics
-            company={selectedCompany}
-            metrics={analysisData.metrics.category_distribution[selectedCompany.id] || {}}
-            totalNews={analysisData.metrics.news_volume[selectedCompany.id] || 0}
-          />
-
-          {/* Team & Culture */}
-          <TeamInsights
-            company={selectedCompany}
-            metrics={analysisData.metrics.category_distribution[selectedCompany.id] || {}}
-            totalNews={analysisData.metrics.news_volume[selectedCompany.id] || 0}
-            activityScore={analysisData.metrics.activity_score[selectedCompany.id] || 0}
-          />
-
-          {/* Market Position */}
-          <MarketPosition
-            company={selectedCompany}
-            metrics={{
-              news_volume: analysisData.metrics.news_volume[selectedCompany.id] || 0,
-              activity_score: analysisData.metrics.activity_score[selectedCompany.id] || 0,
-              category_distribution: analysisData.metrics.category_distribution[selectedCompany.id] || {}
-            }}
-            competitors={suggestedCompetitors}
-            totalNews={Object.values(analysisData.metrics.news_volume).reduce((sum: number, v: unknown) => sum + Number(v), 0)}
-          />
-          
-          {/* News Volume Comparison */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">
-                News Volume Comparison
-              </h3>
-            </div>
-            <div className="space-y-3">
-              {analysisData.companies.map((company: Company, index: number) => {
-                const volume = analysisData.metrics.news_volume[company.id] || 0
-                const maxVolume = Math.max(...Object.values(analysisData.metrics.news_volume).map(v => Number(v)))
-                const percentage = maxVolume > 0 ? (volume / maxVolume) * 100 : 0
-                const colors = ['bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-orange-500', 'bg-pink-500']
-                
-                return (
-                  <div key={company.id}>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-medium text-gray-700">
-                        {company.name}
-                      </span>
-                      <span className="text-sm text-gray-600">{volume} news</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-3">
-                      <div
-                        className={`h-3 rounded-full ${colors[index % colors.length]}`}
-                        style={{ width: `${percentage}%` }}
-                      />
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  )
+      // Validate task_id before setting pendingTaskId
+      if (!result?.task_id) {
+        console.error('Invalid response: task_id is missing', result)
+        toast.error('Failed to sync knowledge graph: Invalid response from server')
+        return
+      }
+      
+      toast.success('Knowledge graph sync queued')
+      await refetchAnalyticsInsights()
+      setPendingTaskId(result.task_id)
+    } catch (error: any) {
+      console.error('Failed to sync knowledge graph:', error)
+      
+      // Don't set pendingTaskId on error to prevent infinite requests
+      const message = error?.response?.data?.detail || error?.message || 'Failed to sync knowledge graph'
+      toast.error(message)
+      
+      // Clear pendingTaskId if it was set before error
+      setPendingTaskId(null)
+    }
+  }
 
   // Режим кастомного анализа (существующий функционал)
   const renderCustomAnalysis = () => (
     <div className="max-w-6xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-xl font-semibold text-gray-900">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4 sm:mb-6">
+        <div className="flex-1">
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-900">
             Custom Analysis
           </h2>
-          <p className="text-gray-600 mt-1">
+          <p className="text-sm sm:text-base text-gray-600 mt-1">
             Step-by-step competitor analysis with full control
           </p>
         </div>
         <button
-          onClick={() => {
-            setAnalysisMode(null)
-            // Сбрасываем все состояние при возврате в меню
-            setSelectedCompany(null)
-            setAnalysisData(null)
-            setThemesData(null)
-            setError(null)
-            setStep('select')
-            setSelectedCompetitors([])
-            setSuggestedCompetitors([])
-            setManuallyAddedCompetitors([])
-          }}
-          className="text-gray-600 hover:text-gray-800 flex items-center"
+          onClick={handleResetToMenu}
+          className="text-sm sm:text-base text-gray-600 hover:text-gray-800 flex items-center w-full sm:w-auto justify-center sm:justify-start"
         >
           <ArrowLeft className="w-4 h-4 mr-1" />
           Back to Menu
@@ -395,387 +497,190 @@ export default function CompetitorAnalysisPage() {
     </div>
   )
 
-  // Функция для быстрого анализа компании
-  const runCompanyAnalysis = async () => {
-    if (!selectedCompany) return
-    
-    setLoading(true)
-    setError(null)
-    
-    try {
-      // Получаем предложения конкурентов
-      const suggestionsResponse = await ApiService.suggestCompetitors(selectedCompany.id, {
-        limit: 5,
-        days: 30
-      })
-      
-      // Берем первых 3 конкурентов для анализа
-      const competitorIds = suggestionsResponse.suggestions.slice(0, 3).map(s => s.company.id)
-      const allCompanyIds = [selectedCompany.id, ...competitorIds]
-      
-      // Выполняем анализ
-      const dateFrom = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
-      const dateTo = new Date().toISOString()
-      
-      const response = await ApiService.compareCompanies({
-        company_ids: allCompanyIds,
-        date_from: dateFrom,
-        date_to: dateTo
-      })
-      
-      setAnalysisData(response)
-      
-    } catch (err: any) {
-      console.error('Error running company analysis:', err)
-      setError(err.response?.data?.detail || 'Failed to run analysis')
-    } finally {
-      setLoading(false)
-    }
-  }
-  
-  // Шаг 1: Выбор основной компании
   const renderCompanySelection = () => (
-    <div className="max-w-2xl mx-auto">
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">
-          Select Your Company
-        </h2>
-        <p className="text-gray-600 mb-6">
-          Choose the company you want to analyze and find competitors for.
-        </p>
-        
-        <CompanySelector
-          onSelect={setSelectedCompany}
-          selectedCompany={selectedCompany}
-        />
-        
-        <div className="mt-6 flex justify-end">
-          <button
-            onClick={() => {
-              if (selectedCompany) {
-                loadCompetitorSuggestions()
-                setStep('suggest')
-              }
-            }}
-            disabled={!selectedCompany}
-            className="bg-primary-600 text-white px-6 py-3 rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-          >
-            Continue
-            <ArrowRight className="w-5 h-5 ml-2" />
-          </button>
-        </div>
-      </div>
-    </div>
+    <CompanySelectionStep
+      selectedCompany={selectedCompany}
+      onSelectCompany={setSelectedCompany}
+      onContinue={() => {
+        if (selectedCompany) {
+          loadCompetitorSuggestions()
+          setStep('suggest')
+        }
+      }}
+      onBackToMenu={handleResetToMenu}
+    />
   )
-  
-  // Шаг 2: Подбор конкурентов
+
   const renderCompetitorSuggestion = () => (
-    <div className="max-w-4xl mx-auto">
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-xl font-semibold text-gray-900">
-              Choose Competitors
-            </h2>
-            <p className="text-gray-600 mt-1">
-              AI has suggested competitors based on similarity analysis
-            </p>
-          </div>
-          <button
-            onClick={() => setStep('select')}
-            className="text-gray-600 hover:text-gray-800 flex items-center"
-          >
-            <ArrowLeft className="w-4 h-4 mr-1" />
-            Back
-          </button>
-        </div>
-        
-        {error && (
-          <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-lg border border-red-200 text-sm">
-            {error}
-          </div>
-        )}
-        
-        <CompetitorSuggestions
-          suggestions={[
-            ...suggestedCompetitors,
-            ...manuallyAddedCompetitors.map(company => ({
-              company,
-              similarity_score: 0, // Ручные добавления не имеют similarity score
-              common_categories: [],
-              reason: 'Manually added competitor'
-            }))
-          ]}
-          selectedCompetitors={selectedCompetitors}
-          onToggleCompetitor={toggleCompetitor}
-          onAddManual={(company: Company) => {
-            setManuallyAddedCompetitors(prev => [...prev, company])
-            // Автоматически добавляем в selectedCompetitors
-            if (!selectedCompetitors.includes(company.id)) {
-              setSelectedCompetitors(prev => [...prev, company.id])
-            }
-          }}
-        />
-        
-        <div className="mt-6 flex justify-between">
-          <button
-            onClick={() => setStep('select')}
-            className="text-gray-600 hover:text-gray-800 flex items-center"
-          >
-            <ArrowLeft className="w-4 h-4 mr-1" />
-            Back
-          </button>
-          <button
-            onClick={() => {
-              if (selectedCompetitors.length > 0) {
-                runAnalysis()
-                setStep('analyze')
-              }
-            }}
-            disabled={selectedCompetitors.length === 0}
-            className="bg-primary-600 text-white px-6 py-3 rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-          >
-            Analyze
-            <ArrowRight className="w-5 h-5 ml-2" />
-          </button>
-        </div>
-      </div>
-    </div>
+    <CompetitorSuggestionStep
+      selectedCompany={selectedCompany}
+      suggestions={[
+        ...suggestedCompetitors,
+        ...manuallyAddedCompetitors.map(company => ({
+          company,
+          similarity_score: 0,
+          common_categories: [],
+          reason: 'Manually added competitor'
+        }))
+      ]}
+      manuallyAddedCompetitors={manuallyAddedCompetitors}
+      selectedCompetitors={selectedCompetitors}
+      onToggleCompetitor={toggleCompetitor}
+      onAddManualCompetitor={addManualCompetitor}
+      onBack={() => setStep('select')}
+      onNext={() => {
+        if (selectedCompetitors.length > 0) {
+          runAnalysis()
+        }
+      }}
+      filters={{
+        sourceTypeFilters,
+        topicFilters,
+        sentimentFilters,
+        minPriorityFilter,
+        hasActiveFilters,
+        onToggleSourceType: toggleSourceType,
+        onToggleTopic: toggleTopicFilter,
+        onToggleSentiment: toggleSentimentFilter,
+        onMinPriorityChange: updateMinPriorityFilter,
+        onClearFilters: clearFilters
+      }}
+      loading={loading}
+      error={error}
+      filtersSnapshot={currentFilterSnapshot}
+    />
   )
-  
-  // Шаг 3: Анализ
+
   const renderAnalysis = () => (
-    <div className="max-w-6xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-semibold text-gray-900">
-            Analysis Results
-          </h2>
-          <p className="text-gray-600 mt-1">
-            Comprehensive analysis of {selectedCompany?.name} and its competitors
-          </p>
-        </div>
-        <div className="flex space-x-3">
-          <button
-            onClick={() => setStep('suggest')}
-            className="text-gray-600 hover:text-gray-800 flex items-center"
-          >
-            <ArrowLeft className="w-4 h-4 mr-1" />
-            Back
-          </button>
-          <button
-            onClick={exportResults}
-            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center"
-          >
-            <Download className="w-4 h-4 mr-2" />
-            Export
-          </button>
-        </div>
-      </div>
-      
-      {loading && (
-        <div className="text-center py-8">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Analyzing competitors...</p>
-        </div>
-      )}
-      
-      {analysisData && (
-        <div className="space-y-6">
-          {/* Brand Preview */}
-          <BrandPreview
-            company={selectedCompany!}
-            stats={{
-              total_news: analysisData.metrics.news_volume[selectedCompany!.id] || 0,
-              categories_breakdown: Object.entries(analysisData.metrics.category_distribution[selectedCompany!.id] || {}).map(([category, count]) => ({
-                category,
-                count: count as number
-              })),
-              activity_score: analysisData.metrics.activity_score[selectedCompany!.id] || 0,
-              avg_priority: 0.5 // Placeholder - не вычисляется в текущей версии
-            }}
-          />
-          
-          {/* News Volume Comparison */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">
-                News Volume Comparison
-              </h3>
-            </div>
-            <div className="space-y-3">
-              {analysisData.companies.map((company: Company, index: number) => {
-                const volume = analysisData.metrics.news_volume[company.id] || 0
-                const maxVolume = Math.max(...Object.values(analysisData.metrics.news_volume).map(v => Number(v)))
-                const percentage = maxVolume > 0 ? (volume / maxVolume) * 100 : 0
-                const colors = ['bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-orange-500', 'bg-pink-500']
-                
-                return (
-                  <div key={company.id}>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-medium text-gray-700">
-                        {company.name}
-                      </span>
-                      <span className="text-sm text-gray-600">{volume} news</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-3">
-                      <div
-                        className={`h-3 rounded-full ${colors[index % colors.length]}`}
-                        style={{ width: `${percentage}%` }}
-                      />
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-          
-          {/* Theme Analysis */}
-          {themesData && (
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Theme Analysis
-              </h3>
-              <ThemeAnalysis
-                themesData={themesData}
-                companies={analysisData.companies}
-              />
-            </div>
-          )}
-        </div>
-      )}
-    </div>
+    <AnalysisResultsStep
+      selectedCompany={selectedCompany}
+      loading={loading}
+      analysisData={analysisData}
+      filtersSnapshot={analysisData?.filters ?? currentFilterSnapshot}
+      onBack={() => setStep('suggest')}
+      onExport={handleExport}
+    >
+      <ImpactPanel
+        impactSnapshot={impactSnapshot}
+        impactSeries={impactSeries}
+        analyticsEdges={analyticsEdges}
+        analyticsLoading={analyticsLoading}
+        analyticsError={analyticsError}
+        onRecompute={handleRecomputeAnalytics}
+        onSyncKnowledgeGraph={handleSyncKnowledgeGraph}
+      />
+      <PresetManager
+        reportPresets={reportPresets}
+        presetsLoading={presetsLoading}
+        presetsError={presetsError}
+        newPresetName={newPresetName}
+        onPresetNameChange={setNewPresetName}
+        onCreatePreset={createPreset}
+        savingPreset={savingPreset}
+        presetApplyingId={presetApplyingId}
+        onApplyPreset={applyPreset}
+        filtersSnapshot={analysisData?.filters ?? currentFilterSnapshot}
+        filtersPanelProps={{
+          sourceTypeFilters,
+          topicFilters,
+          sentimentFilters,
+          minPriorityFilter,
+          hasActiveFilters,
+          onToggleSourceType: toggleSourceType,
+          onToggleTopic: toggleTopicFilter,
+          onToggleSentiment: toggleSentimentFilter,
+          onMinPriorityChange: updateMinPriorityFilter,
+          onClearFilters: clearFilters
+        }}
+      />
+      <AnalyticsTabs
+        metricsTab={metricsTab}
+        onTabChange={setMetricsTab}
+        selectedCompany={selectedCompany}
+        analysisData={analysisData}
+        themesData={themesData}
+        comparisonData={comparisonData}
+        comparisonPeriod={comparisonPeriod}
+        comparisonLookback={comparisonLookback}
+        comparisonLoading={comparisonLoading}
+        comparisonError={comparisonError}
+        subjectColorMap={subjectColorMap}
+        impactSnapshot={impactSnapshot}
+        impactSeries={impactSeries}
+        focusedImpactPoint={focusedImpactPoint}
+        onComparisonPeriodChange={handleComparisonPeriodChange}
+        onComparisonLookbackChange={handleComparisonLookbackChange}
+        onSnapshotHover={setFocusedImpactPoint}
+        filtersSnapshot={analysisData?.filters ?? currentFilterSnapshot}
+        comparisonSubjects={comparisonSubjects}
+        analyticsEdges={analyticsEdges}
+        reportPresets={reportPresets}
+        pendingPresetId={pendingPresetId}
+        onPendingPresetChange={setPendingPresetId}
+        onAddPresetToComparison={handleAddPresetToComparison}
+        abSelection={abSelection}
+        onAbSelectionChange={handleAbSelectionChange}
+        changeEvents={changeEvents}
+        changeEventsLoading={changeEventsLoading}
+        changeEventsError={changeEventsError}
+        onRefreshChangeEvents={refetchChangeEvents}
+        onRecomputeChangeEvent={handleRecomputeChange}
+        recomputingEventId={recomputingEventId}
+      />
+    </AnalysisResultsStep>
   )
-  
-  const loadCompetitorSuggestions = async () => {
-    if (!selectedCompany) return
-    
-    setLoading(true)
-    setError(null)
-    
-    try {
-      const response = await ApiService.suggestCompetitors(selectedCompany.id, {
-        limit: 5,
-        days: 30
-      })
-      setSuggestedCompetitors(response.suggestions)
-    } catch (err: any) {
-      console.error('Error loading suggestions:', err)
-      setError(err.response?.data?.detail || 'Failed to load competitor suggestions')
-    } finally {
-      setLoading(false)
-    }
-  }
-  
-  const toggleCompetitor = (companyId: string) => {
-    setSelectedCompetitors(prev => 
-      prev.includes(companyId)
-        ? prev.filter(id => id !== companyId)
-        : [...prev, companyId]
-    )
-  }
-  
-  const runAnalysis = async () => {
-    if (!selectedCompany || selectedCompetitors.length === 0) return
-    
-    setLoading(true)
-    setError(null)
-    
-    try {
-      // Валидация данных
-      if (!selectedCompany || !selectedCompany.id) {
-        throw new Error('Selected company is invalid')
-      }
-      
-      if (!Array.isArray(selectedCompetitors)) {
-        throw new Error('Selected competitors is not an array')
-      }
-      
-      // Проверяем что все ID являются строками
-      const allCompanyIds = [selectedCompany.id, ...selectedCompetitors].map(id => String(id))
-      
-      // Исправить формат дат - добавить время
-      const dateFrom = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
-      const dateTo = new Date().toISOString()
-      
-      console.log('Sending request with:', {
-        company_ids: allCompanyIds,
-        date_from: dateFrom,
-        date_to: dateTo
-      })
-      
-      console.log('Selected company:', selectedCompany)
-      console.log('Selected competitors:', selectedCompetitors)
-      console.log('All company IDs:', allCompanyIds)
-      console.log('Request object:', {
-        company_ids: allCompanyIds,
-        date_from: dateFrom,
-        date_to: dateTo
-      })
-      
-      const response = await ApiService.compareCompanies({
-        company_ids: allCompanyIds,
-        date_from: dateFrom,
-        date_to: dateTo
-      })
-      
-      setAnalysisData(response)
-      
-      // Get themes data
-      const themesResponse = await ApiService.analyzeThemes(allCompanyIds, {
-        date_from: dateFrom,
-        date_to: dateTo
-      })
-      
-      setThemesData(themesResponse)
-      
-    } catch (err: any) {
-      console.error('Error running analysis:', err)
-      console.error('Error details:', err.response?.data)
-      setError(err.response?.data?.detail || 'Failed to run analysis')
-    } finally {
-      setLoading(false)
-    }
-  }
-  
-  const exportResults = () => {
-    if (!analysisData) return
-    
-    const exportData = {
-      company: selectedCompany,
-      competitors: analysisData.companies.filter((c: Company) => c.id !== selectedCompany?.id),
-      analysis: analysisData,
-      themes: themesData,
-      generated_at: new Date().toISOString()
-    }
-    
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `competitor-analysis-${selectedCompany?.name}-${new Date().toISOString().split('T')[0]}.json`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-  }
   
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto py-8 px-4">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center">
-            <BarChart3 className="w-8 h-8 mr-3" />
-            Competitor Analysis
+      <div className="max-w-7xl mx-auto py-4 sm:py-6 lg:py-8 px-4 sm:px-6 lg:px-8">
+        <div className="mb-4 sm:mb-6">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3">
+            <BarChart3 className="w-6 h-6 sm:w-8 sm:h-8" />
+            <span>Competitor Analysis</span>
           </h1>
-          <p className="text-gray-600 mt-2">
+          <p className="text-sm sm:text-base text-gray-600 mt-2">
             Professional competitor analysis with AI-powered insights
           </p>
         </div>
         
         {/* Content by mode */}
-        {!analysisMode && renderModeSelection()}
-        {analysisMode === 'company' && renderCompanyAnalysis()}
+        {!analysisMode && (
+          <AnalysisModeSelection
+            onSelectCompanyAnalysis={handleSelectCompanyMode}
+            onSelectCustomAnalysis={handleSelectCustomMode}
+          />
+        )}
+        {analysisMode === 'company' && (
+          <CompanyAnalysisFlow
+            selectedCompany={selectedCompany}
+            onSelectCompany={company => setSelectedCompany(company)}
+            onBack={handleResetToMenu}
+            sourceTypeFilters={sourceTypeFilters}
+            topicFilters={topicFilters}
+            sentimentFilters={sentimentFilters}
+            minPriorityFilter={minPriorityFilter}
+            hasActiveFilters={hasActiveFilters}
+            onToggleSourceType={toggleSourceType}
+            onToggleTopic={toggleTopicFilter}
+            onToggleSentiment={toggleSentimentFilter}
+            onMinPriorityChange={updateMinPriorityFilter}
+            onClearFilters={clearFilters}
+            error={error}
+            loading={loading}
+            onAnalyze={runCompanyAnalysis}
+            analysisData={analysisData}
+            suggestedCompetitors={suggestedCompetitors}
+            onExport={handleExport}
+            filtersSnapshot={analysisData?.filters ?? currentFilterSnapshot}
+            impactSnapshot={impactSnapshot}
+            impactSeries={impactSeries}
+            analyticsEdges={analyticsEdges}
+            analyticsLoading={analyticsLoading}
+            analyticsError={analyticsError}
+            onRecomputeAnalytics={handleRecomputeAnalytics}
+            onSyncKnowledgeGraph={handleSyncKnowledgeGraph}
+          />
+        )}
         {analysisMode === 'custom' && renderCustomAnalysis()}
       </div>
     </div>

@@ -1,0 +1,38 @@
+name: Performance Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      arrivalRate:
+        description: "Start arrival rate (requests per second)"
+        default: "5"
+        required: false
+      maxRate:
+        description: "Peak arrival rate"
+        default: "40"
+        required: false
+
+jobs:
+  k6:
+    runs-on: ubuntu-latest
+    env:
+      API_BASE_URL: ${{ secrets.K6_API_BASE_URL }}
+      API_TOKEN: ${{ secrets.K6_API_TOKEN }}
+      COMPANY_IDS: ${{ secrets.K6_COMPANY_IDS }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate configuration
+        run: |
+          if [ -z "$API_BASE_URL" ] || [ -z "$API_TOKEN" ] || [ -z "$COMPANY_IDS" ]; then
+            echo "API_BASE_URL, API_TOKEN and COMPANY_IDS secrets must be configured."
+            exit 1
+          fi
+      - name: Run k6 load scenario
+        run: |
+          docker run --rm \
+            -e API_BASE_URL="$API_BASE_URL" \
+            -e API_TOKEN="$API_TOKEN" \
+            -e COMPANY_IDS="$COMPANY_IDS" \
+            -v "$PWD/tests/performance:/scripts" \
+            grafana/k6 run /scripts/analytics-load.test.js
+
