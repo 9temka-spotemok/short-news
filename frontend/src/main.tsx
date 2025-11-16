@@ -5,9 +5,9 @@ import ReactDOM from 'react-dom/client'
 import { Toaster } from 'react-hot-toast'
 import { BrowserRouter } from 'react-router-dom'
 
+import { queryClient } from '@/lib/queryClient'
 import App from './App'
 import './index.css'
-import { queryClient } from './lib/queryClient'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
