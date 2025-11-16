@@ -5,10 +5,10 @@ import CompanySelector from '@/components/CompanySelector'
 import { ErrorBanner } from '@/components/ErrorBanner'
 import { ExportMenu } from '@/components/ExportMenu'
 import type {
-  Company,
-  CompanyAnalyticsSnapshot,
-  KnowledgeGraphEdge,
-  SnapshotSeries
+    Company,
+    CompanyAnalyticsSnapshot,
+    KnowledgeGraphEdge,
+    SnapshotSeries
 } from '@/types'
 
 import { ActiveFiltersSummary, type ActiveFilters } from './ActiveFiltersSummary'
