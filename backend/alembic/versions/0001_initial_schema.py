@@ -51,10 +51,10 @@ def upgrade() -> None:
     op.execute("""
         DO $$ BEGIN
             CREATE TYPE news_category AS ENUM (
-                'PRODUCT_UPDATE', 'PRICING_CHANGE', 'STRATEGIC_ANNOUNCEMENT', 
-                'TECHNICAL_UPDATE', 'FUNDING_NEWS', 'RESEARCH_PAPER', 'COMMUNITY_EVENT',
-                'PARTNERSHIP', 'ACQUISITION', 'INTEGRATION', 'SECURITY_UPDATE',
-                'API_UPDATE', 'MODEL_RELEASE', 'PERFORMANCE_IMPROVEMENT', 'FEATURE_DEPRECATION'
+                'product_update', 'pricing_change', 'strategic_announcement', 
+                'technical_update', 'funding_news', 'research_paper', 'community_event',
+                'partnership', 'acquisition', 'integration', 'security_update',
+                'api_update', 'model_release', 'performance_improvement', 'feature_deprecation'
             );
         EXCEPTION
             WHEN duplicate_object THEN null;
@@ -150,7 +150,7 @@ def upgrade() -> None:
         sa.Column('id', sa.UUID(), nullable=False, server_default=sa.text('uuid_generate_v4()')),
         sa.Column('user_id', sa.UUID(), nullable=False),
         sa.Column('subscribed_companies', postgresql.ARRAY(sa.UUID()), nullable=True),
-        sa.Column('interested_categories', postgresql.ARRAY(sa.Enum('PRODUCT_UPDATE', 'PRICING_CHANGE', 'STRATEGIC_ANNOUNCEMENT', 'TECHNICAL_UPDATE', 'FUNDING_NEWS', 'RESEARCH_PAPER', 'COMMUNITY_EVENT', 'PARTNERSHIP', 'ACQUISITION', 'INTEGRATION', 'SECURITY_UPDATE', 'API_UPDATE', 'MODEL_RELEASE', 'PERFORMANCE_IMPROVEMENT', 'FEATURE_DEPRECATION', name='newscategory')), nullable=True),
+        sa.Column('interested_categories', postgresql.ARRAY(sa.Enum('product_update', 'pricing_change', 'strategic_announcement', 'technical_update', 'funding_news', 'research_paper', 'community_event', 'partnership', 'acquisition', 'integration', 'security_update', 'api_update', 'model_release', 'performance_improvement', 'feature_deprecation', name='newscategory')), nullable=True),
         sa.Column('keywords', postgresql.ARRAY(sa.String()), nullable=True),
         sa.Column('notification_frequency', sa.Enum('REALTIME', 'DAILY', 'WEEKLY', 'NEVER', name='notificationfrequency'), server_default='DAILY', nullable=True),
         sa.Column('digest_format', sa.String(length=50), nullable=True),

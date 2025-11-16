@@ -67,6 +67,21 @@ async def init_db():
         raise
 
 
+async def get_async_session():
+    """
+    Generator function to get database session for scripts
+    Similar to get_db() but can be used in async for loops
+    """
+    session = AsyncSessionLocal()
+    try:
+        yield session
+    except Exception as e:
+        await session.rollback()
+        raise
+    finally:
+        await session.close()
+
+
 async def close_db():
     """
     Close database connections

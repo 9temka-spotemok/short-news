@@ -39,7 +39,7 @@ def upgrade() -> None:
                existing_nullable=False)
     op.alter_column('news_items', 'category',
                existing_type=postgresql.ENUM('product_update', 'pricing_change', 'strategic_announcement', 'technical_update', 'funding_news', 'research_paper', 'community_event', name='news_category'),
-               type_=sa.Enum('PRODUCT_UPDATE', 'PRICING_CHANGE', 'STRATEGIC_ANNOUNCEMENT', 'TECHNICAL_UPDATE', 'FUNDING_NEWS', 'RESEARCH_PAPER', 'COMMUNITY_EVENT', name='newscategory'),
+               type_=sa.Enum('product_update', 'pricing_change', 'strategic_announcement', 'technical_update', 'funding_news', 'research_paper', 'community_event', name='newscategory'),
                existing_nullable=True)
     op.alter_column('news_items', 'created_at',
                existing_type=postgresql.TIMESTAMP(),
@@ -91,7 +91,7 @@ def upgrade() -> None:
                nullable=False)
     op.alter_column('user_preferences', 'interested_categories',
                existing_type=postgresql.ARRAY(postgresql.ENUM('product_update', 'pricing_change', 'strategic_announcement', 'technical_update', 'funding_news', 'research_paper', 'community_event', name='news_category')),
-               type_=postgresql.ARRAY(sa.Enum('PRODUCT_UPDATE', 'PRICING_CHANGE', 'STRATEGIC_ANNOUNCEMENT', 'TECHNICAL_UPDATE', 'FUNDING_NEWS', 'RESEARCH_PAPER', 'COMMUNITY_EVENT', name='newscategory')),
+               type_=postgresql.ARRAY(sa.Enum('product_update', 'pricing_change', 'strategic_announcement', 'technical_update', 'funding_news', 'research_paper', 'community_event', name='newscategory')),
                existing_nullable=True)
     op.alter_column('user_preferences', 'keywords',
                existing_type=postgresql.ARRAY(sa.TEXT()),
@@ -165,7 +165,7 @@ def downgrade() -> None:
                type_=postgresql.ARRAY(sa.TEXT()),
                existing_nullable=True)
     op.alter_column('user_preferences', 'interested_categories',
-               existing_type=postgresql.ARRAY(sa.Enum('PRODUCT_UPDATE', 'PRICING_CHANGE', 'STRATEGIC_ANNOUNCEMENT', 'TECHNICAL_UPDATE', 'FUNDING_NEWS', 'RESEARCH_PAPER', 'COMMUNITY_EVENT', name='newscategory')),
+               existing_type=postgresql.ARRAY(sa.Enum('product_update', 'pricing_change', 'strategic_announcement', 'technical_update', 'funding_news', 'research_paper', 'community_event', name='newscategory')),
                type_=postgresql.ARRAY(postgresql.ENUM('product_update', 'pricing_change', 'strategic_announcement', 'technical_update', 'funding_news', 'research_paper', 'community_event', name='news_category')),
                existing_nullable=True)
     op.alter_column('user_preferences', 'user_id',
@@ -216,7 +216,7 @@ def downgrade() -> None:
                nullable=True,
                existing_server_default=sa.text('now()'))
     op.alter_column('news_items', 'category',
-               existing_type=sa.Enum('PRODUCT_UPDATE', 'PRICING_CHANGE', 'STRATEGIC_ANNOUNCEMENT', 'TECHNICAL_UPDATE', 'FUNDING_NEWS', 'RESEARCH_PAPER', 'COMMUNITY_EVENT', name='newscategory'),
+               existing_type=sa.Enum('product_update', 'pricing_change', 'strategic_announcement', 'technical_update', 'funding_news', 'research_paper', 'community_event', name='newscategory'),
                type_=postgresql.ENUM('product_update', 'pricing_change', 'strategic_announcement', 'technical_update', 'funding_news', 'research_paper', 'community_event', name='news_category'),
                existing_nullable=True)
     op.alter_column('news_items', 'source_type',

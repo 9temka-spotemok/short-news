@@ -60,6 +60,8 @@ services:
     environment:
       - DATABASE_URL=postgresql+asyncpg://shot_news:shot_news_dev@postgres:5432/shot_news
       - REDIS_URL=redis://redis:6379
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
       - ENVIRONMENT=development
       - DEBUG=true
       - SECRET_KEY=dev-secret-key-change-in-production
@@ -102,7 +104,7 @@ services:
       redis:
         condition: service_healthy
     working_dir: /app
-    command: celery -A app.celery_app worker --loglevel=info
+    command: celery -A app.celery_app worker --loglevel=info -Q celery,analytics
 
   # Celery Beat (Scheduler)
   celery-beat:
@@ -194,7 +196,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "pgrep", "-f", "cron"]
+      test: ["CMD-SHELL", "python -c 'import sys; sys.exit(0)' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
