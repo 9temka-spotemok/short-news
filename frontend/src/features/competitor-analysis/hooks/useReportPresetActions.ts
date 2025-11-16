@@ -3,7 +3,7 @@ import toast from 'react-hot-toast'
 
 import { ApiService } from '@/services/api'
 import type { Company, ReportPreset } from '@/types'
-import type { FilterStateSnapshot, FilterOverrides } from '../types'
+import type { FilterOverrides, FilterStateSnapshot } from '../types'
 import type { RunAnalysisOverride } from './useAnalysisFlow'
 
 type SuggestionsEntry = {
@@ -17,7 +17,6 @@ type UseReportPresetActionsParams = {
   selectedCompany: Company | null
   selectedCompetitors: string[]
   filtersState: FilterStateSnapshot
-  reportPresets: ReportPreset[]
   refetchReportPresets: () => Promise<unknown>
   setAnalysisMode: (mode: 'company' | 'custom' | null) => void
   setSelectedCompany: (company: Company | null) => void
@@ -32,7 +31,6 @@ export const useReportPresetActions = ({
   selectedCompany,
   selectedCompetitors,
   filtersState,
-  reportPresets,
   refetchReportPresets,
   setAnalysisMode,
   setSelectedCompany,

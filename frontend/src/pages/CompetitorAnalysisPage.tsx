@@ -176,7 +176,6 @@ export default function CompetitorAnalysisPage() {
     selectedCompany,
     selectedCompetitors,
     filtersState: filtersStateForAnalysis,
-    reportPresets,
     refetchReportPresets,
     setAnalysisMode,
     setSelectedCompany,

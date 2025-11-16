@@ -1,9 +1,9 @@
-import { useInfiniteQuery } from '@tanstack/react-query'
+import { keepPreviousData, useInfiniteQuery } from '@tanstack/react-query'
 
 import { ApiService } from '@/services/api'
-import type { AnalyticsPeriod, CompetitorChangeEvent, ComparisonFilters } from '@/types'
-import type { FilterStateSnapshot } from '../types'
+import type { AnalyticsPeriod, ComparisonFilters, CompetitorChangeEvent } from '@/types'
 import { competitorAnalysisKeys } from '../queryKeys'
+import type { FilterStateSnapshot } from '../types'
 
 const toComparisonFilters = (filterState?: FilterStateSnapshot): ComparisonFilters | undefined => {
   if (!filterState) {
@@ -63,8 +63,9 @@ export const useChangeLog = ({
         limit,
         filters: toComparisonFilters(filterState),
       }),
+    initialPageParam: undefined,
     getNextPageParam: (lastPage) => lastPage.next_cursor ?? undefined,
-    keepPreviousData: true,
+    placeholderData: keepPreviousData,
     enabled: enabled && Boolean(companyId),
   })
 
