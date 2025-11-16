@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react'
-import { describe, it, expect, vi } from 'vitest'
+import { beforeEach, describe, it, expect, vi } from 'vitest'
 
 import { CompanyAnalysisFlow } from '../CompanyAnalysisFlow'
 
@@ -23,6 +23,16 @@ vi.mock('../ActiveFiltersSummary', () => ({
   ActiveFiltersSummary: () => <div data-testid="filters-summary" />,
 }))
 
+vi.mock('../ImpactPanel', () => ({
+  ImpactPanel: () => <div data-testid="impact-panel" />,
+}))
+
+vi.mock('@/components/ErrorBanner', () => ({
+  ErrorBanner: ({ message }: { message: string }) => (
+    <div role="alert">{message}</div>
+  ),
+}))
+
 const defaultProps = {
   selectedCompany: null,
   onSelectCompany: vi.fn(),
@@ -37,16 +47,28 @@ const defaultProps = {
   onToggleSentiment: vi.fn(),
   onMinPriorityChange: vi.fn(),
   onClearFilters: vi.fn(),
+  error: null,
   loading: false,
   onAnalyze: vi.fn(),
   analysisData: null,
   suggestedCompetitors: [],
   onExport: vi.fn(),
   filtersSnapshot: { topics: [], sentiments: [], source_types: [], min_priority: null },
+  impactSnapshot: null,
+  impactSeries: null,
+  analyticsEdges: [],
+  analyticsLoading: false,
+  analyticsError: null,
+  onRecomputeAnalytics: vi.fn(),
+  onSyncKnowledgeGraph: vi.fn(),
 }
 
 describe('CompanyAnalysisFlow', () => {
-  it('triggers company selection and analyze action', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('triggers analyze action when company selected', () => {
     const onSelectCompany = vi.fn()
     const onAnalyze = vi.fn()
 
@@ -55,7 +77,7 @@ describe('CompanyAnalysisFlow', () => {
         {...defaultProps}
         onSelectCompany={onSelectCompany}
         onAnalyze={onAnalyze}
-        selectedCompany={{ id: 'c1', name: 'Acme' }}
+        selectedCompany={{ id: 'c1', name: 'Acme' } as any}
       />
     )
 
@@ -67,14 +89,29 @@ describe('CompanyAnalysisFlow', () => {
     render(
       <CompanyAnalysisFlow
         {...defaultProps}
-        selectedCompany={{ id: 'c1', name: 'Acme' }}
+        selectedCompany={{ id: 'c1', name: 'Acme' } as any}
         analysisData={{}}
       />
     )
 
     expect(screen.getByTestId('filters-summary')).toBeInTheDocument()
+    expect(screen.getByTestId('impact-panel')).toBeInTheDocument()
     expect(screen.getByTestId('company-deep-dive')).toBeInTheDocument()
   })
+
+  it('renders error banner when error provided', () => {
+    render(
+      <CompanyAnalysisFlow
+        {...defaultProps}
+        selectedCompany={{ id: 'c1', name: 'Acme' } as any}
+        error="Failed to load"
+      />
+    )
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Failed to load')
+  })
 })
+
+
 
 
