@@ -17,6 +17,11 @@ const primaryCompany: Company = {
   website: '',
   description: '',
   logo_url: '',
+  category: '',
+  twitter_handle: '',
+  github_org: '',
+  created_at: '',
+  updated_at: '',
 }
 
 const competitorCompany: Company = {
@@ -25,6 +30,11 @@ const competitorCompany: Company = {
   website: '',
   description: '',
   logo_url: '',
+  category: '',
+  twitter_handle: '',
+  github_org: '',
+  created_at: '',
+  updated_at: '',
 }
 
 const mockAnalysisResponse = {
@@ -46,11 +56,14 @@ describe('useAnalysisFlow', () => {
     queryClient = createTestQueryClient()
   })
 
+  const noopApplyFiltersToPayload = (<T extends Record<string, unknown>>(payload: T) =>
+    payload as any) as any
+
   const renderUseAnalysisFlow = (overrides = {}) =>
     renderHook(
       () =>
         useAnalysisFlow({
-          applyFiltersToPayload: payload => payload,
+          applyFiltersToPayload: noopApplyFiltersToPayload,
           fetchComparisonData: vi.fn().mockResolvedValue(undefined),
           setComparisonRange: vi.fn(),
           resetComparison: vi.fn(),

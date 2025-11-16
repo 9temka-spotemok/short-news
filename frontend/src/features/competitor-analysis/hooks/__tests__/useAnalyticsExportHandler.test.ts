@@ -19,6 +19,9 @@ describe('useAnalyticsExportHandler', () => {
     { subject_type: 'company', reference_id: '1' },
   ]
 
+  const noopApplyFiltersToPayload = (<T extends Record<string, unknown>>(payload: T) =>
+    payload as any) as any
+
   const baseProps = {
     analysisData: { companies: [{ id: '1', name: 'Acme' }] } as any,
     selectedCompany: { id: '1', name: 'Acme' } as any,
@@ -26,7 +29,7 @@ describe('useAnalyticsExportHandler', () => {
     comparisonPeriod: 'daily' as const,
     comparisonLookback: 30,
     analysisRange: null,
-    applyFiltersToPayload: () => ({}),
+    applyFiltersToPayload: noopApplyFiltersToPayload,
   }
 
   it('builds payload and calls export handler', async () => {

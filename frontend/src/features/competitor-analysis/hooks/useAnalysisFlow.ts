@@ -9,7 +9,6 @@ import type {
 } from '@/types'
 import type { FilterOverrides, FilterStateSnapshot } from '../types'
 import type { FilteredPayload } from '../utils/filterPayload'
-import { buildComparisonPayload } from '../utils/comparisonPayload'
 
 type ApplyFiltersToPayload = <T extends Record<string, unknown>>(
   payload: T,

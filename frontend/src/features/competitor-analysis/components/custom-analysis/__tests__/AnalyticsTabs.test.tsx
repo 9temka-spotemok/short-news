@@ -2,6 +2,7 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { vi, describe, it, expect } from 'vitest'
 
 import { withQueryClient } from '@/test/utils'
+import type { Company } from '@/types'
 import { AnalyticsTabs } from '../AnalyticsTabs'
 
 vi.mock('../../PersistentMetricsBoard', () => ({
@@ -40,7 +41,18 @@ vi.mock('../../hooks/useKnowledgeGraph', () => ({
   }),
 }))
 
-const defaultCompany = { id: 'c1', name: 'Acme' }
+const defaultCompany: Company = {
+  id: 'c1',
+  name: 'Acme',
+  website: '',
+  description: '',
+  logo_url: '',
+  category: '',
+  twitter_handle: '',
+  github_org: '',
+  created_at: '',
+  updated_at: '',
+}
 
 const baseProps = {
   metricsTab: 'persistent' as const,

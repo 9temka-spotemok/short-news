@@ -24,6 +24,11 @@ const primaryCompany: Company = {
   website: '',
   description: '',
   logo_url: '',
+  category: '',
+  twitter_handle: '',
+  github_org: '',
+  created_at: '',
+  updated_at: '',
 }
 
 const competitorCompany: Company = {
@@ -32,6 +37,11 @@ const competitorCompany: Company = {
   website: '',
   description: '',
   logo_url: '',
+  category: '',
+  twitter_handle: '',
+  github_org: '',
+  created_at: '',
+  updated_at: '',
 }
 
 const defaultFilters = {
@@ -57,7 +67,6 @@ describe('useReportPresetActions', () => {
         selectedCompany: primaryCompany,
         selectedCompetitors: [competitorCompany.id],
         filtersState: defaultFilters,
-        reportPresets: [],
         refetchReportPresets,
         setAnalysisMode,
         setSelectedCompany,
@@ -113,10 +122,12 @@ describe('useReportPresetActions', () => {
 
     const preset: ReportPreset = {
       id: 'preset-1',
+      user_id: 'u1',
       name: 'Competitors',
+      description: '',
       companies: ['1', '2'],
       filters: {},
-      description: '',
+      visualization_config: {},
       is_favorite: false,
       created_at: '',
       updated_at: '',

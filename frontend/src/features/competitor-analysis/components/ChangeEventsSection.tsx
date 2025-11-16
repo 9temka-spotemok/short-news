@@ -140,7 +140,7 @@ export const ChangeEventsSection = ({
                       </span>
                     </div>
                     <p className="text-sm text-gray-700 mt-2">
-                      {event.change_summary || event.summary || 'Change detected'}
+                      {event.change_summary || 'Change detected'}
                     </p>
                     {event.changed_fields?.length ? (
                       <ul className="mt-3 space-y-1">

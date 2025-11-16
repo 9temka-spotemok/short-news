@@ -47,13 +47,12 @@ export const useAnalyticsExportHandler = ({
         return
       }
 
-      const fallbackSubjects: ComparisonSubjectRequest[] = (analysisData.companies || []).map(
-        (company: Company) => ({
-          subject_type: 'company',
-          reference_id: company.id,
-          label: company.name
-        })
-      )
+      const fallbackSubjects: ComparisonSubjectRequest[] = analysisData.subjects.map(subject => ({
+        subject_type: subject.subject_type,
+        reference_id: subject.subject_id,
+        label: subject.label,
+        color: subject.color ?? undefined,
+      }))
       const subjects = comparisonSubjects.length ? comparisonSubjects : fallbackSubjects
 
       if (!subjects.length) {

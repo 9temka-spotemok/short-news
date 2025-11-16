@@ -33,10 +33,22 @@ describe('useChangeLog', () => {
 
   it('fetches change log data', async () => {
     mockApi.getAnalyticsChangeLog.mockResolvedValueOnce({
-      events: [{ id: 'event-1' }],
+      events: [{
+        id: 'event-1',
+        company_id: 'company-1',
+        source_type: 'blog',
+        change_summary: 'Price updated',
+        changed_fields: [],
+        raw_diff: {},
+        detected_at: new Date().toISOString(),
+        processing_status: 'success',
+        notification_status: 'pending',
+        current_snapshot: null,
+        previous_snapshot: null,
+      }],
       next_cursor: null,
       total: 1,
-    })
+    } as any)
 
     const { result } = renderUseChangeLog()
 
@@ -60,12 +72,24 @@ describe('useChangeLog', () => {
         events: [],
         next_cursor: 'cursor-1',
         total: 1,
-      })
+      } as any)
       .mockResolvedValueOnce({
-        events: [{ id: 'event-2' }],
+        events: [{
+          id: 'event-2',
+          company_id: 'company-1',
+          source_type: 'blog',
+          change_summary: 'Feature updated',
+          changed_fields: [],
+          raw_diff: {},
+          detected_at: new Date().toISOString(),
+          processing_status: 'success',
+          notification_status: 'pending',
+          current_snapshot: null,
+          previous_snapshot: null,
+        }],
         next_cursor: null,
         total: 2,
-      })
+      } as any)
 
     const { result } = renderUseChangeLog()
 

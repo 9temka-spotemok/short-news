@@ -22,10 +22,6 @@ const mockComparisonResponse: ComparisonResponse = {
   knowledge_graph: {},
 }
 
-const mockQueryClient = {
-  prefetchQuery: vi.fn(),
-}
-
 const comparisonRequest: ComparisonRequestPayload = {
   subjects: [
     {
