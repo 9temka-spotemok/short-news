@@ -26,12 +26,14 @@ class UniversalScraperProvider(ScraperProvider):
         company: CompanyContext,
         *,
         max_articles: int = 10,
+        source_overrides: Optional[List[Dict]] = None,
     ) -> List[ScrapedNewsItem]:
         raw_items = await self._scraper.scrape_company_blog(
             company.name,
             company.website or "",
             news_page_url=company.news_page_url,
             max_articles=max_articles,
+            source_overrides=source_overrides,
         )
         normalized: List[ScrapedNewsItem] = []
         for item in raw_items:

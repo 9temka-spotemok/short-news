@@ -3,12 +3,13 @@ Real scrapers for AI news sources
 """
 
 from typing import List, Dict, Any
-from datetime import datetime, timedelta
+from datetime import timedelta
 from loguru import logger
 import httpx
 from bs4 import BeautifulSoup
 
 from app.core.config import settings
+from app.utils.datetime_utils import utc_now_naive
 
 
 class AINewsScraper:
@@ -112,7 +113,7 @@ class AINewsScraper:
                             'source_type': 'blog',
                             'company_name': 'OpenAI',
                             'category': category,
-                            'published_at': datetime.now() - timedelta(days=len(news_items)),
+                            'published_at': utc_now_naive() - timedelta(days=len(news_items)),
                         })
             
             logger.info(f"Scraped {len(news_items)} items from OpenAI blog")
@@ -153,7 +154,7 @@ class AINewsScraper:
                             'source_type': 'blog',
                             'company_name': 'Anthropic',
                             'category': category,
-                            'published_at': datetime.now() - timedelta(days=len(news_items)),
+                            'published_at': utc_now_naive() - timedelta(days=len(news_items)),
                         })
             
             logger.info(f"Scraped {len(news_items)} items from Anthropic news")
@@ -194,7 +195,7 @@ class AINewsScraper:
                         'source_type': 'blog',
                         'company_name': 'Google',
                         'category': category,
-                        'published_at': datetime.now() - timedelta(days=len(news_items)),
+                        'published_at': utc_now_naive() - timedelta(days=len(news_items)),
                     })
             
             logger.info(f"Scraped {len(news_items)} items from Google AI blog")
@@ -235,7 +236,7 @@ class AINewsScraper:
                         'source_type': 'blog',
                         'company_name': 'Meta',
                         'category': category,
-                        'published_at': datetime.now() - timedelta(days=len(news_items)),
+                        'published_at': utc_now_naive() - timedelta(days=len(news_items)),
                     })
             
             logger.info(f"Scraped {len(news_items)} items from Meta AI blog")
@@ -276,7 +277,7 @@ class AINewsScraper:
                         'source_type': 'blog',
                         'company_name': 'Hugging Face',
                         'category': category,
-                        'published_at': datetime.now() - timedelta(days=len(news_items)),
+                        'published_at': utc_now_naive() - timedelta(days=len(news_items)),
                     })
             
             logger.info(f"Scraped {len(news_items)} items from Hugging Face blog")
@@ -317,7 +318,7 @@ class AINewsScraper:
                         'source_type': 'blog',
                         'company_name': 'Mistral AI',
                         'category': category,
-                        'published_at': datetime.now() - timedelta(days=len(news_items)),
+                        'published_at': utc_now_naive() - timedelta(days=len(news_items)),
                     })
             
             logger.info(f"Scraped {len(news_items)} items from Mistral AI news")
@@ -358,7 +359,7 @@ class AINewsScraper:
                         'source_type': 'blog',
                         'company_name': 'Cohere',
                         'category': category,
-                        'published_at': datetime.now() - timedelta(days=len(news_items)),
+                        'published_at': utc_now_naive() - timedelta(days=len(news_items)),
                     })
             
             logger.info(f"Scraped {len(news_items)} items from Cohere blog")
@@ -400,7 +401,7 @@ class AINewsScraper:
                             'source_type': 'blog',
                             'company_name': 'Stability AI',
                             'category': category,
-                            'published_at': datetime.now() - timedelta(days=len(news_items)),
+                            'published_at': utc_now_naive() - timedelta(days=len(news_items)),
                         })
             
             logger.info(f"Scraped {len(news_items)} items from Stability AI news")
@@ -442,7 +443,7 @@ class AINewsScraper:
                             'source_type': 'blog',
                             'company_name': 'Perplexity AI',
                             'category': category,
-                            'published_at': datetime.now() - timedelta(days=len(news_items)),
+                            'published_at': utc_now_naive() - timedelta(days=len(news_items)),
                         })
             
             logger.info(f"Scraped {len(news_items)} items from Perplexity AI blog")

@@ -8,6 +8,7 @@ import re
 from loguru import logger
 
 from .base import BaseScraper
+from app.utils.datetime_utils import to_naive_utc, utc_now_naive
 
 
 class OpenAIScraper(BaseScraper):
@@ -118,9 +119,9 @@ class OpenAIScraper(BaseScraper):
                 'source_url': url,
                 'source_type': 'blog',
                 'company_id': 'openai',  # Will be resolved to actual UUID
-                'published_at': published_date or datetime.now(),
+                'published_at': to_naive_utc(published_date) if published_date else utc_now_naive(),
                 'author': author,
-                'scraped_at': datetime.now(),
+                'scraped_at': utc_now_naive(),
             }
             
             logger.info(f"Scraped post: {title[:50]}...")
@@ -266,7 +267,7 @@ class OpenAIScraper(BaseScraper):
         
         for fmt in date_formats:
             try:
-                return datetime.strptime(date_str.strip(), fmt)
+                return to_naive_utc(datetime.strptime(date_str.strip(), fmt))
             except ValueError:
                 continue
         
@@ -281,7 +282,7 @@ class OpenAIScraper(BaseScraper):
             match = re.search(pattern, date_str)
             if match:
                 try:
-                    return datetime.strptime(match.group(1), '%Y-%m-%d')
+                    return to_naive_utc(datetime.strptime(match.group(1), '%Y-%m-%d'))
                 except ValueError:
                     continue
         

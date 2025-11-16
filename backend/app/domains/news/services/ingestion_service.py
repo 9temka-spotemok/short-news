@@ -8,6 +8,7 @@ legacy NewsService logic; responsibilities will be migrated here iteratively.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Dict, Any, Optional
 from uuid import UUID
 
@@ -19,6 +20,7 @@ from bs4 import BeautifulSoup
 
 from app.core.exceptions import NewsServiceError, ValidationError
 from app.core.config import settings
+from app.utils.datetime_utils import parse_iso_datetime, to_naive_utc
 from app.models.news import (
     NewsItem,
     NewsCategory,
@@ -266,6 +268,13 @@ class NewsIngestionService:
                 else:
                     result["company_id"] = None
 
+            published_at = result.get("published_at")
+            if isinstance(published_at, str):
+                parsed = parse_iso_datetime(published_at)
+                result["published_at"] = to_naive_utc(parsed)
+            else:
+                result["published_at"] = to_naive_utc(published_at)
+
             return result
         except Exception as exc:
             raise ValidationError(f"Invalid news data: {exc}") from exc
@@ -291,6 +300,12 @@ class NewsIngestionService:
                     company = await self._company_repo.fetch_by_name(value)
                     return company.id if company else None
             return None
+        if key == "published_at" and value is not None:
+            if isinstance(value, str):
+                value = parse_iso_datetime(value)
+            if isinstance(value, datetime):
+                return to_naive_utc(value)
+            return None
         return value
 
     async def _update_search_vector(self, news_item: NewsItem) -> None:
@@ -301,5 +316,6 @@ class NewsIngestionService:
             news_item.search_vector = search_text
         else:
             news_item.search_vector = func.to_tsvector("english", search_text)
+
 
 

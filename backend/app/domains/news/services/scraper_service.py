@@ -4,7 +4,7 @@ Service orchestrating news scraping and ingestion.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Optional
 
 from loguru import logger
@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.domains.news.scrapers import CompanyContext, NewsScraperRegistry
 
 from .ingestion_service import NewsIngestionService
+from app.utils.datetime_utils import parse_iso_datetime, to_naive_utc, utc_now_naive
 
 
 class NewsScraperService:
@@ -76,12 +77,18 @@ class NewsScraperService:
 
 
 def _coerce_published_at(value: Optional[datetime]) -> datetime:
+    dt: Optional[datetime]
     if isinstance(value, datetime):
         dt = value
+    elif isinstance(value, str):
+        dt = parse_iso_datetime(value)
     else:
-        dt = datetime.now(timezone.utc)
+        dt = None
 
-    if dt.tzinfo is not None:
-        return dt.astimezone(timezone.utc).replace(tzinfo=None)
-    return dt
+    if dt is None:
+        dt = utc_now_naive()
+    normalized = to_naive_utc(dt)
+    if normalized is None:  # Fallback for defensive path
+        normalized = utc_now_naive()
+    return normalized
 

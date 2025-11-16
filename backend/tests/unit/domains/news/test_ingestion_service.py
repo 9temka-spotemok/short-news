@@ -69,6 +69,18 @@ async def test_create_news_item_persists_record(async_session: AsyncSession) -> 
 
 
 @pytest.mark.asyncio
+async def test_create_news_item_normalizes_published_at(async_session: AsyncSession) -> None:
+    service = NewsIngestionService(async_session)
+    aware_timestamp = datetime(2024, 3, 14, 9, 26, tzinfo=timezone.utc)
+    payload = _payload(published_at=aware_timestamp.isoformat())
+
+    news_item = await service.create_news_item(payload)
+
+    assert news_item.published_at.tzinfo is None
+    assert news_item.published_at == aware_timestamp.replace(tzinfo=None)
+
+
+@pytest.mark.asyncio
 async def test_create_news_item_returns_existing_on_duplicate(async_session: AsyncSession) -> None:
     service = NewsIngestionService(async_session)
     payload = _payload()

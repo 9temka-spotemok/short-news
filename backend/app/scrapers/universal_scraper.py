@@ -28,6 +28,7 @@ from app.scrapers.config_loader import (
 )
 from app.scrapers.headless import fetch_page_with_headless
 from app.scrapers.rate_limiter import RateLimiter
+from app.utils.datetime_utils import utc_now_naive
 
 
 DEFAULT_ARTICLE_SELECTORS: Tuple[str, ...] = (
@@ -160,7 +161,9 @@ class UniversalBlogScraper:
 
         discoveries: List[SourceConfig] = []
         has_custom_sources = any(not cfg.id.startswith("default_") for cfg in source_configs)
-        if not has_custom_sources and website:
+        # Оптимизация: если указан news_page_url или есть overrides, пропускаем discovery для скорости
+        skip_discovery = news_page_url is not None or source_overrides is not None
+        if not has_custom_sources and website and not skip_discovery:
             discovered_urls = await self._discover_candidate_sources(website)
             if discovered_urls:
                 existing_urls = {
@@ -348,7 +351,7 @@ class UniversalBlogScraper:
                                 "sentiment": None,
                                 "priority_score": 0.5,
                                 "raw_snapshot_url": None,
-                                "published_at": datetime.now() - timedelta(days=idx),
+                                "published_at": utc_now_naive() - timedelta(days=idx),
                             }
                         )
 
@@ -454,7 +457,7 @@ class UniversalBlogScraper:
                 seen_urls.add(article["url"])
 
                 inferred_category = self._infer_category(article["title"])
-                published_at = datetime.now() - timedelta(days=idx)
+                published_at = utc_now_naive() - timedelta(days=idx)
                 items.append(
                     {
                         "title": article["title"],
