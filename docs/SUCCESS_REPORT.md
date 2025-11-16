@@ -111,3 +111,4 @@ docker exec shot-news-postgres psql -U shot_news -d shot_news -c \
 
 
 
+

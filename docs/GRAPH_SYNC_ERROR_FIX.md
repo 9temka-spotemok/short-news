@@ -191,3 +191,4 @@ docker logs shot-news-celery-worker --tail=50 | grep graph
 
 
 
+

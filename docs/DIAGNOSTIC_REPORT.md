@@ -134,3 +134,4 @@ docker logs shot-news-celery-worker --tail=100 | grep -i error
 
 
 
+
