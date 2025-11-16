@@ -507,8 +507,8 @@ class AnalyticsComparisonService:
                 entry["impact_scores"].append(snapshot.impact_score)
                 entry["innovation_velocities"].append(snapshot.innovation_velocity)
                 entry["news_total"] += snapshot.news_total
-                entry["news_positive"] += snapshot.news_positive
-                entry["news_negative"] += snapshot.news_negative
+                entry["news_positive"] += snapshot.news_positive or 0
+                entry["news_negative"] += snapshot.news_negative or 0
                 entry["news_neutral"] += snapshot.news_neutral
                 entry["pricing_changes"] += snapshot.pricing_changes
                 entry["feature_updates"] += snapshot.feature_updates
@@ -895,9 +895,9 @@ class AnalyticsComparisonService:
             return None
 
         total_news = sum(snapshot.news_total for snapshot in latest_snapshots)
-        positive_news = sum(snapshot.news_positive for snapshot in latest_snapshots)
-        negative_news = sum(snapshot.news_negative for snapshot in latest_snapshots)
-        neutral_news = sum(snapshot.news_neutral for snapshot in latest_snapshots)
+        positive_news = sum(snapshot.news_positive or 0 for snapshot in latest_snapshots)
+        negative_news = sum(snapshot.news_negative or 0 for snapshot in latest_snapshots)
+        neutral_news = sum(snapshot.news_neutral or 0 for snapshot in latest_snapshots)
         pricing_changes = sum(snapshot.pricing_changes for snapshot in latest_snapshots)
         feature_updates = sum(snapshot.feature_updates for snapshot in latest_snapshots)
         funding_events = sum(snapshot.funding_events for snapshot in latest_snapshots)

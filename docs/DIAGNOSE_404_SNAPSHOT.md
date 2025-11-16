@@ -228,3 +228,4 @@ GROUP BY period;
 
 
 
+

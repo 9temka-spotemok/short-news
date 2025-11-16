@@ -14,7 +14,7 @@ from typing import Dict, Iterable, List, Optional, Tuple
 from uuid import UUID
 
 from loguru import logger
-from sqlalchemy import case, func, select, and_, or_, cast, String, bindparam
+from sqlalchemy import case, func, select, and_, or_, cast, String, bindparam, delete
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
@@ -108,6 +108,14 @@ class SnapshotService:
         company_id: UUID,
         period: AnalyticsPeriod | str = AnalyticsPeriod.DAILY,
     ) -> Optional[CompanyAnalyticsSnapshot]:
+        period_enum = self._coerce_period(period)
+        period_value = self._period_value(period_enum)
+        logger.debug(
+            "SnapshotService.get_latest_snapshot: company_id=%s, period=%s (value=%s)",
+            company_id,
+            period_enum,
+            period_value,
+        )
         stmt = (
             select(CompanyAnalyticsSnapshot)
             .where(
@@ -118,8 +126,15 @@ class SnapshotService:
             .options(selectinload(CompanyAnalyticsSnapshot.components))
             .limit(1)
         )
+        logger.debug("Executing SQL query for get_latest_snapshot...")
         result = await self.db.execute(stmt)
-        return result.scalar_one_or_none()
+        snapshot = result.scalar_one_or_none()
+        logger.info(
+            "SnapshotService.get_latest_snapshot result: %s (id=%s)",
+            "found" if snapshot else "NOT FOUND",
+            snapshot.id if snapshot else None,
+        )
+        return snapshot
 
     async def compute_snapshot_for_period(
         self,
@@ -166,9 +181,11 @@ class SnapshotService:
             trend_delta=trend_delta,
         )
 
+        await self.db.flush()
         await self._persist_components(snapshot, components)
         await self.db.commit()
         await self.db.refresh(snapshot)
+        await self.db.refresh(snapshot, attribute_names=["components"])
 
         return snapshot
 
@@ -243,30 +260,42 @@ class SnapshotService:
         stmt = (
             select(
                 func.count(NewsItem.id).label("total"),
-                func.sum(
-                    case(
-                        (NewsItem.sentiment == SentimentLabel.POSITIVE, 1),
-                        else_=0,
-                    )
+                func.coalesce(
+                    func.sum(
+                        case(
+                            (NewsItem.sentiment == SentimentLabel.POSITIVE, 1),
+                            else_=0,
+                        )
+                    ),
+                    0
                 ).label("positive"),
-                func.sum(
-                    case(
-                        (NewsItem.sentiment == SentimentLabel.NEGATIVE, 1),
-                        else_=0,
-                    )
+                func.coalesce(
+                    func.sum(
+                        case(
+                            (NewsItem.sentiment == SentimentLabel.NEGATIVE, 1),
+                            else_=0,
+                        )
+                    ),
+                    0
                 ).label("negative"),
-                func.sum(
-                    case(
-                        (NewsItem.sentiment == SentimentLabel.NEUTRAL, 1),
-                        else_=0,
-                    )
+                func.coalesce(
+                    func.sum(
+                        case(
+                            (NewsItem.sentiment == SentimentLabel.NEUTRAL, 1),
+                            else_=0,
+                        )
+                    ),
+                    0
                 ).label("neutral"),
                 func.coalesce(func.avg(NewsItem.priority_score), 0.0).label("avg_priority"),
-                func.sum(
-                    case(
-                        (NewsItem.category == NewsCategory.FUNDING_NEWS, 1),
-                        else_=0,
-                    )
+                func.coalesce(
+                    func.sum(
+                        case(
+                            (NewsItem.category == NewsCategory.FUNDING_NEWS, 1),
+                            else_=0,
+                        )
+                    ),
+                    0
                 ).label("funding_events"),
             )
             .where(
@@ -280,20 +309,21 @@ class SnapshotService:
         row = result.one()
 
         total_news = row.total or 0
-        positive = row.positive or 0
-        negative = row.negative or 0
+        positive = int(row.positive or 0)
+        negative = int(row.negative or 0)
+        neutral = int(row.neutral or 0)
         average_sentiment = 0.0
         if total_news:
             average_sentiment = (positive - negative) / float(total_news)
 
         return {
-            "total_news": row.total or 0,
+            "total_news": total_news,
             "positive_news": positive,
             "negative_news": negative,
-            "neutral_news": row.neutral or 0,
+            "neutral_news": neutral,
             "average_priority": float(row.avg_priority or 0.0),
             "average_sentiment": average_sentiment,
-            "funding_events": row.funding_events or 0,
+            "funding_events": int(row.funding_events or 0),
         }
 
     async def _load_change_events(
@@ -495,10 +525,13 @@ class SnapshotService:
         snapshot: CompanyAnalyticsSnapshot,
         components: List[Dict[str, float]],
     ) -> None:
-        if snapshot.components:
-            for component in list(snapshot.components):
-                await self.db.delete(component)
+        from datetime import datetime, timezone
+        
+        await self.db.execute(
+            delete(ImpactComponent).where(ImpactComponent.snapshot_id == snapshot.id)
+        )
 
+        now = datetime.now(timezone.utc)
         for component_data in components:
             component = ImpactComponent(
                 snapshot_id=snapshot.id,
@@ -508,6 +541,8 @@ class SnapshotService:
                 score_contribution=component_data["score"],
                 metadata_json=component_data.get("metadata", {}),
             )
+            component.created_at = now
+            component.updated_at = now
             self.db.add(component)
 
     async def _get_previous_snapshot(

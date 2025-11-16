@@ -22,7 +22,7 @@ from app.schemas.competitor_events import CompetitorChangeEventSchema
 class ImpactComponentResponse(BaseModel):
     """Response schema for impact score components."""
 
-    id: UUID
+    id: Optional[UUID] = None
     component_type: ImpactComponentType
     weight: float
     score_contribution: float
@@ -35,7 +35,7 @@ class ImpactComponentResponse(BaseModel):
 class CompanyAnalyticsSnapshotResponse(BaseModel):
     """Aggregated analytics snapshot response."""
 
-    id: UUID
+    id: Optional[UUID] = None
     company_id: UUID
     period: AnalyticsPeriod
     period_start: datetime

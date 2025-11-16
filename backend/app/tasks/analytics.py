@@ -5,6 +5,7 @@ Celery tasks for analytics calculations and knowledge graph synchronisation.
 from __future__ import annotations
 
 import asyncio
+import nest_asyncio
 from datetime import datetime, timezone
 from typing import List
 from uuid import UUID
@@ -18,6 +19,9 @@ from app.models import AnalyticsPeriod, Company
 from app.domains.analytics import AnalyticsFacade
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+# Don't apply nest_asyncio at module level - it conflicts with uvloop in uvicorn
+# Apply it inside Celery tasks instead
 
 
 _ANALYTICS_LABELS = {"queue": "analytics"}
@@ -54,7 +58,13 @@ def recompute_company_analytics(self, company_id: str, period: str = AnalyticsPe
             return ctx.result
 
         try:
-            result = asyncio.run(_recompute_company_analytics_async(UUID(company_id), analytics_period, lookback))
+            # Apply nest_asyncio only when called from Celery task
+            nest_asyncio.apply()
+            result = asyncio.run(_recompute_company_analytics_async(
+                UUID(company_id),
+                analytics_period,
+                lookback,
+            ))
             logger.info(
                 "Analytics recompute finished for company %s (%s snapshots)",
                 company_id,
@@ -104,7 +114,12 @@ def recompute_all_analytics(self, period: str = AnalyticsPeriod.DAILY.value, loo
             return ctx.result
 
         try:
-            result = asyncio.run(_recompute_all_analytics_async(analytics_period, lookback))
+            # Apply nest_asyncio only when called from Celery task
+            nest_asyncio.apply()
+            result = asyncio.run(_recompute_all_analytics_async(
+                analytics_period,
+                lookback,
+            ))
             logger.info(
                 "Global analytics recompute complete (%s companies updated)",
                 result["companies_processed"],
@@ -170,14 +185,14 @@ def sync_company_knowledge_graph(
             return ctx.result
 
         try:
+            # Apply nest_asyncio only when called from Celery task
+            nest_asyncio.apply()
             period_start = _parse_period_start(period_start_iso)
-            result = asyncio.run(
-                _sync_company_graph_async(
-                    UUID(company_id),
-                    analytics_period,
-                    period_start,
-                )
-            )
+            result = asyncio.run(_sync_company_graph_async(
+                UUID(company_id),
+                analytics_period,
+                period_start,
+            ))
             logger.info(
                 "Graph sync complete for company %s (%s edges created)",
                 company_id,

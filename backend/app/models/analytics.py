@@ -135,8 +135,13 @@ class CompanyAnalyticsSnapshot(BaseModel):
 
     metric_breakdown = Column(JSON, default=dict)
 
-    company = relationship("Company", backref="analytics_snapshots")
-    components = relationship("ImpactComponent", back_populates="snapshot", cascade="all, delete-orphan")
+    company = relationship("Company", backref="analytics_snapshots", lazy="selectin")
+    components = relationship(
+        "ImpactComponent",
+        back_populates="snapshot",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
 
     __table_args__ = (
         UniqueConstraint(
@@ -179,8 +184,12 @@ class ImpactComponent(BaseModel):
     source_entity_id = Column(PGUUID(as_uuid=True), nullable=True)
     metadata_json = Column("metadata", JSON, default=dict)
 
-    snapshot = relationship("CompanyAnalyticsSnapshot", back_populates="components")
-    company = relationship("Company", backref="impact_components")
+    snapshot = relationship(
+        "CompanyAnalyticsSnapshot",
+        back_populates="components",
+        lazy="selectin",
+    )
+    company = relationship("Company", backref="impact_components", lazy="selectin")
 
 
 class AnalyticsGraphEdge(BaseModel):

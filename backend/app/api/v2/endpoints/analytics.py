@@ -4,8 +4,10 @@ Analytics endpoints for API v2.
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import json
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from typing import List, Optional, Sequence, Tuple
 from uuid import UUID
@@ -23,6 +25,7 @@ from app.core.database import get_db
 from app.models import (
     AnalyticsGraphEdge,
     AnalyticsPeriod,
+    CompanyAnalyticsSnapshot,
     NewsTopic,
     RelationshipType,
     SentimentLabel,
@@ -81,6 +84,165 @@ def _decode_change_log_cursor(cursor: str) -> Tuple[datetime, UUID]:
 
 
 @router.get(
+    "/companies/{company_id}/impact/latest",
+    response_model=CompanyAnalyticsSnapshotResponse,
+    summary="Get latest analytics snapshot",
+    name="get_latest_analytics_snapshot",  # Явное имя для отладки
+)
+async def get_latest_snapshot(
+    company_id: UUID,
+    period: str = Query(default="daily", description="Analytics period: daily, weekly, or monthly"),
+    current_user: User = Depends(get_current_user),
+    analytics: AnalyticsFacade = Depends(get_analytics_facade),
+) -> CompanyAnalyticsSnapshotResponse:
+    logger.info(
+        "get_latest_snapshot called: company_id=%s, period=%s, user_id=%s",
+        company_id,
+        period,
+        current_user.id,
+    )
+    # Нормализуем period к enum
+    try:
+        period_enum = AnalyticsPeriod(period.lower())
+    except ValueError:
+        logger.warning("Invalid period value: %s", period)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid period value: {period}. Must be one of: daily, weekly, monthly",
+        )
+    
+    logger.info("Calling analytics.get_latest_snapshot(company_id=%s, period=%s)", company_id, period_enum.value)
+    snapshot = await analytics.get_latest_snapshot(company_id, period_enum)
+    logger.info("get_latest_snapshot result: snapshot=%s (id=%s)", "found" if snapshot else "NOT FOUND", snapshot.id if snapshot else None)
+    if not snapshot:
+        logger.info("Snapshot not found, attempting to create automatically...")
+        # Автоматически создаем snapshot для последнего периода, если его нет
+        from datetime import datetime, timedelta, timezone
+        
+        # Получаем duration для периода
+        period_duration_map = {
+            AnalyticsPeriod.DAILY: timedelta(days=1),
+            AnalyticsPeriod.WEEKLY: timedelta(days=7),
+            AnalyticsPeriod.MONTHLY: timedelta(days=30),
+        }
+        period_duration = period_duration_map.get(period_enum, timedelta(days=1))
+        
+        # Вычисляем начало последнего периода (используем ту же логику, что и в refresh_company_snapshots)
+        now = datetime.now(tz=timezone.utc)
+        anchor = now.replace(minute=0, second=0, microsecond=0)
+        # Для последнего периода используем offset=1 (вчера для daily)
+        # Для daily: начало вчерашнего дня (00:00:00 UTC)
+        if period_enum == AnalyticsPeriod.DAILY:
+            period_start = (now - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+        else:
+            period_start = anchor - period_duration
+        
+        logger.info("Computing snapshot for period_start=%s, period=%s", period_start.isoformat(), period_enum.value)
+        try:
+            # Создаем snapshot для последнего периода
+            snapshot = await analytics.snapshots.compute_snapshot_for_period(
+                company_id=company_id,
+                period_start=period_start,
+                period=period_enum,
+            )
+            logger.info("Successfully computed snapshot: id=%s", snapshot.id if snapshot else None)
+            logger.info(
+                "Auto-created snapshot for company %s (period=%s, start=%s, id=%s)",
+                company_id,
+                period_enum.value,
+                period_start.isoformat(),
+                snapshot.id if snapshot else None,
+            )
+        except Exception as exc:
+            logger.error(
+                "Failed to auto-create snapshot for company %s: %s",
+                company_id,
+                exc,
+                exc_info=True,
+            )
+            # Откатываем транзакцию после ошибки в compute_snapshot_for_period
+            try:
+                await analytics.session.rollback()
+                logger.info("Rolled back transaction after compute_snapshot_for_period error")
+            except Exception as rollback_exc:
+                logger.warning("Failed to rollback transaction: %s", rollback_exc)
+            
+            # Если не удалось создать, создаем пустой snapshot и сохраняем в БД
+            logger.info("compute_snapshot_for_period failed, creating empty snapshot as fallback...")
+            try:
+                # Проверяем, нет ли уже snapshot с такими параметрами
+                period_value = period_enum.value
+                existing_snapshot_stmt = select(CompanyAnalyticsSnapshot).where(
+                    CompanyAnalyticsSnapshot.company_id == company_id,
+                    CompanyAnalyticsSnapshot.period == period_value,
+                    CompanyAnalyticsSnapshot.period_start == period_start,
+                ).limit(1)
+                existing_result = await analytics.session.execute(existing_snapshot_stmt)
+                existing_snapshot = existing_result.scalar_one_or_none()
+                
+                if existing_snapshot:
+                    logger.info("Found existing snapshot with same parameters, using it: id=%s", existing_snapshot.id)
+                    await analytics.session.refresh(existing_snapshot, ["components"])
+                    snapshot = existing_snapshot
+                else:
+                    logger.info("Creating empty CompanyAnalyticsSnapshot object...")
+                    snapshot = CompanyAnalyticsSnapshot(
+                        company_id=company_id,
+                        period=period_value,
+                        period_start=period_start,
+                        period_end=period_start + period_duration,
+                        news_total=0,
+                        news_positive=0,
+                        news_negative=0,
+                        news_neutral=0,
+                        news_average_sentiment=0.0,
+                        news_average_priority=0.0,
+                        pricing_changes=0,
+                        feature_updates=0,
+                        funding_events=0,
+                        impact_score=0.0,
+                        innovation_velocity=0.0,
+                        trend_delta=0.0,
+                        metric_breakdown={},
+                    )
+                    logger.info("Adding snapshot to session and committing...")
+                    analytics.session.add(snapshot)
+                    await analytics.session.commit()
+                    logger.info("Snapshot committed, refreshing...")
+                    await analytics.session.refresh(snapshot, ["components"])
+                    logger.info("Snapshot refreshed: id=%s", snapshot.id if snapshot else None)
+                    logger.info(
+                        "Created empty snapshot for company %s (period=%s, start=%s, id=%s)",
+                        company_id,
+                        period_value,
+                        period_start.isoformat(),
+                        snapshot.id if snapshot else None,
+                    )
+            except Exception as db_exc:
+                logger.error(
+                    "Failed to create empty snapshot for company %s: %s",
+                    company_id,
+                    db_exc,
+                    exc_info=True,
+                )
+                # Откатываем транзакцию перед возвратом ошибки
+                try:
+                    await analytics.session.rollback()
+                except Exception:
+                    pass
+                # Если даже пустой snapshot не удалось создать, возвращаем 404
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Snapshot not found and could not be created automatically",
+                ) from db_exc
+    
+    logger.info("Converting snapshot to response...")
+    response = _snapshot_to_response(snapshot)
+    logger.info("=== get_latest_snapshot SUCCESS: snapshot_id=%s ===", response.id)
+    return response
+
+
+@router.get(
     "/companies/{company_id}/snapshots",
     response_model=SnapshotSeriesResponse,
     summary="Get analytics snapshots for a company",
@@ -101,26 +263,6 @@ async def get_company_snapshots(
     )
 
 
-@router.get(
-    "/companies/{company_id}/impact/latest",
-    response_model=CompanyAnalyticsSnapshotResponse,
-    summary="Get latest analytics snapshot",
-)
-async def get_latest_snapshot(
-    company_id: UUID,
-    period: AnalyticsPeriod = Query(default=AnalyticsPeriod.DAILY),
-    current_user: User = Depends(get_current_user),
-    analytics: AnalyticsFacade = Depends(get_analytics_facade),
-) -> CompanyAnalyticsSnapshotResponse:
-    snapshot = await analytics.get_latest_snapshot(company_id, period)
-    if not snapshot:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Snapshot not found",
-        )
-    return _snapshot_to_response(snapshot)
-
-
 @router.post(
     "/companies/{company_id}/recompute",
     status_code=status.HTTP_202_ACCEPTED,
@@ -133,19 +275,99 @@ async def trigger_recompute(
     current_user: User = Depends(get_current_user),
 ) -> dict:
     logger.info("User %s triggered analytics recompute for company %s", current_user.id, company_id)
+    
+    # Check Redis connection first to fail fast
     try:
-        task = recompute_company_analytics.delay(str(company_id), period.value, lookback)
-    except (KombuOperationalError, redis_exceptions.RedisError) as exc:
+        from app.core.config import settings
+        import redis
+        redis_client = redis.Redis.from_url(settings.CELERY_BROKER_URL or "redis://localhost:6379/0", socket_connect_timeout=2, socket_timeout=2)
+        redis_client.ping()
+        logger.debug("Redis connection check passed for company %s", company_id)
+    except Exception as redis_check_exc:
+        logger.error(
+            "Redis connection check failed for company %s: %s",
+            company_id,
+            redis_check_exc,
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Analytics queue is unavailable. Please ensure Redis is running and accessible.",
+        ) from redis_check_exc
+    
+    try:
+        logger.debug("Attempting to enqueue analytics recompute task for company %s", company_id)
+        
+        # Run apply_async in executor with timeout to prevent hanging
+        # apply_async is a blocking call that may hang if broker is slow
+        def enqueue_task():
+            """Enqueue task synchronously in a thread."""
+            return recompute_company_analytics.apply_async(
+                args=[str(company_id), period.value, lookback],
+                countdown=0,
+                expires=None,
+                connection_retry=False,  # Disable retry to fail fast
+                connection_retry_on_startup=False,
+            )
+        
+        # Use asyncio.wait_for to set timeout for apply_async
+        loop = asyncio.get_event_loop()
+        executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="celery-enqueue")
+        
+        try:
+            task = await asyncio.wait_for(
+                loop.run_in_executor(executor, enqueue_task),
+                timeout=10.0  # 10 seconds timeout for enqueueing
+            )
+        except asyncio.TimeoutError:
+            logger.error(
+                "Timeout while enqueueing analytics recompute for company %s (exceeded 10 seconds)",
+                company_id,
+                exc_info=True,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+                detail="Request timeout. The analytics queue may be unavailable or slow. Please check Celery worker status.",
+            )
+        finally:
+            executor.shutdown(wait=False)
+        
+        # Verify task was created
+        if not task or not task.id:
+            logger.error("Task was created but has no ID for company %s", company_id)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to create task. Please try again later.",
+            )
+        
+        logger.info("Successfully enqueued analytics recompute task %s for company %s", task.id, company_id)
+        return {"status": "queued", "task_id": task.id}
+        
+    except HTTPException:
+        # Re-raise HTTP exceptions (timeout, etc.)
+        raise
+    except (KombuOperationalError, redis_exceptions.RedisError, redis_exceptions.ConnectionError) as exc:
         logger.error(
             "Failed to enqueue analytics recompute for company %s: %s",
             company_id,
             exc,
+            exc_info=True,
         )
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Analytics queue is unavailable. Please ensure Celery worker and Redis are running.",
         ) from exc
-    return {"status": "queued", "task_id": task.id}
+    except Exception as exc:
+        logger.error(
+            "Unexpected error while enqueueing analytics recompute for company %s: %s",
+            company_id,
+            exc,
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to enqueue analytics recompute. Please try again later.",
+        ) from exc
 
 
 @router.post(
@@ -161,12 +383,99 @@ async def trigger_graph_sync(
 ) -> dict:
     period_start = _ensure_timezone(period_start)
     logger.info("User %s triggered graph sync for company %s", current_user.id, company_id)
-    task = sync_company_knowledge_graph.delay(
-        str(company_id),
-        period_start.isoformat(),
-        period.value,
-    )
-    return {"status": "queued", "task_id": task.id}
+    
+    # Check Redis connection first to fail fast
+    try:
+        from app.core.config import settings
+        import redis
+        redis_client = redis.Redis.from_url(settings.CELERY_BROKER_URL or "redis://localhost:6379/0", socket_connect_timeout=2, socket_timeout=2)
+        redis_client.ping()
+        logger.debug("Redis connection check passed for company %s", company_id)
+    except Exception as redis_check_exc:
+        logger.error(
+            "Redis connection check failed for company %s: %s",
+            company_id,
+            redis_check_exc,
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Knowledge graph sync queue is unavailable. Please ensure Redis is running and accessible.",
+        ) from redis_check_exc
+    
+    try:
+        logger.debug("Attempting to enqueue graph sync task for company %s", company_id)
+        
+        # Run apply_async in executor with timeout to prevent hanging
+        # apply_async is a blocking call that may hang if broker is slow
+        def enqueue_task():
+            """Enqueue task synchronously in a thread."""
+            return sync_company_knowledge_graph.apply_async(
+                args=[str(company_id), period_start.isoformat(), period.value],
+                countdown=0,
+                expires=None,
+                connection_retry=False,  # Disable retry to fail fast
+                connection_retry_on_startup=False,
+            )
+        
+        # Use asyncio.wait_for to set timeout for apply_async
+        loop = asyncio.get_event_loop()
+        executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="celery-enqueue")
+        
+        try:
+            task = await asyncio.wait_for(
+                loop.run_in_executor(executor, enqueue_task),
+                timeout=10.0  # 10 seconds timeout for enqueueing
+            )
+        except asyncio.TimeoutError:
+            logger.error(
+                "Timeout while enqueueing graph sync for company %s (exceeded 10 seconds)",
+                company_id,
+                exc_info=True,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+                detail="Request timeout. The analytics queue may be unavailable or slow. Please check Celery worker status.",
+            )
+        finally:
+            executor.shutdown(wait=False)
+        
+        # Verify task was created
+        if not task or not task.id:
+            logger.error("Task was created but has no ID for company %s", company_id)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to create task. Please try again later.",
+            )
+        
+        logger.info("Successfully enqueued graph sync task %s for company %s", task.id, company_id)
+        return {"status": "queued", "task_id": task.id}
+        
+    except HTTPException:
+        # Re-raise HTTP exceptions (timeout, etc.)
+        raise
+    except (KombuOperationalError, redis_exceptions.RedisError, redis_exceptions.ConnectionError) as exc:
+        logger.error(
+            "Failed to enqueue graph sync for company %s: %s",
+            company_id,
+            exc,
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Knowledge graph sync queue is unavailable. Please ensure Celery worker and Redis are running.",
+        ) from exc
+    except Exception as exc:
+        logger.error(
+            "Unexpected error while enqueueing graph sync for company %s: %s",
+            company_id,
+            exc,
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to enqueue graph sync. Please try again later.",
+        ) from exc
 
 
 @router.get(
@@ -264,6 +573,11 @@ async def list_report_presets(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> List[ReportPresetResponse]:
+    logger.info(
+        "Fetching report presets for user %s (email: %s)",
+        current_user.id,
+        current_user.email,
+    )
     stmt = (
         select(UserReportPreset)
         .where(UserReportPreset.user_id == current_user.id)
@@ -271,10 +585,26 @@ async def list_report_presets(
     )
     result = await db.execute(stmt)
     presets = list(result.scalars().all())
-    return [
+    logger.info(
+        "Found %d report presets for user %s (email: %s)",
+        len(presets),
+        current_user.id,
+        current_user.email,
+    )
+    if len(presets) == 0:
+        # Check if there are any presets in the database at all
+        total_stmt = select(UserReportPreset)
+        total_result = await db.execute(total_stmt)
+        total_presets = list(total_result.scalars().all())
+        logger.debug(
+            "Total presets in database: %d (for all users)",
+            len(total_presets),
+        )
+    response = [
         ReportPresetResponse.model_validate(preset, from_attributes=True)
         for preset in presets
     ]
+    return response
 
 
 @router.post(
@@ -288,6 +618,11 @@ async def create_report_preset(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> ReportPresetResponse:
+    logger.debug(
+        "Creating report preset for user %s: name=%s",
+        current_user.id,
+        payload.name,
+    )
     preset = UserReportPreset(
         user_id=current_user.id,
         name=payload.name,
@@ -300,6 +635,12 @@ async def create_report_preset(
     db.add(preset)
     await db.commit()
     await db.refresh(preset)
+    logger.info(
+        "Created report preset for user %s: id=%s, name=%s",
+        current_user.id,
+        preset.id,
+        preset.name,
+    )
     return ReportPresetResponse.model_validate(preset, from_attributes=True)
 
 
@@ -338,8 +679,12 @@ def _ensure_timezone(value: datetime) -> datetime:
 
 
 def _snapshot_to_response(snapshot) -> CompanyAnalyticsSnapshotResponse:
+    # Обрабатываем случай, когда snapshot не сохранен в БД (нет ID)
+    snapshot_id = getattr(snapshot, 'id', None)
+    components_list = getattr(snapshot, 'components', None) or []
+    
     return CompanyAnalyticsSnapshotResponse(
-        id=snapshot.id,
+        id=snapshot_id,
         company_id=snapshot.company_id,
         period=snapshot.period,
         period_start=snapshot.period_start,
@@ -356,16 +701,16 @@ def _snapshot_to_response(snapshot) -> CompanyAnalyticsSnapshotResponse:
         impact_score=snapshot.impact_score,
         innovation_velocity=snapshot.innovation_velocity,
         trend_delta=snapshot.trend_delta,
-        metric_breakdown=snapshot.metric_breakdown or {},
+        metric_breakdown=getattr(snapshot, 'metric_breakdown', None) or {},
         components=[
             ImpactComponentResponse(
-                id=component.id,
+                id=getattr(component, 'id', None),
                 component_type=component.component_type,
                 weight=component.weight,
                 score_contribution=component.score_contribution,
-                metadata=component.metadata_json or {},
+                metadata=getattr(component, 'metadata_json', None) or {},
             )
-            for component in (snapshot.components or [])
+            for component in components_list
         ],
     )
 
