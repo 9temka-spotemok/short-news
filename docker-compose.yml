@@ -196,7 +196,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "python -c 'import sys; sys.exit(0)' || exit 1"]
+      test: ["CMD-SHELL", "pgrep -f cron > /dev/null || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3

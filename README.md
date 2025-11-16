@@ -56,6 +56,7 @@ shot-news/
 
 ## ♻️ Свежие улучшения (ноябрь 2025)
 
+- `backend/app/tasks/scraping.py` — исправлена проблема с event loop в Celery: заменён `asyncio.run()` на `_run_async` helper для корректной работы async кода в Celery worker. Это устраняет ошибки вида "Task got Future attached to a different loop" и "Event loop is closed".
 - `backend/app/api/v2/endpoints/analytics.py` — исправлена логика автоматического создания snapshot: добавлен rollback после ошибок, проверка на существующий snapshot перед созданием нового, улучшена обработка ошибок при создании пустого snapshot; теперь `/impact/latest` всегда создает snapshot автоматически, даже при отсутствии данных.
 - `backend/app/core/database.py` — добавлена функция `get_async_session()` для использования в скриптах диагностики; функция работает как async generator и может быть использована в `async for` циклах, аналогично `get_db()` для зависимостей FastAPI.
 - `docs/SNAPSHOT_VERIFICATION_REPORT.md` — создан отчет о проверке системы snapshot; проверено соответствие логирования документации, исправлен скрипт диагностики, все компоненты соответствуют требованиям из `DIAGNOSE_404_SNAPSHOT.md`.
@@ -534,14 +535,27 @@ k6 run tests/performance/analytics-load.test.js
 - Миграция `1f2a3b4c5d6e_add_crawl_and_notification_channels.py` создаёт таблицы для системы уведомлений: `notification_channels`, `notification_events`, `notification_subscriptions`, `notification_deliveries`.
 - После обновления репозитория выполните `cd backend && poetry run alembic upgrade head`, чтобы применить изменения схемы.
 
+**Важно:** Если вы видите ошибку `relation "notification_deliveries" does not exist`, это означает, что миграции не были применены. Выполните:
+```bash
+cd backend
+poetry run alembic upgrade head
+# или
+python -m alembic upgrade head
+```
+
 **Проверка миграций:**
 - Скрипт `backend/scripts/check_migrations.py` проверяет статус миграций и наличие всех необходимых таблиц в базе данных.
 - Использование: `python backend/scripts/check_migrations.py`
-- Скрипт покажет текущую версию миграции и проверит наличие всех таблиц для системы уведомлений.
+- Скрипт покажет текущую версию миграции и проверит наличие всех таблиц для системы уведомлений, включая `notification_deliveries`.
 
 **Автоматическое применение миграций:**
 - Celery worker (`backend/start-worker.sh`) автоматически применяет миграции перед запуском.
 - Если миграции не могут быть применены, worker выведет предупреждение, но продолжит работу (убедитесь, что миграции применены отдельно).
+
+**Файлы миграций:**
+- `backend/alembic/versions/1f2a3b4c5d6e_add_crawl_and_notification_channels.py` - создаёт таблицы для системы уведомлений и обходов
+- `backend/alembic/env.py` - конфигурация Alembic для async SQLAlchemy
+- `backend/alembic.ini` - настройки Alembic
 
 ## ⚙️ Конфигурация скрейпера
 
@@ -604,7 +618,8 @@ k6 run tests/performance/analytics-load.test.js
 
 **Фоновые задачи (`app/tasks/`):**
 - `digest.py` - Celery задачи для генерации и отправки дайджестов. После отправки каждого дайджеста пользователю показываются быстрые кнопки
-- `scraping.py` - Задачи для сбора новостей
+- `scraping.py` - Задачи для сбора новостей. **Исправлено:** использует `_run_async` helper для корректной работы async кода в Celery (устранена проблема с event loop)
+- `notifications.py` - Celery задачи для обработки уведомлений: `dispatch_notification_deliveries` (отправка pending доставок). Использует `_run_async` helper для безопасного выполнения async кода в Celery
 - `nlp.py` - Обновлённые задачи NLP: классификация тем/тональности/приоритета, генерация summary и ключевых слов
 - `analytics.py` - Celery задачи для аналитики: `recompute_company_analytics` (пересчет для одной компании), `recompute_all_analytics` (пересчет для всех компаний), `sync_company_knowledge_graph` (синхронизация knowledge graph). Автоматически запускаются каждые 6 часов через Celery Beat
 

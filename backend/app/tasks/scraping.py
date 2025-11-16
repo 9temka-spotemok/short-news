@@ -3,9 +3,9 @@ Web scraping tasks
 """
 
 import asyncio
+import threading
 from celery import current_task
 from loguru import logger
-import nest_asyncio
 from typing import List, Dict
 
 from app.celery_app import celery_app
@@ -17,8 +17,26 @@ from app.scrapers.real_scrapers import AINewsScraper
 from sqlalchemy import select
 from datetime import datetime, timedelta
 
-# Apply nest_asyncio for async in Celery
-nest_asyncio.apply()
+_ASYNC_EVENT_LOOP = None
+_ASYNC_LOCK = threading.Lock()
+
+
+def _get_event_loop() -> asyncio.AbstractEventLoop:
+    global _ASYNC_EVENT_LOOP
+    if _ASYNC_EVENT_LOOP is None or _ASYNC_EVENT_LOOP.is_closed():
+        _ASYNC_EVENT_LOOP = asyncio.new_event_loop()
+    return _ASYNC_EVENT_LOOP
+
+
+def _run_async(fn, *args, **kwargs):
+    """Выполнить асинхронную корутину в выделенном event loop текущего процесса."""
+    coro = fn(*args, **kwargs)
+    with _ASYNC_LOCK:
+        loop = _get_event_loop()
+        asyncio.set_event_loop(loop)
+        result = loop.run_until_complete(coro)
+        loop.run_until_complete(loop.shutdown_asyncgens())
+    return result
 
 
 @celery_app.task(bind=True)
@@ -29,8 +47,7 @@ def scrape_ai_blogs(self):
     logger.info("Starting AI blogs scraping task")
     
     try:
-        # Apply nest_asyncio and run async function
-        result = asyncio.run(_scrape_ai_blogs_async())
+        result = _run_async(_scrape_ai_blogs_async)
         logger.info(f"AI blogs scraping completed: {result['scraped_count']} items scraped")
         return result
         

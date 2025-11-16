@@ -1,10 +1,11 @@
 FROM python:3.11-slim
 
-# Install system dependencies including cron
+# Install system dependencies including cron and procps (for pgrep)
 RUN apt-get update && apt-get install -y \
     cron \
     gcc \
     curl \
+    procps \
     && rm -rf /var/lib/apt/lists/*
 
 # Set workdir
@@ -26,7 +27,7 @@ RUN mkdir -p /var/log
 # Copy cron job configuration
 COPY scripts/scraper-cron /etc/cron.d/scraper-cron
 RUN chmod 0644 /etc/cron.d/scraper-cron
-RUN crontab /etc/cron.d/scraper-cron
+# Files in /etc/cron.d/ are automatically picked up by cron, no need for crontab
 
 # Copy entrypoint script
 COPY scripts/scraper-entrypoint.sh /usr/local/bin/scraper-entrypoint.sh
