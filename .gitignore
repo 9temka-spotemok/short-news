@@ -212,3 +212,6 @@ test-results.xml
 # Local development
 .local/
 .cache/
+
+# Runtime-хранилище скрейпера (HTML снапшоты, не храним в репо)
+backend/storage/
