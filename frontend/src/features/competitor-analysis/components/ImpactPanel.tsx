@@ -1,4 +1,5 @@
-import { Gauge, BarChart3, LineChart, Users } from 'lucide-react'
+import { BarChart3, Gauge, LineChart, Users } from 'lucide-react'
+import { useState } from 'react'
 
 import { ErrorBanner } from '@/components/ErrorBanner'
 import { LoadingOverlay } from '@/components/LoadingOverlay'
@@ -11,8 +12,8 @@ type ImpactPanelProps = {
   analyticsEdges: KnowledgeGraphEdge[]
   analyticsLoading: boolean
   analyticsError: string | null
-  onRecompute: () => void
-  onSyncKnowledgeGraph: () => void
+  onRecompute: () => void | Promise<void>
+  onSyncKnowledgeGraph: () => void | Promise<void>
 }
 
 export const ImpactPanel = ({
@@ -24,6 +25,9 @@ export const ImpactPanel = ({
   onRecompute,
   onSyncKnowledgeGraph
 }: ImpactPanelProps) => {
+  const [isRecomputing, setIsRecomputing] = useState(false)
+  const [isSyncing, setIsSyncing] = useState(false)
+
   const recentSnapshots = impactSeries?.snapshots?.slice(-8) ?? []
   const maxImpact = recentSnapshots.length ? Math.max(...recentSnapshots.map(snapshot => snapshot.impact_score)) : 0
   const minImpact = recentSnapshots.length ? Math.min(...recentSnapshots.map(snapshot => snapshot.impact_score)) : 0
@@ -32,6 +36,24 @@ export const ImpactPanel = ({
     typeof impactSnapshot?.trend_delta === 'number' ? impactSnapshot.trend_delta * 100 : null
   const absoluteChange =
     previousScore !== null && impactSnapshot ? impactSnapshot.impact_score - previousScore : null
+
+  const handleRecompute = async () => {
+    setIsRecomputing(true)
+    try {
+      await onRecompute()
+    } finally {
+      setIsRecomputing(false)
+    }
+  }
+
+  const handleSyncGraph = async () => {
+    setIsSyncing(true)
+    try {
+      await onSyncKnowledgeGraph()
+    } finally {
+      setIsSyncing(false)
+    }
+  }
 
   if (!impactSnapshot && !analyticsLoading && !analyticsError) {
     return null
@@ -58,30 +80,45 @@ export const ImpactPanel = ({
         <div className="flex items-center space-x-2">
           <button
             type="button"
-            onClick={onRecompute}
-            className="text-xs px-3 py-1.5 rounded-md border border-blue-200 text-blue-600 hover:bg-blue-50 transition-colors"
+            onClick={handleRecompute}
+            disabled={isRecomputing || isSyncing}
+            className="text-xs px-3 py-1.5 rounded-md border border-blue-200 text-blue-600 hover:bg-blue-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
           >
-            Recompute
+            {isRecomputing ? (
+              <>
+                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600 mr-1.5" />
+                Recomputing...
+              </>
+            ) : (
+              'Recompute'
+            )}
           </button>
           <button
             type="button"
-            onClick={onSyncKnowledgeGraph}
-            disabled={!impactSnapshot}
-            className="text-xs px-3 py-1.5 rounded-md border border-indigo-200 text-indigo-600 hover:bg-indigo-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={handleSyncGraph}
+            disabled={!impactSnapshot || isRecomputing || isSyncing}
+            className="text-xs px-3 py-1.5 rounded-md border border-indigo-200 text-indigo-600 hover:bg-indigo-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
           >
-            Sync graph
+            {isSyncing ? (
+              <>
+                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-indigo-600 mr-1.5" />
+                Syncing...
+              </>
+            ) : (
+              'Sync graph'
+            )}
           </button>
         </div>
       </div>
 
       {analyticsError ? (
-        <ErrorBanner
-          className="mb-4 text-xs"
-          compact
-          message={analyticsError}
-          onRetry={onRecompute}
-          retryLabel="Recompute"
-        />
+          <ErrorBanner
+            className="mb-4 text-xs"
+            compact
+            message={analyticsError}
+            onRetry={handleRecompute}
+            retryLabel="Recompute"
+          />
       ) : null}
 
       {analyticsLoading && !impactSnapshot ? (

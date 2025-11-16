@@ -162,7 +162,8 @@ export default function NewsAnalyticsPage() {
 
         {/* Source Breakdown */}
         <SourceBreakdown 
-          sourceTypeCounts={stats.source_type_counts} 
+          sourceTypeCounts={stats.source_type_counts}
+          sourceTypeDescriptions={categories?.source_types}
           className="h-full"
         />
       </div>

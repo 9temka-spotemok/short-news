@@ -102,6 +102,13 @@ export default function DashboardPage() {
   // Состояние для модального окна добавления конкурента
   const [showAddModal, setShowAddModal] = useState(false)
 
+  // Состояния для табов и данных компаний
+  const [companyTabs, setCompanyTabs] = useState<Record<string, string>>({})
+  const [companyNews, setCompanyNews] = useState<Record<string, NewsItem[]>>({})
+  const [companyCategories, setCompanyCategories] = useState<Record<string, { category: string; technicalCategory: string; count: number }[]>>({})
+  const [companyPricing, setCompanyPricing] = useState<Record<string, { news: NewsItem[]; description?: string }>>({})
+  const [loadingCompanyData, setLoadingCompanyData] = useState<Record<string, { news: boolean; categories: boolean; pricing: boolean }>>({})
+
   // Save showTrackedOnly locally and persist telegram_digest_mode to backend
   const handleToggleTrackedOnly = async (value: boolean) => {
     setShowTrackedOnly(value)
@@ -477,6 +484,71 @@ export default function DashboardPage() {
     }
   }, [])
 
+  // Функция для загрузки новостей компании
+  const fetchCompanyNews = useCallback(async (companyId: string) => {
+    if (companyNews[companyId]) return
+    
+    setLoadingCompanyData(prev => ({ ...prev, [companyId]: { ...prev[companyId], news: true } }))
+    try {
+      const response = await api.get('/news/', {
+        params: { company_id: companyId, limit: 5 }
+      })
+      setCompanyNews(prev => ({ ...prev, [companyId]: response.data.items }))
+    } catch (error) {
+      console.error('Failed to fetch company news:', error)
+    } finally {
+      setLoadingCompanyData(prev => ({ ...prev, [companyId]: { ...prev[companyId], news: false } }))
+    }
+  }, [companyNews])
+
+  // Функция для загрузки категорий новостей компании
+  const fetchCompanyCategories = useCallback(async (companyId: string) => {
+    if (companyCategories[companyId]) return
+    
+    setLoadingCompanyData(prev => ({ ...prev, [companyId]: { ...prev[companyId], categories: true } }))
+    try {
+      const statsResponse = await api.get('/news/stats/by-companies', {
+        params: { company_ids: companyId }
+      })
+      const categoryCounts = statsResponse.data.category_counts
+      const categories = Object.entries(categoryCounts)
+        .map(([category, count]) => ({
+          category: categoryLabels[category] || category,
+          technicalCategory: category,
+          count: Number(count)
+        }))
+        .sort((a, b) => b.count - a.count)
+      setCompanyCategories(prev => ({ ...prev, [companyId]: categories }))
+    } catch (error) {
+      console.error('Failed to fetch company categories:', error)
+    } finally {
+      setLoadingCompanyData(prev => ({ ...prev, [companyId]: { ...prev[companyId], categories: false } }))
+    }
+  }, [companyCategories])
+
+  // Функция для загрузки pricing информации
+  const fetchCompanyPricing = useCallback(async (companyId: string, description?: string) => {
+    if (companyPricing[companyId]) return
+    
+    setLoadingCompanyData(prev => ({ ...prev, [companyId]: { ...prev[companyId], pricing: true } }))
+    try {
+      const response = await api.get('/news/', {
+        params: { company_id: companyId, category: 'pricing_change', limit: 10 }
+      })
+      setCompanyPricing(prev => ({
+        ...prev,
+        [companyId]: {
+          news: response.data.items,
+          description: description
+        }
+      }))
+    } catch (error) {
+      console.error('Failed to fetch company pricing:', error)
+    } finally {
+      setLoadingCompanyData(prev => ({ ...prev, [companyId]: { ...prev[companyId], pricing: false } }))
+    }
+  }, [companyPricing])
+
   const toggleCompanyExpanded = (companyId: string) => {
     setExpandedCompanies((prev) => {
       const newSet = new Set(prev)
@@ -486,8 +558,13 @@ export default function DashboardPage() {
         newSet.delete(companyId)
       } else {
         newSet.add(companyId)
-        // Загружаем источники при разворачивании
+        // Загружаем все данные при разворачивании
         fetchCompanySources(companyId)
+        const company = companies.find(c => c.id === companyId)
+        fetchCompanyNews(companyId)
+        fetchCompanyCategories(companyId)
+        fetchCompanyPricing(companyId, company?.description)
+        setCompanyTabs(prev => ({ ...prev, [companyId]: 'news' }))
       }
       return newSet
     })
@@ -962,6 +1039,7 @@ export default function DashboardPage() {
                 <div className="flex flex-col gap-4">
                   {companies.map((company) => {
                     const isExpanded = expandedCompanies.has(company.id)
+                    const activeTab = companyTabs[company.id] || 'news'
                     return (
                       <div key={company.id} className="card p-6 hover:shadow-lg transition-shadow">
                         <div className="flex items-start gap-4">
@@ -1019,69 +1097,221 @@ export default function DashboardPage() {
 
                             {/* Expanded content */}
                             {isExpanded && (
-                              <div className="mt-3 space-y-3">
+                              <div className="mt-4 space-y-4">
+                                {/* Описание компании - выделенный блок */}
                                 {company.description && (
-                                  <p className="text-sm text-gray-600">{company.description}</p>
-                                )}
-
-                                {/* Website URL */}
-                                {company.website && (
-                                  <div>
-                                    <p className="text-xs font-medium text-gray-700 mb-1">Website:</p>
-                                    <a
-                                      href={company.website}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-sm text-primary-600 hover:text-primary-700 break-all inline-flex items-center gap-1"
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      {company.website}
-                                      <ExternalLink className="h-3 w-3" />
-                                    </a>
+                                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+                                    <p className="text-sm text-gray-700 leading-relaxed">{company.description}</p>
                                   </div>
                                 )}
 
-                                {/* News Sources */}
-                                <div>
-                                  <p className="text-xs font-medium text-gray-700 mb-2">Источники новостей:</p>
-                                  {companySources[company.id]?.loading ? (
-                                    <div className="flex items-center gap-2">
-                                      <div className="w-4 h-4 border-2 border-primary-600 border-t-transparent rounded-full animate-spin"></div>
-                                      <span className="text-xs text-gray-500">Загрузка источников...</span>
-                                    </div>
-                                  ) : companySources[company.id]?.sources.length > 0 ? (
-                                    <div className="space-y-2">
-                                      {companySources[company.id].sources.map((source, idx) => (
-                                        <div key={idx} className="flex items-start justify-between gap-2 p-2 bg-gray-50 rounded text-sm">
-                                          <div className="flex-1 min-w-0">
-                                            <a
-                                              href={source.url}
-                                              target="_blank"
-                                              rel="noopener noreferrer"
-                                              className="text-primary-600 hover:text-primary-700 break-all inline-flex items-center gap-1"
-                                              onClick={(e) => e.stopPropagation()}
-                                            >
-                                              {source.url}
-                                              <ExternalLink className="h-3 w-3" />
-                                            </a>
-                                            <span className="text-xs text-gray-500 ml-2 capitalize">
-                                              ({source.type})
-                                            </span>
-                                          </div>
-                                          <span className="text-xs text-gray-500 whitespace-nowrap">
-                                            {source.count} новостей
+                                {/* Категории новостей - всегда видимы */}
+                                {loadingCompanyData[company.id]?.categories ? (
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-4 h-4 border-2 border-primary-600 border-t-transparent rounded-full animate-spin"></div>
+                                    <span className="text-xs text-gray-500">Загрузка категорий...</span>
+                                  </div>
+                                ) : companyCategories[company.id] && companyCategories[company.id].length > 0 ? (
+                                  <div>
+                                    <p className="text-xs font-medium text-gray-700 mb-2">Категории новостей:</p>
+                                    <div className="flex flex-wrap gap-2">
+                                      {companyCategories[company.id].map((cat) => (
+                                        <span
+                                          key={cat.technicalCategory}
+                                          className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-primary-100 text-primary-700 border border-primary-200"
+                                        >
+                                          {cat.category}
+                                          <span className="ml-1.5 px-1.5 py-0.5 bg-primary-200 rounded-full text-primary-800">
+                                            {cat.count}
                                           </span>
-                                        </div>
+                                        </span>
                                       ))}
                                     </div>
-                                  ) : companySources[company.id]?.loading === false ? (
-                                    <p className="text-xs text-gray-500">Источники не найдены</p>
-                                  ) : null}
+                                  </div>
+                                ) : null}
+
+                                {/* Табы */}
+                                <div className="border-t border-gray-200 pt-4">
+                                  <div className="flex space-x-1 border-b border-gray-200 mb-4">
+                                    {['news', 'sources', 'pricing'].map((tab) => (
+                                      <button
+                                        key={tab}
+                                        onClick={() => setCompanyTabs(prev => ({ ...prev, [company.id]: tab }))}
+                                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                                          activeTab === tab
+                                            ? 'border-primary-500 text-primary-600'
+                                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                        }`}
+                                      >
+                                        {tab === 'news' && 'News'}
+                                        {tab === 'sources' && 'Sources'}
+                                        {tab === 'pricing' && 'Pricing'}
+                                      </button>
+                                    ))}
+                                  </div>
+
+                                  {/* Tab Content */}
+                                  {activeTab === 'news' && (
+                                    <div className="space-y-3">
+                                      {loadingCompanyData[company.id]?.news ? (
+                                        <div className="flex items-center gap-2 py-4">
+                                          <div className="w-4 h-4 border-2 border-primary-600 border-t-transparent rounded-full animate-spin"></div>
+                                          <span className="text-sm text-gray-500">Загрузка новостей...</span>
+                                        </div>
+                                      ) : companyNews[company.id]?.length > 0 ? (
+                                        companyNews[company.id].map((news) => (
+                                          <div key={news.id} className="border-l-2 border-primary-200 pl-3 py-1">
+                                            <a
+                                              href={news.source_url}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="text-sm text-gray-900 hover:text-primary-600 font-medium block"
+                                            >
+                                              {news.title}
+                                            </a>
+                                            <div className="flex items-center gap-2 mt-1">
+                                              <span className="text-xs text-gray-500">
+                                                {formatDate(news.published_at || news.created_at)}
+                                              </span>
+                                              {news.category && (
+                                                <>
+                                                  <span className="text-xs text-gray-400">•</span>
+                                                  <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
+                                                    {categoryLabels[news.category] || news.category}
+                                                  </span>
+                                                </>
+                                              )}
+                                            </div>
+                                          </div>
+                                        ))
+                                      ) : (
+                                        <p className="text-sm text-gray-500 py-4">Новости не найдены</p>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {activeTab === 'sources' && (
+                                    <div>
+                                      {companySources[company.id]?.loading ? (
+                                        <div className="flex items-center gap-2 py-4">
+                                          <div className="w-4 h-4 border-2 border-primary-600 border-t-transparent rounded-full animate-spin"></div>
+                                          <span className="text-xs text-gray-500">Загрузка источников...</span>
+                                        </div>
+                                      ) : companySources[company.id]?.sources.length > 0 ? (
+                                        <div className="space-y-2">
+                                          {companySources[company.id].sources.map((source, idx) => (
+                                            <div key={idx} className="flex items-start justify-between gap-2 p-2 bg-gray-50 rounded text-sm">
+                                              <div className="flex-1 min-w-0">
+                                                <a
+                                                  href={source.url}
+                                                  target="_blank"
+                                                  rel="noopener noreferrer"
+                                                  className="text-primary-600 hover:text-primary-700 break-all inline-flex items-center gap-1"
+                                                  onClick={(e) => e.stopPropagation()}
+                                                >
+                                                  {source.url}
+                                                  <ExternalLink className="h-3 w-3" />
+                                                </a>
+                                                <span className="text-xs text-gray-500 ml-2 capitalize">
+                                                  ({source.type})
+                                                </span>
+                                              </div>
+                                              <span className="text-xs text-gray-500 whitespace-nowrap">
+                                                {source.count} новостей
+                                              </span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      ) : companySources[company.id]?.loading === false ? (
+                                        <p className="text-xs text-gray-500 py-4">Источники не найдены</p>
+                                      ) : null}
+                                    </div>
+                                  )}
+
+                                  {activeTab === 'pricing' && (
+                                    <div className="space-y-4">
+                                      {loadingCompanyData[company.id]?.pricing ? (
+                                        <div className="flex items-center gap-2 py-4">
+                                          <div className="w-4 h-4 border-2 border-primary-600 border-t-transparent rounded-full animate-spin"></div>
+                                          <span className="text-sm text-gray-500">Загрузка информации о ценах...</span>
+                                        </div>
+                                      ) : (
+                                        <>
+                                          {/* Текстовая информация о pricing из description */}
+                                          {companyPricing[company.id]?.description && 
+                                           (companyPricing[company.id]?.description?.toLowerCase().includes('pricing') || 
+                                            companyPricing[company.id]?.description?.toLowerCase().includes('price') ||
+                                            companyPricing[company.id]?.description?.toLowerCase().includes('$')) && (
+                                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                              <h4 className="text-sm font-semibold text-gray-900 mb-2">Информация о ценообразовании:</h4>
+                                              <p className="text-sm text-gray-700 leading-relaxed">
+                                                {companyPricing[company.id]?.description}
+                                              </p>
+                                            </div>
+                                          )}
+
+                                          {/* Новости о pricing изменениях */}
+                                          {companyPricing[company.id]?.news && companyPricing[company.id].news.length > 0 ? (
+                                            <div>
+                                              <h4 className="text-sm font-semibold text-gray-900 mb-3">Последние изменения цен:</h4>
+                                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                {companyPricing[company.id].news.map((news: NewsItem) => (
+                                                  <div key={news.id} className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                                                    <a
+                                                      href={news.source_url}
+                                                      target="_blank"
+                                                      rel="noopener noreferrer"
+                                                      className="text-sm text-gray-900 hover:text-primary-600 font-semibold block mb-2"
+                                                    >
+                                                      {news.title}
+                                                    </a>
+                                                    {news.summary && (
+                                                      <p className="text-xs text-gray-600 mb-2 line-clamp-2">{news.summary}</p>
+                                                    )}
+                                                    <div className="text-xs text-gray-500">
+                                                      {formatDate(news.published_at || news.created_at)}
+                                                    </div>
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            </div>
+                                          ) : (
+                                            !companyPricing[company.id]?.description && (
+                                              <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
+                                                <p className="text-sm text-gray-500">
+                                                  Информация о ценообразовании пока недоступна
+                                                </p>
+                                                <p className="text-xs text-gray-400 mt-1">
+                                                  Проверьте сайт компании для актуальной информации
+                                                </p>
+                                              </div>
+                                            )
+                                          )}
+                                        </>
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
 
-                                {/* Social Links */}
-                                {(company.twitter_handle || company.github_org) && (
-                                  <div className="pt-2 border-t border-gray-200">
+                                {/* Website и Social Links - внизу */}
+                                <div className="pt-4 border-t border-gray-200 space-y-2">
+                                  {company.website && (
+                                    <div>
+                                      <p className="text-xs font-medium text-gray-700 mb-1">Website:</p>
+                                      <a
+                                        href={company.website}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-sm text-primary-600 hover:text-primary-700 break-all inline-flex items-center gap-1"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        {company.website}
+                                        <ExternalLink className="h-3 w-3" />
+                                      </a>
+                                    </div>
+                                  )}
+
+                                  {(company.twitter_handle || company.github_org) && (
                                     <div className="flex flex-wrap items-center gap-3">
                                       {company.twitter_handle && (
                                         <a
@@ -1110,8 +1340,8 @@ export default function DashboardPage() {
                                         </a>
                                       )}
                                     </div>
-                                  </div>
-                                )}
+                                  )}
+                                </div>
                               </div>
                             )}
                           </div>

@@ -4,33 +4,33 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import ProgressSteps from '../components/ProgressSteps'
 import {
-  AnalysisModeSelection,
-  AnalysisResultsStep,
-  AnalyticsTabs,
-  CompanyAnalysisFlow,
-  companyAnalyticsInsightsQueryKey,
-  CompanySelectionStep,
-  CompetitorSuggestionStep,
-  fetchCompanyAnalyticsInsights,
-  ImpactPanel,
-  PresetManager,
-  useAnalysisFlow,
-  useAnalyticsExportHandler,
-  useChangeEventsQuery,
-  useCompanyAnalyticsInsights,
-  useComparisonManager,
-  useExportAnalyticsMutation,
-  useFiltersState,
-  usePrefetchAnalytics,
-  useRecomputeChangeEventMutation,
-  useReportPresetActions,
-  useReportPresetsQuery
+    AnalysisModeSelection,
+    AnalysisResultsStep,
+    AnalyticsTabs,
+    CompanyAnalysisFlow,
+    companyAnalyticsInsightsQueryKey,
+    CompanySelectionStep,
+    CompetitorSuggestionStep,
+    fetchCompanyAnalyticsInsights,
+    ImpactPanel,
+    PresetManager,
+    useAnalysisFlow,
+    useAnalyticsExportHandler,
+    useChangeEventsQuery,
+    useCompanyAnalyticsInsights,
+    useComparisonManager,
+    useExportAnalyticsMutation,
+    useFiltersState,
+    usePrefetchAnalytics,
+    useRecomputeChangeEventMutation,
+    useReportPresetActions,
+    useReportPresetsQuery
 } from '../features/competitor-analysis'
 import { ApiService } from '../services/api'
 import {
-  CompanyAnalyticsSnapshot,
-  ComparisonSubjectRequest,
-  ReportPreset
+    CompanyAnalyticsSnapshot,
+    ComparisonSubjectRequest,
+    ReportPreset
 } from '../types'
 
 type AnalysisMode = 'company' | 'custom'
@@ -158,11 +158,12 @@ export default function CompetitorAnalysisPage() {
 
   const prefetchAnalytics = usePrefetchAnalytics()
 
+  // Prefetch аналитики только в режиме custom или после запуска анализа в режиме company
   useEffect(() => {
-    if (selectedCompany) {
+    if (selectedCompany && (analysisMode === 'custom' || analysisData)) {
       prefetchAnalytics({ companyId: selectedCompany.id })
     }
-  }, [prefetchAnalytics, selectedCompany?.id])
+  }, [prefetchAnalytics, selectedCompany?.id, analysisMode, analysisData])
 
   const {
     newPresetName,
@@ -224,6 +225,9 @@ export default function CompetitorAnalysisPage() {
 
   const recomputeChangeEventMutation = useRecomputeChangeEventMutation()
 
+  // Загружаем аналитику только в режиме custom или после запуска анализа в режиме company
+  const shouldLoadAnalytics = analysisMode === 'custom' || (analysisMode === 'company' && analysisData)
+  
   const {
     data: analyticsInsights,
     isLoading: analyticsInsightsLoading,
@@ -231,7 +235,7 @@ export default function CompetitorAnalysisPage() {
     isError: isAnalyticsInsightsError,
     error: analyticsInsightsError,
     refetch: refetchAnalyticsInsights
-  } = useCompanyAnalyticsInsights(selectedCompany?.id ?? null)
+  } = useCompanyAnalyticsInsights(shouldLoadAnalytics ? selectedCompany?.id ?? null : null)
 
   const analyticsLoading = analyticsInsightsLoading || analyticsInsightsFetching
   const analyticsError =
@@ -255,16 +259,40 @@ export default function CompetitorAnalysisPage() {
       return
     }
 
+    // Prevent infinite requests by ensuring we only refetch once per task_id
+    const currentTaskId = pendingTaskId
+    let isCancelled = false
+
     const timer = setTimeout(async () => {
-      await Promise.all([
-        refetchAnalyticsInsights(),
-        refetchChangeEvents(),
-        refetchReportPresets()
-      ])
-      setPendingTaskId(null)
+      // Check if this effect is still valid (task_id hasn't changed)
+      if (isCancelled || currentTaskId !== pendingTaskId) {
+        return
+      }
+
+      try {
+        await Promise.all([
+          refetchAnalyticsInsights(),
+          refetchChangeEvents(),
+          refetchReportPresets()
+        ])
+        
+        // Only clear if this is still the current task
+        if (!isCancelled && currentTaskId === pendingTaskId) {
+          setPendingTaskId(null)
+        }
+      } catch (error) {
+        console.error('Error refetching data after task completion:', error)
+        // Clear pendingTaskId even on error to prevent infinite retries
+        if (!isCancelled && currentTaskId === pendingTaskId) {
+          setPendingTaskId(null)
+        }
+      }
     }, 5_000)
 
-    return () => clearTimeout(timer)
+    return () => {
+      isCancelled = true
+      clearTimeout(timer)
+    }
   }, [pendingTaskId, refetchAnalyticsInsights, refetchChangeEvents, refetchReportPresets])
 
   const SUBJECT_COLORS = ['#2563eb', '#0ea5e9', '#10b981', '#f97316', '#8b5cf6', '#f43f5e', '#14b8a6', '#d946ef']
@@ -382,52 +410,78 @@ export default function CompetitorAnalysisPage() {
   const handleRecomputeAnalytics = async () => {
     if (!selectedCompany) return
     try {
-      const { task_id } = await ApiService.triggerAnalyticsRecompute(selectedCompany.id, 'daily', 60)
+      const result = await ApiService.triggerAnalyticsRecompute(selectedCompany.id, 'daily', 60)
+      
+      // Validate task_id before setting pendingTaskId
+      if (!result?.task_id) {
+        console.error('Invalid response: task_id is missing', result)
+        toast.error('Failed to queue analytics recompute: Invalid response from server')
+        return
+      }
+      
       toast.success('Analytics recompute queued')
       await queryClient.invalidateQueries({
         queryKey: companyAnalyticsInsightsQueryKey(selectedCompany.id)
       })
-      setPendingTaskId(task_id)
+      setPendingTaskId(result.task_id)
     } catch (error: any) {
       console.error('Failed to queue analytics recompute:', error)
+      
+      // Don't set pendingTaskId on error to prevent infinite requests
       const message = error?.response?.data?.detail || error?.message || 'Failed to queue analytics recompute'
       toast.error(message)
+      
+      // Clear pendingTaskId if it was set before error
+      setPendingTaskId(null)
     }
   }
 
   const handleSyncKnowledgeGraph = async () => {
     if (!selectedCompany || !impactSnapshot) return
     try {
-      const { task_id } = await ApiService.triggerKnowledgeGraphSync(
+      const result = await ApiService.triggerKnowledgeGraphSync(
         selectedCompany.id,
         impactSnapshot.period_start,
         impactSnapshot.period
       )
+      
+      // Validate task_id before setting pendingTaskId
+      if (!result?.task_id) {
+        console.error('Invalid response: task_id is missing', result)
+        toast.error('Failed to sync knowledge graph: Invalid response from server')
+        return
+      }
+      
       toast.success('Knowledge graph sync queued')
       await refetchAnalyticsInsights()
-      setPendingTaskId(task_id)
+      setPendingTaskId(result.task_id)
     } catch (error: any) {
       console.error('Failed to sync knowledge graph:', error)
+      
+      // Don't set pendingTaskId on error to prevent infinite requests
       const message = error?.response?.data?.detail || error?.message || 'Failed to sync knowledge graph'
       toast.error(message)
+      
+      // Clear pendingTaskId if it was set before error
+      setPendingTaskId(null)
     }
   }
 
   // Режим кастомного анализа (существующий функционал)
   const renderCustomAnalysis = () => (
     <div className="max-w-6xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-xl font-semibold text-gray-900">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4 sm:mb-6">
+        <div className="flex-1">
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-900">
             Custom Analysis
           </h2>
-          <p className="text-gray-600 mt-1">
+          <p className="text-sm sm:text-base text-gray-600 mt-1">
             Step-by-step competitor analysis with full control
           </p>
         </div>
         <button
           onClick={handleResetToMenu}
-          className="text-gray-600 hover:text-gray-800 flex items-center"
+          className="text-sm sm:text-base text-gray-600 hover:text-gray-800 flex items-center w-full sm:w-auto justify-center sm:justify-start"
         >
           <ArrowLeft className="w-4 h-4 mr-1" />
           Back to Menu
@@ -579,13 +633,13 @@ export default function CompetitorAnalysisPage() {
   
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto py-8 px-4">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center">
-            <BarChart3 className="w-8 h-8 mr-3" />
-            Competitor Analysis
+      <div className="max-w-7xl mx-auto py-4 sm:py-6 lg:py-8 px-4 sm:px-6 lg:px-8">
+        <div className="mb-4 sm:mb-6">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3">
+            <BarChart3 className="w-6 h-6 sm:w-8 sm:h-8" />
+            <span>Competitor Analysis</span>
           </h1>
-          <p className="text-gray-600 mt-2">
+          <p className="text-sm sm:text-base text-gray-600 mt-2">
             Professional competitor analysis with AI-powered insights
           </p>
         </div>
@@ -612,12 +666,20 @@ export default function CompetitorAnalysisPage() {
             onToggleSentiment={toggleSentimentFilter}
             onMinPriorityChange={updateMinPriorityFilter}
             onClearFilters={clearFilters}
+            error={error}
             loading={loading}
             onAnalyze={runCompanyAnalysis}
             analysisData={analysisData}
             suggestedCompetitors={suggestedCompetitors}
             onExport={handleExport}
-            filtersSnapshot={analysisData?.filters}
+            filtersSnapshot={analysisData?.filters ?? currentFilterSnapshot}
+            impactSnapshot={impactSnapshot}
+            impactSeries={impactSeries}
+            analyticsEdges={analyticsEdges}
+            analyticsLoading={analyticsLoading}
+            analyticsError={analyticsError}
+            onRecomputeAnalytics={handleRecomputeAnalytics}
+            onSyncKnowledgeGraph={handleSyncKnowledgeGraph}
           />
         )}
         {analysisMode === 'custom' && renderCustomAnalysis()}

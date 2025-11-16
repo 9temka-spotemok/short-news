@@ -1,11 +1,13 @@
 import { History, Newspaper, Sparkles, TrendingUp } from 'lucide-react'
 
+import ThemeAnalysis from '@/components/ThemeAnalysis'
 import type {
   Company,
   CompanyAnalyticsSnapshot,
-  ComparisonSubjectSummary,
   ComparisonMetricSummary,
   ComparisonSubjectRequest,
+  ComparisonSubjectSummary,
+  CompetitorChangeEvent,
   KnowledgeGraphEdge,
   NewsItem,
   ReportPreset,
@@ -209,7 +211,7 @@ export const CurrentSignalsBoard = ({
             <p className="text-xs font-semibold uppercase text-gray-500 mb-1">Recent changes</p>
             <div className="space-y-2">
               {changeEvents.length ? (
-                changeEvents.map(event => (
+                changeEvents.map((event: CompetitorChangeEvent) => (
                   <div key={event.id} className="rounded border border-gray-200 px-3 py-2 text-xs text-gray-600">
                     <p className="font-semibold text-gray-800">{event.change_summary}</p>
                     <p className="mt-1 text-gray-500">{new Date(event.detected_at).toLocaleString()}</p>

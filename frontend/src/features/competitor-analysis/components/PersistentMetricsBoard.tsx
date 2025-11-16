@@ -1,15 +1,15 @@
 import { Activity, BarChart3, Clock, TrendingUp } from 'lucide-react'
 
 import { ErrorBanner } from '@/components/ErrorBanner'
+import ImpactTrendChart from '@/components/ImpactTrendChart'
+import { LoadingOverlay } from '@/components/LoadingOverlay'
 import MultiImpactTrendChart, {
   MultiImpactSeriesDescriptor
 } from '@/components/MultiImpactTrendChart'
-import { LoadingOverlay } from '@/components/LoadingOverlay'
-import { formatLabel } from '../utils/formatters'
 import type {
   Company,
-  ComparisonSubjectSummary,
-  CompanyAnalyticsSnapshot
+  CompanyAnalyticsSnapshot,
+  ComparisonSubjectSummary
 } from '@/types'
 
 type DailyActivityPoint = {
@@ -121,34 +121,34 @@ export const PersistentMetricsBoard = ({
     : []
 
   return (
-    <div className="space-y-6">
-      <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-6">
+    <div className="space-y-4">
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 space-y-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">Comparison dashboard</h3>
-            <p className="text-sm text-gray-500">Aggregated metrics for selected companies</p>
+            <h3 className="text-base sm:text-lg font-semibold text-gray-900">Comparison dashboard</h3>
+            <p className="text-xs sm:text-sm text-gray-500">Aggregated metrics for selected companies</p>
           </div>
-          <div className="flex items-center gap-3">
-            <label className="flex items-center gap-2 text-sm text-gray-600">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
+            <label className="flex items-center gap-2 text-xs sm:text-sm text-gray-600">
               Period
               <select
                 value={comparisonPeriod}
                 onChange={event =>
                   onComparisonPeriodChange(event.target.value as 'daily' | 'weekly' | 'monthly')
                 }
-                className="rounded-md border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="flex-1 sm:flex-none rounded-md border border-gray-300 px-2 py-1.5 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
               >
                 <option value="daily">Daily</option>
                 <option value="weekly">Weekly</option>
                 <option value="monthly">Monthly</option>
               </select>
             </label>
-            <label className="flex items-center gap-2 text-sm text-gray-600">
+            <label className="flex items-center gap-2 text-xs sm:text-sm text-gray-600">
               Lookback
               <select
                 value={comparisonLookback}
                 onChange={event => onComparisonLookbackChange(Number(event.target.value))}
-                className="rounded-md border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="flex-1 sm:flex-none rounded-md border border-gray-300 px-2 py-1.5 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
               >
                 <option value={30}>30 days</option>
                 <option value={60}>60 days</option>
@@ -169,32 +169,36 @@ export const PersistentMetricsBoard = ({
             description="Aggregating persistent metrics across selected subjects"
           />
         ) : comparisonData ? (
-          <div className="space-y-6">
+          <div className="space-y-4">
             {seriesForChart.length > 0 ? (
-              <MultiImpactTrendChart series={seriesForChart} />
+              <div className="overflow-hidden">
+                <MultiImpactTrendChart series={seriesForChart} height={119} />
+              </div>
             ) : (
               <p className="text-sm text-gray-500">
                 Not enough snapshot data yet to render combined trend. Run analysis to build history.
               </p>
             )}
 
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 text-sm">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-2 text-left font-semibold text-gray-700">Subject</th>
-                    <th className="px-4 py-2 text-left font-semibold text-gray-700">Impact</th>
-                    <th className="px-4 py-2 text-left font-semibold text-gray-700">Trend Δ</th>
-                    <th className="px-4 py-2 text-left font-semibold text-gray-700">News</th>
-                    <th className="px-4 py-2 text-left font-semibold text-gray-700">Activity</th>
-                    <th className="px-4 py-2 text-left font-semibold text-gray-700">Priority</th>
-                    <th className="px-4 py-2 text-left font-semibold text-gray-700">Innovation</th>
-                    <th className="px-4 py-2 text-left font-semibold text-gray-700">Positive</th>
-                    <th className="px-4 py-2 text-left font-semibold text-gray-700">Negative</th>
-                    <th className="px-4 py-2 text-left font-semibold text-gray-700">Knowledge</th>
-                    <th className="px-4 py-2 text-left font-semibold text-gray-700">Changes</th>
-                  </tr>
-                </thead>
+            <div className="overflow-x-auto -mx-4 sm:mx-0">
+              <div className="inline-block min-w-full align-middle">
+                <div className="overflow-hidden">
+                  <table className="min-w-full divide-y divide-gray-200 text-xs sm:text-sm">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-2 sm:px-4 py-2 text-left font-semibold text-gray-700 whitespace-nowrap">Subject</th>
+                        <th className="px-2 sm:px-4 py-2 text-left font-semibold text-gray-700 whitespace-nowrap">Impact</th>
+                        <th className="px-2 sm:px-4 py-2 text-left font-semibold text-gray-700 whitespace-nowrap">Trend Δ</th>
+                        <th className="px-2 sm:px-4 py-2 text-left font-semibold text-gray-700 whitespace-nowrap">News</th>
+                        <th className="px-2 sm:px-4 py-2 text-left font-semibold text-gray-700 whitespace-nowrap">Activity</th>
+                        <th className="px-2 sm:px-4 py-2 text-left font-semibold text-gray-700 whitespace-nowrap">Priority</th>
+                        <th className="px-2 sm:px-4 py-2 text-left font-semibold text-gray-700 whitespace-nowrap hidden md:table-cell">Innovation</th>
+                        <th className="px-2 sm:px-4 py-2 text-left font-semibold text-gray-700 whitespace-nowrap hidden lg:table-cell">Positive</th>
+                        <th className="px-2 sm:px-4 py-2 text-left font-semibold text-gray-700 whitespace-nowrap hidden lg:table-cell">Negative</th>
+                        <th className="px-2 sm:px-4 py-2 text-left font-semibold text-gray-700 whitespace-nowrap hidden md:table-cell">Knowledge</th>
+                        <th className="px-2 sm:px-4 py-2 text-left font-semibold text-gray-700 whitespace-nowrap hidden md:table-cell">Changes</th>
+                      </tr>
+                    </thead>
                 <tbody className="divide-y divide-gray-100">
                   {comparisonData.metrics.map((metric: any) => {
                     const subject = subjectSummariesByKey.get(metric.subject_key)
@@ -205,36 +209,38 @@ export const PersistentMetricsBoard = ({
                     const trendDelta = metric.trend_delta ?? 0
                     return (
                       <tr key={metric.subject_key} className="hover:bg-gray-50">
-                        <td className="whitespace-nowrap px-4 py-2 font-medium text-gray-900">
-                          <div className="flex items-center gap-2">
+                        <td className="whitespace-nowrap px-2 sm:px-4 py-2 font-medium text-gray-900">
+                          <div className="flex items-center gap-1.5 sm:gap-2">
                             <span
-                              className="inline-block h-2 w-2 rounded-sm"
+                              className="inline-block h-2 w-2 rounded-sm flex-shrink-0"
                               style={{
                                 backgroundColor:
                                   subjectColorMap.get(metric.subject_key) || '#2563eb'
                               }}
                             />
-                            {subject?.label || metric.subject_key}
+                            <span className="truncate max-w-[100px] sm:max-w-none">{subject?.label || metric.subject_key}</span>
                           </div>
                         </td>
-                        <td className="px-4 py-2">{metric.impact_score.toFixed(2)}</td>
-                        <td className="px-4 py-2">
+                        <td className="px-2 sm:px-4 py-2 whitespace-nowrap">{metric.impact_score.toFixed(2)}</td>
+                        <td className="px-2 sm:px-4 py-2 whitespace-nowrap">
                           {trendDelta >= 0 ? '+' : ''}
                           {trendDelta.toFixed(2)}%
                         </td>
-                        <td className="px-4 py-2">{metric.news_volume}</td>
-                        <td className="px-4 py-2">{metric.activity_score.toFixed(2)}</td>
-                        <td className="px-4 py-2">{metric.avg_priority.toFixed(2)}</td>
-                        <td className="px-4 py-2">{metric.innovation_velocity.toFixed(2)}</td>
-                        <td className="px-4 py-2">{snapshot?.news_positive ?? 0}</td>
-                        <td className="px-4 py-2">{snapshot?.news_negative ?? 0}</td>
-                        <td className="px-4 py-2">{knowledgeCount}</td>
-                        <td className="px-4 py-2">{changeCount}</td>
+                        <td className="px-2 sm:px-4 py-2 whitespace-nowrap">{metric.news_volume}</td>
+                        <td className="px-2 sm:px-4 py-2 whitespace-nowrap">{metric.activity_score.toFixed(2)}</td>
+                        <td className="px-2 sm:px-4 py-2 whitespace-nowrap">{metric.avg_priority.toFixed(2)}</td>
+                        <td className="px-2 sm:px-4 py-2 whitespace-nowrap hidden md:table-cell">{metric.innovation_velocity.toFixed(2)}</td>
+                        <td className="px-2 sm:px-4 py-2 whitespace-nowrap hidden lg:table-cell">{snapshot?.news_positive ?? 0}</td>
+                        <td className="px-2 sm:px-4 py-2 whitespace-nowrap hidden lg:table-cell">{snapshot?.news_negative ?? 0}</td>
+                        <td className="px-2 sm:px-4 py-2 whitespace-nowrap hidden md:table-cell">{knowledgeCount}</td>
+                        <td className="px-2 sm:px-4 py-2 whitespace-nowrap hidden md:table-cell">{changeCount}</td>
                       </tr>
                     )
                   })}
-                </tbody>
-              </table>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           </div>
         ) : (
@@ -297,7 +303,7 @@ export const PersistentMetricsBoard = ({
         </div>
       </div>
 
-      <div className="bg-white rounded-lg border border-gray-200 p-5">
+      <div className="bg-white rounded-lg border border-gray-200 p-4">
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <div>
             <h4 className="text-sm font-semibold text-gray-800">Impact score trend</h4>
@@ -313,11 +319,12 @@ export const PersistentMetricsBoard = ({
             <p className="text-xs text-gray-500">{highlightDateLabel}</p>
           </div>
         </div>
-        <div className="mt-4">
+        <div className="mt-3 overflow-hidden">
           {trendSnapshots.length > 0 ? (
             <ImpactTrendChart
               snapshots={trendSnapshots}
-              onPointHover={snapshot => {
+              height={119}
+              onPointHover={(snapshot: CompanyAnalyticsSnapshot | null) => {
                 if (snapshot) {
                   onSnapshotHover(snapshot)
                   return

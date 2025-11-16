@@ -39,14 +39,57 @@ import axios, { AxiosError, AxiosInstance, AxiosResponse } from 'axios'
 import JSZip from 'jszip'
 import toast from 'react-hot-toast'
 
+const normalizeUrl = (value?: string | null): string | null => {
+  if (typeof value !== 'string') {
+    return null
+  }
+
+  const trimmed = value.trim()
+  if (!trimmed.length) {
+    return null
+  }
+
+  return trimmed.replace(/\/$/, '')
+}
+
 const resolveApiBaseUrl = (): string => {
-  const raw = (import.meta as any).env?.VITE_API_URL
-  if (typeof raw === 'string') {
-    const trimmed = raw.trim()
-    if (trimmed.length) {
-      return trimmed.replace(/\/$/, '')
+  const envUrl = normalizeUrl((import.meta as any).env?.VITE_API_URL)
+  if (envUrl) {
+    return envUrl
+  }
+
+  let runtimeUrl: string | null = null
+  if (typeof window !== 'undefined') {
+    runtimeUrl = normalizeUrl((window as any).__SHOT_NEWS_API_URL__)
+  }
+  if (runtimeUrl) {
+    console.warn(
+      '[shot-news] VITE_API_URL не задан. Используется window.__SHOT_NEWS_API_URL__. Задайте переменную окружения, чтобы избавиться от предупреждения.'
+    )
+    return runtimeUrl
+  }
+
+  const devFallback = normalizeUrl((import.meta as any).env?.VITE_DEV_API_URL)
+  if (devFallback) {
+    console.warn(
+      '[shot-news] VITE_API_URL не задан. Используется fallback из VITE_DEV_API_URL. Задайте основную переменную для фронтенда.'
+    )
+    return devFallback
+  }
+
+  if (typeof window !== 'undefined') {
+    const { hostname } = window.location
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      console.warn(
+        '[shot-news] VITE_API_URL не задан. Используется fallback http://localhost:8000. Установите переменную, чтобы исключить таймауты за пределами dev-сервера.'
+      )
+      return 'http://localhost:8000'
     }
   }
+
+  console.error(
+    '[shot-news] API base URL не сконфигурирован. Установите VITE_API_URL в frontend/.env или определите window.__SHOT_NEWS_API_URL__.'
+  )
   return ''
 }
 
@@ -63,7 +106,9 @@ const attachInterceptors = (instance: AxiosInstance) => {
       }
 
       if ((import.meta as any).env?.DEV) {
-        console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${config.url}`, config.params)
+        // Для GET запросов показываем params, для POST/PUT/PATCH - data
+        const requestData = config.method?.toUpperCase() === 'GET' ? config.params : config.data
+        console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${config.url}`, requestData)
       }
 
       return config
@@ -82,16 +127,47 @@ const attachInterceptors = (instance: AxiosInstance) => {
       return response
     },
     async (error: AxiosError) => {
-      const { response, config } = error
+      const { response, config, code } = error
 
-      if ((import.meta as any).env?.DEV) {
-        console.error(`❌ API Error: ${config?.method?.toUpperCase()} ${config?.url}`, error.response?.data)
+      // Handle timeout errors (ECONNABORTED) silently for polling endpoints
+      const isTimeoutError = code === 'ECONNABORTED'
+      const isPollingEndpoint = config?.url?.includes('/notifications/unread') || 
+                                config?.url?.includes('/news/')
+      
+      if (isTimeoutError && isPollingEndpoint) {
+        // Silently ignore timeout errors for polling endpoints
+        if ((import.meta as any).env?.DEV) {
+          console.warn(`⚠️ Request timeout (silent): ${config?.method?.toUpperCase()} ${config?.url}`)
+        }
+        return Promise.reject(error)
       }
 
       const requestUrl = config?.url ?? ''
       const suppressNotFoundToast =
         requestUrl.includes('/analytics/companies/') &&
         (requestUrl.includes('/impact/latest') || requestUrl.includes('/snapshots'))
+      const isAnalytics404 = suppressNotFoundToast && response?.status === 404
+      const isAnalyticsGraph404 = requestUrl.includes('/analytics/graph') && response?.status === 404
+
+      if ((import.meta as any).env?.DEV) {
+        // Для 404 на аналитике не логируем - это ожидаемое поведение (аналитика может быть еще не построена)
+        if (!isAnalytics404 && !isAnalyticsGraph404) {
+          console.error(`❌ API Error: ${config?.method?.toUpperCase()} ${config?.url}`, error.response?.data)
+        }
+      }
+
+      // Handle timeout errors for non-polling endpoints
+      // Don't show toast for recompute/sync endpoints - they have their own error handling
+      const isRecomputeEndpoint = requestUrl.includes('/recompute') || requestUrl.includes('/graph/sync')
+      if (isTimeoutError && !isPollingEndpoint && !isRecomputeEndpoint) {
+        toast.error('Request timeout. Please check your connection and try again.')
+        return Promise.reject(error)
+      }
+      
+      // For recompute/sync endpoints, just reject without extra toast (already handled in component)
+      if (isTimeoutError && isRecomputeEndpoint) {
+        return Promise.reject(error)
+      }
 
       switch (response?.status) {
         case 401: {
@@ -161,8 +237,18 @@ export const apiV2 = axios.create({
   timeout: 30000,
 })
 
+// API для сканирования с увеличенным таймаутом (90 секунд)
+export const apiScan = axios.create({
+  baseURL: API_V1_BASE,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  timeout: 90000, // 90 секунд для сканирования
+})
+
 attachInterceptors(api)
 attachInterceptors(apiV2)
+attachInterceptors(apiScan)
 
 // Enhanced API service with typed methods
 export class ApiService {
@@ -527,7 +613,7 @@ export class ApiService {
 
   // Company scanning endpoints
   static async scanCompany(request: CompanyScanRequest): Promise<CompanyScanResult> {
-    const response = await api.post<CompanyScanResult>('/companies/scan', request)
+    const response = await apiScan.post<CompanyScanResult>('/companies/scan', request)
     return response.data
   }
 
@@ -588,8 +674,17 @@ export class ApiService {
     const response = await apiV2.post<{ status: string; task_id: string }>(
       `/analytics/companies/${companyId}/recompute`,
       null,
-      { params: { period, lookback } }
+      { 
+        params: { period, lookback },
+        timeout: 15000 // 15 секунд - увеличен для надежности (бэкенд проверяет Redis и может занять время)
+      }
     )
+    
+    // Validate response data
+    if (!response.data || !response.data.task_id) {
+      throw new Error('Invalid response: task_id is missing')
+    }
+    
     return response.data
   }
 
@@ -601,8 +696,17 @@ export class ApiService {
     const response = await apiV2.post<{ status: string; task_id: string }>(
       `/analytics/companies/${companyId}/graph/sync`,
       null,
-      { params: { period_start: periodStartIso, period } }
+      { 
+        params: { period_start: periodStartIso, period },
+        timeout: 15000 // 15 секунд - увеличен для надежности
+      }
     )
+    
+    // Validate response data
+    if (!response.data || !response.data.task_id) {
+      throw new Error('Invalid response: task_id is missing')
+    }
+    
     return response.data
   }
 

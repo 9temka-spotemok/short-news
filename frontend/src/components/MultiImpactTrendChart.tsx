@@ -1,5 +1,5 @@
-import { useMemo } from 'react'
 import type { ComparisonSeriesPoint } from '@/types'
+import { useMemo } from 'react'
 
 interface SeriesDescriptor {
   subjectKey: string
@@ -36,8 +36,8 @@ const MultiImpactTrendChart: React.FC<MultiImpactTrendChartProps> = ({ series, h
     const range = maxValue - minValue || 1
 
     const padding = {
-      top: 16,
-      bottom: 32,
+      top: 5,
+      bottom: 5,
       left: 10,
       right: 10
     }
@@ -100,14 +100,15 @@ const MultiImpactTrendChart: React.FC<MultiImpactTrendChartProps> = ({ series, h
   }
 
   return (
-    <div>
-      <svg
-        viewBox={`0 0 ${chart.viewBoxWidth} ${chart.height}`}
-        preserveAspectRatio="none"
-        className="w-full"
-        role="img"
-        aria-label="Impact score comparison chart"
-      >
+    <div className="w-full max-w-full sm:max-w-[490px] md:max-w-[571px] mx-auto">
+      <div className="w-full overflow-x-auto">
+        <svg
+          viewBox={`0 0 ${chart.viewBoxWidth} ${chart.height}`}
+          preserveAspectRatio="xMidYMid meet"
+          className="w-full min-w-[272px] sm:min-w-[340px] md:min-w-[408px]"
+          role="img"
+          aria-label="Impact score comparison chart"
+        >
         <rect
           x={chart.padding.left}
           y={chart.padding.top}
@@ -170,16 +171,17 @@ const MultiImpactTrendChart: React.FC<MultiImpactTrendChartProps> = ({ series, h
           Impact score
         </text>
       </svg>
+      </div>
 
-      <div className="mt-3 flex flex-wrap gap-3 text-sm">
+      <div className="mt-3 flex flex-wrap gap-2 sm:gap-3 text-xs sm:text-sm">
         {series.map(entry => (
-          <div key={entry.subjectKey} className="flex items-center gap-2">
+          <div key={entry.subjectKey} className="flex items-center gap-1.5 sm:gap-2">
             <span
-              className="inline-block h-2 w-2 rounded-sm"
+              className="inline-block h-2 w-2 rounded-sm flex-shrink-0"
               style={{ backgroundColor: entry.color }}
               aria-hidden="true"
             />
-            <span className="text-gray-700">{entry.label}</span>
+            <span className="text-gray-700 truncate max-w-[120px] sm:max-w-none">{entry.label}</span>
           </div>
         ))}
       </div>

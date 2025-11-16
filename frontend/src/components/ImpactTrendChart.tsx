@@ -31,8 +31,8 @@ const ImpactTrendChart = ({ snapshots, height = 200, onPointHover }: ImpactTrend
     paddingRight,
     viewBoxWidth
   } = useMemo(() => {
-    const paddingTop = 16
-    const paddingBottom = 32
+    const paddingTop = 5
+    const paddingBottom = 5
     const paddingLeft = 8
     const paddingRight = 8
     const viewBoxWidth = 100
@@ -89,12 +89,12 @@ const ImpactTrendChart = ({ snapshots, height = 200, onPointHover }: ImpactTrend
   const activePoint = activeIndex !== null ? points[activeIndex] : null
 
   return (
-    <div className="relative w-full">
+    <div className="relative w-full max-w-full sm:max-w-[490px] md:max-w-[571px] mx-auto">
       <svg
         role="img"
         aria-label="Impact score trend"
         viewBox={`0 0 ${viewBoxWidth} ${height}`}
-        preserveAspectRatio="none"
+        preserveAspectRatio="xMidYMid meet"
         className="w-full"
         onMouseLeave={() => {
           setActiveIndex(null)

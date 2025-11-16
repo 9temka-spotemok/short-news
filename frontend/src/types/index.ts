@@ -666,6 +666,7 @@ export interface CompareRequest {
 export interface CompanyScanRequest {
   website_url: string
   news_page_url?: string
+  max_articles?: number  // Количество статей для сканирования (по умолчанию 10)
   sources?: ScraperSourceOverride[]
 }
 
