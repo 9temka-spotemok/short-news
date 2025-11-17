@@ -46,14 +46,41 @@ def _run_async(fn, *args, **kwargs):
     finally:
         # Always close the loop to free resources
         try:
-            # Give pending tasks a chance to complete
-            pending = asyncio.all_tasks(loop)
+            # Give pending tasks a chance to complete, but with timeout
+            pending = [t for t in asyncio.all_tasks(loop) if not t.done()]
             if pending:
-                loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+                # Wait for pending tasks with a short timeout
+                try:
+                    loop.run_until_complete(asyncio.wait_for(
+                        asyncio.gather(*pending, return_exceptions=True),
+                        timeout=1.0
+                    ))
+                except (asyncio.TimeoutError, RuntimeError):
+                    # Cancel remaining tasks if timeout or loop is closing
+                    for task in pending:
+                        if not task.done():
+                            task.cancel()
+                    # Wait a bit for cancellations
+                    try:
+                        loop.run_until_complete(asyncio.wait_for(
+                            asyncio.gather(*pending, return_exceptions=True),
+                            timeout=0.5
+                        ))
+                    except Exception:
+                        pass
         except Exception:
             pass
         finally:
-            loop.close()
+            # Small delay to let DB connections close gracefully
+            try:
+                loop.run_until_complete(asyncio.sleep(0.1))
+            except Exception:
+                pass
+            try:
+                if not loop.is_closed():
+                    loop.close()
+            except Exception:
+                pass
             asyncio.set_event_loop(None)
 
 
