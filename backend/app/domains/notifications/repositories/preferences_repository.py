@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import List, Optional
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import UserPreferences
@@ -30,8 +30,24 @@ class UserPreferencesRepository:
         return list(result.scalars().all())
 
     async def list_interested_in_category(self, category: str) -> List[UserPreferences]:
+        # PostgreSQL requires explicit type casting when comparing enum arrays
+        # Use raw SQL with explicit cast to newscategory enum type
+        # The @> operator checks if the array contains the specified value
         result = await self._session.execute(
-            select(UserPreferences).where(UserPreferences.interested_categories.contains([category]))
+            text("""
+                SELECT id FROM user_preferences 
+                WHERE interested_categories @> ARRAY[:category::newscategory]
+            """),
+            {"category": category}
+        )
+        # Get IDs and fetch full objects using ORM
+        ids = [row[0] for row in result.all()]
+        if not ids:
+            return []
+        
+        # Fetch full UserPreferences objects using ORM
+        result = await self._session.execute(
+            select(UserPreferences).where(UserPreferences.id.in_(ids))
         )
         return list(result.scalars().all())
 

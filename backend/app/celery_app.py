@@ -3,10 +3,12 @@ Celery application configuration
 """
 
 import asyncio
+import time
 import warnings
 
 from celery import Celery
 from kombu import Exchange, Queue
+from loguru import logger
 from app.core.config import settings
 from app.core.database import AsyncSessionLocal
 from app.services.crawl_schedule_service import load_effective_celery_schedule
@@ -115,7 +117,7 @@ _BASE_BEAT_SCHEDULE = {
     },
     "dispatch-notification-deliveries": {
         "task": "app.tasks.notifications.dispatch_notification_deliveries",
-        "schedule": 60,  # Every minute
+        "schedule": 2 * 60,  # Every 2 minutes
     },
     "recompute-analytics-daily": {
         "task": "app.tasks.analytics.recompute_all_analytics",
@@ -129,25 +131,82 @@ _BASE_BEAT_SCHEDULE = {
 }
 
 
-def _load_dynamic_schedule_sync() -> dict:
-    """Synchronously load dynamic beat schedule for Celery processes."""
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        return asyncio.run(
-            load_effective_celery_schedule(AsyncSessionLocal, _BASE_BEAT_SCHEDULE)
+def _load_dynamic_schedule_sync(max_retries: int = 3, retry_delay: float = 2.0) -> dict:
+    """
+    Synchronously load dynamic beat schedule for Celery processes.
+    
+    Retries on failure to handle cases where database is not ready yet.
+    """
+    last_exception = None
+    
+    for attempt in range(1, max_retries + 1):
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            # No event loop running, create a new one
+            try:
+                return asyncio.run(
+                    load_effective_celery_schedule(AsyncSessionLocal, _BASE_BEAT_SCHEDULE)
+                )
+            except Exception as exc:
+                last_exception = exc
+                if attempt < max_retries:
+                    logger.debug(
+                        "Attempt %d/%d to load dynamic schedule failed, retrying in %.1fs: %s",
+                        attempt,
+                        max_retries,
+                        retry_delay,
+                        exc
+                    )
+                    time.sleep(retry_delay)
+                    continue
+                break
+
+        # Event loop is running, use run_coroutine_threadsafe
+        async def _runner() -> dict:
+            return await load_effective_celery_schedule(AsyncSessionLocal, _BASE_BEAT_SCHEDULE)
+
+        try:
+            loop = asyncio.get_running_loop()
+            return asyncio.run_coroutine_threadsafe(_runner(), loop).result(timeout=10.0)
+        except Exception as exc:
+            last_exception = exc
+            if attempt < max_retries:
+                logger.debug(
+                    "Attempt %d/%d to load dynamic schedule failed, retrying in %.1fs: %s",
+                    attempt,
+                    max_retries,
+                    retry_delay,
+                    exc
+                )
+                time.sleep(retry_delay)
+                continue
+            break
+    
+    # All retries failed, return base schedule
+    if last_exception:
+        logger.warning(
+            "Failed to load dynamic schedule after %d attempts, using base schedule: %s",
+            max_retries,
+            last_exception
         )
-
-    async def _runner() -> dict:
-        return await load_effective_celery_schedule(AsyncSessionLocal, _BASE_BEAT_SCHEDULE)
-
-    return asyncio.run_coroutine_threadsafe(_runner(), loop).result()
+    return _BASE_BEAT_SCHEDULE
 
 
 @celery_app.on_after_configure.connect
 def refresh_dynamic_schedule(sender, **kwargs):
     """Update beat schedule after Celery has been configured."""
     try:
-        sender.conf.beat_schedule = _load_dynamic_schedule_sync()
+        schedule = _load_dynamic_schedule_sync()
+        sender.conf.beat_schedule = schedule
+        logger.info(
+            "Beat schedule configured with %d task(s)",
+            len(schedule)
+        )
     except Exception as exc:  # pragma: no cover
+        logger.warning(
+            "Failed to load dynamic crawl schedule in on_after_configure, using defaults: %s",
+            exc,
+            exc_info=True
+        )
         warnings.warn(f"Failed to load dynamic crawl schedule, using defaults: {exc}")

@@ -3,7 +3,6 @@ Notification tasks
 """
 
 import asyncio
-import threading
 from datetime import datetime, timedelta, timezone
 
 from celery import current_task
@@ -16,9 +15,6 @@ from app.celery_app import celery_app
 from app.core.config import settings
 from app.domains.notifications import NotificationsFacade
 from app.models import NewsItem, Notification
-
-_ASYNC_EVENT_LOOP = None
-_ASYNC_LOCK = threading.Lock()
 
 _TASK_ENGINE = create_async_engine(
     settings.DATABASE_URL,
@@ -33,22 +29,32 @@ _TaskSessionLocal = async_sessionmaker(
 )
 
 
-def _get_event_loop() -> asyncio.AbstractEventLoop:
-    global _ASYNC_EVENT_LOOP
-    if _ASYNC_EVENT_LOOP is None or _ASYNC_EVENT_LOOP.is_closed():
-        _ASYNC_EVENT_LOOP = asyncio.new_event_loop()
-    return _ASYNC_EVENT_LOOP
-
-
 def _run_async(fn, *args, **kwargs):
-    """Выполнить асинхронную корутину в выделенном event loop текущего процесса."""
+    """
+    Execute async coroutine in a new event loop for each task.
+    This prevents "attached to a different loop" errors in Celery's multiprocessing environment.
+    """
     coro = fn(*args, **kwargs)
-    with _ASYNC_LOCK:
-        loop = _get_event_loop()
-        asyncio.set_event_loop(loop)
+    # Create a new event loop for each task to avoid conflicts in multiprocessing
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
         result = loop.run_until_complete(coro)
+        # Clean up async generators before closing
         loop.run_until_complete(loop.shutdown_asyncgens())
         return result
+    finally:
+        # Always close the loop to free resources
+        try:
+            # Give pending tasks a chance to complete
+            pending = asyncio.all_tasks(loop)
+            if pending:
+                loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+        except Exception:
+            pass
+        finally:
+            loop.close()
+            asyncio.set_event_loop(None)
 
 
 @celery_app.task(bind=True)

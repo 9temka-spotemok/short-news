@@ -300,9 +300,42 @@ async def load_effective_celery_schedule(db_factory, base_schedule: Dict[str, di
                         },
                     },
                 }
+            
+            if dynamic_entries:
+                logger.info(
+                    "Loaded %d dynamic crawl schedule(s) into beat schedule",
+                    len(dynamic_entries)
+                )
+            else:
+                logger.debug("No dynamic crawl schedules found, using base schedule only")
+            
             return schedule_entries
     except Exception as exc:
-        logger.warning("Failed to load dynamic crawl schedule, using defaults: %s", exc, exc_info=True)
+        error_type = type(exc).__name__
+        error_msg = str(exc)
+        
+        # Provide more specific error information
+        if "connection" in error_msg.lower() or "connect" in error_msg.lower():
+            logger.warning(
+                "Failed to load dynamic crawl schedule (database connection issue): %s: %s. "
+                "Using base schedule. This is normal if database is not ready yet.",
+                error_type,
+                error_msg
+            )
+        elif "does not exist" in error_msg.lower() or "relation" in error_msg.lower():
+            logger.warning(
+                "Failed to load dynamic crawl schedule (table/relation not found): %s: %s. "
+                "Using base schedule. This may indicate a migration is needed.",
+                error_type,
+                error_msg
+            )
+        else:
+            logger.warning(
+                "Failed to load dynamic crawl schedule, using defaults: %s: %s",
+                error_type,
+                error_msg,
+                exc_info=True
+            )
         return base_schedule
 
 

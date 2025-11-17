@@ -1,7 +1,7 @@
 """add topic, sentiment and raw snapshot metadata to news
 
 Revision ID: f7a8b9c0d1e2
-Revises: d5e6f7g8h9i0
+Revises: b5037d3c88
 Create Date: 2025-11-08 12:15:00.000000
 
 """
