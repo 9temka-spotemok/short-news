@@ -5,7 +5,7 @@ Adapters that bridge existing scraper implementations to domain interfaces.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from loguru import logger
 
@@ -18,8 +18,13 @@ from .interfaces import CompanyContext, ScrapedNewsItem, ScraperProvider
 class UniversalScraperProvider(ScraperProvider):
     """Adapter exposing UniversalBlogScraper via the ScraperProvider protocol."""
 
-    def __init__(self, scraper: Optional[UniversalBlogScraper] = None):
+    def __init__(
+        self, 
+        scraper: Optional[UniversalBlogScraper] = None,
+        health_service: Optional[Any] = None,
+    ):
         self._scraper = scraper or UniversalBlogScraper()
+        self._health_service = health_service
 
     async def scrape_company(
         self,
@@ -27,13 +32,18 @@ class UniversalScraperProvider(ScraperProvider):
         *,
         max_articles: int = 10,
         source_overrides: Optional[List[Dict]] = None,
+        skip_urls: Optional[set[str]] = None,
     ) -> List[ScrapedNewsItem]:
+        company_id_str = str(company.id) if company.id else None
         raw_items = await self._scraper.scrape_company_blog(
             company.name,
             company.website or "",
             news_page_url=company.news_page_url,
             max_articles=max_articles,
             source_overrides=source_overrides,
+            skip_urls=skip_urls,
+            company_id=company_id_str,
+            health_service=self._health_service,
         )
         normalized: List[ScrapedNewsItem] = []
         for item in raw_items:
@@ -83,6 +93,7 @@ class AINewsScraperProvider(ScraperProvider):
         company: CompanyContext,
         *,
         max_articles: int = 10,
+        skip_urls: Optional[set[str]] = None,
     ) -> List[ScrapedNewsItem]:
         fetcher_name = self._FETCHERS.get(self._company_key)
         if not fetcher_name:

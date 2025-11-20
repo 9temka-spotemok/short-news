@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.domains.news.scrapers import CompanyContext, NewsScraperRegistry
 
 from .ingestion_service import NewsIngestionService
+from .source_health_service import SourceHealthService
 from app.utils.datetime_utils import parse_iso_datetime, to_naive_utc, utc_now_naive
 
 
@@ -25,10 +26,12 @@ class NewsScraperService:
         *,
         registry: Optional[NewsScraperRegistry] = None,
         ingestion_service: Optional[NewsIngestionService] = None,
+        health_service: Optional[SourceHealthService] = None,
     ) -> None:
         self._session = session
         self._registry = registry or NewsScraperRegistry()
         self._ingestion_service = ingestion_service or NewsIngestionService(session)
+        self._health_service = health_service or SourceHealthService(session)
 
     async def ingest_company_news(
         self,
@@ -41,8 +44,33 @@ class NewsScraperService:
 
         Returns number of successfully ingested items.
         """
+        # Получаем список отключенных URL для компании
+        skip_urls: Optional[set[str]] = None
+        if company.id:
+            skip_urls = await self._health_service.get_dead_urls(company.id)
+            if skip_urls:
+                logger.debug(
+                    f"Found {len(skip_urls)} disabled URLs for company {company.id}, "
+                    f"will skip them during scraping"
+                )
+        
+        # Передаем health_service в provider для записи результатов
         provider = self._registry.get_provider(company)
-        items = await provider.scrape_company(company, max_articles=max_articles)
+        
+        # Если provider - UniversalScraperProvider, передаем health_service
+        from app.domains.news.scrapers.adapters import UniversalScraperProvider
+        if isinstance(provider, UniversalScraperProvider):
+            # Создаем новый provider с health_service
+            provider = UniversalScraperProvider(
+                scraper=provider._scraper,
+                health_service=self._health_service,
+            )
+        
+        items = await provider.scrape_company(
+            company, 
+            max_articles=max_articles,
+            skip_urls=skip_urls,
+        )
 
         ingested = 0
         for item in items:
