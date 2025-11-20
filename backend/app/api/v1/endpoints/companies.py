@@ -23,6 +23,7 @@ from app.services.company_info_extractor import extract_company_info
 from app.api.dependencies import get_current_user
 from app.models import User
 from app.domains.news.scrapers import CompanyContext, NewsScraperRegistry
+from app.tasks.scraping import scan_company_sources_initial
 
 router = APIRouter()
 
@@ -361,7 +362,15 @@ async def create_company(
             )
             db.add(company)
             await db.flush()
+            await db.commit()  # Commit to get company.id
             action = "created"
+            
+            # Запускаем первичное сканирование источников для новой компании
+            try:
+                scan_company_sources_initial.delay(str(company.id))
+                logger.info(f"Scheduled initial source scan for new company {company.id}")
+            except Exception as e:
+                logger.warning(f"Failed to schedule initial source scan: {e}")
         
         # Save news items
         saved_count = 0
