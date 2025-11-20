@@ -4,7 +4,6 @@ Celery tasks for competitor ingestion and change processing.
 
 from __future__ import annotations
 
-import nest_asyncio
 from celery import current_task
 from loguru import logger
 
@@ -16,8 +15,6 @@ from app.domains.competitors.tasks import (
     run_in_loop,
 )
 from app.models import SourceType
-
-nest_asyncio.apply()
 
 
 @celery_app.task(bind=True, name="competitors.ingest_pricing_page")

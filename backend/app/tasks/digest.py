@@ -2,74 +2,19 @@
 Digest generation tasks
 """
 
-import asyncio
 from celery import current_task
 from loguru import logger
 
 from app.celery_app import celery_app
-from app.core.database import AsyncSessionLocal
+from app.core.celery_async import run_async_task
+from app.core.celery_database import CelerySessionLocal
 from app.models import UserPreferences
 from app.services.digest_service import DigestService
 from app.services.telegram_service import telegram_service
 from sqlalchemy import select
 from datetime import datetime, timedelta, timezone
 import pytz
-
-def _run_async(fn, *args, **kwargs):
-    """
-    Execute async coroutine in a new event loop for each task.
-    This prevents "attached to a different loop" errors in Celery's multiprocessing environment.
-    """
-    coro = fn(*args, **kwargs)
-    # Create a new event loop for each task to avoid conflicts in multiprocessing
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    try:
-        result = loop.run_until_complete(coro)
-        # Clean up async generators before closing
-        loop.run_until_complete(loop.shutdown_asyncgens())
-        return result
-    finally:
-        # Always close the loop to free resources
-        try:
-            # Give pending tasks a chance to complete, but with timeout
-            pending = [t for t in asyncio.all_tasks(loop) if not t.done()]
-            if pending:
-                # Wait for pending tasks with a short timeout
-                try:
-                    loop.run_until_complete(asyncio.wait_for(
-                        asyncio.gather(*pending, return_exceptions=True),
-                        timeout=1.0
-                    ))
-                except (asyncio.TimeoutError, RuntimeError):
-                    # Cancel remaining tasks if timeout or loop is closing
-                    for task in pending:
-                        if not task.done():
-                            task.cancel()
-                    # Wait a bit for cancellations
-                    try:
-                        loop.run_until_complete(asyncio.wait_for(
-                            asyncio.gather(*pending, return_exceptions=True),
-                            timeout=0.5
-                        ))
-                    except Exception:
-                        pass
-        except Exception:
-            pass
-        finally:
-            # Small delay to let DB connections close gracefully
-            try:
-                loop.run_until_complete(asyncio.sleep(0.1))
-            except Exception:
-                pass
-            try:
-                if not loop.is_closed():
-                    loop.close()
-            except Exception:
-                pass
-            asyncio.set_event_loop(None)
-
-
+import time
 @celery_app.task(bind=True)
 def generate_daily_digests(self):
     """
@@ -78,8 +23,8 @@ def generate_daily_digests(self):
     logger.info("Starting daily digest generation")
     
     try:
-        result = _run_async(_generate_daily_digests_async)
-        logger.info(f"Daily digest generation completed: {result['generated_count']} digests")
+        result = run_async_task(_generate_daily_digests_async())
+        logger.info(f"Daily digest generation queued: {result['task_count']} tasks")
         return result
         
     except Exception as e:
@@ -95,8 +40,8 @@ def generate_weekly_digests(self):
     logger.info("Starting weekly digest generation")
     
     try:
-        result = _run_async(_generate_weekly_digests_async)
-        logger.info(f"Weekly digest generation completed: {result['generated_count']} digests")
+        result = run_async_task(_generate_weekly_digests_async())
+        logger.info(f"Weekly digest generation queued: {result['task_count']} tasks")
         return result
         
     except Exception as e:
@@ -112,7 +57,7 @@ def generate_user_digest(self, user_id: str, digest_type: str = "daily", tracked
     logger.info(f"Starting digest generation for user: {user_id}, type: {digest_type}, tracked_only: {tracked_only}")
     
     try:
-        result = _run_async(_generate_user_digest_async, user_id, digest_type, tracked_only)
+        result = run_async_task(_generate_user_digest_async(user_id, digest_type, tracked_only))
         logger.info(f"Digest generation completed for user: {user_id}")
         return result
         
@@ -122,9 +67,15 @@ def generate_user_digest(self, user_id: str, digest_type: str = "daily", tracked
 
 
 async def _generate_daily_digests_async():
-    """Async implementation of daily digest generation"""
-    async with AsyncSessionLocal() as db:
-        # Get all users with digest enabled (daily and custom)
+    """
+    Async implementation of daily digest generation.
+    
+    Two-phase approach:
+    1. Phase 1: Quick selection of users due for digest
+    2. Phase 2: Queue individual tasks for parallel processing
+    """
+    async with CelerySessionLocal() as db:
+        # Phase 1: Quick selection of users
         result = await db.execute(
             select(UserPreferences).where(
                 UserPreferences.digest_enabled == True,
@@ -135,52 +86,44 @@ async def _generate_daily_digests_async():
         
         logger.info(f"Found {len(user_prefs_list)} users with enabled daily/custom digests")
         
-        generated_count = 0
+        # Phase 2: Queue individual tasks for parallel processing
+        queued_tasks = []
         for user_prefs in user_prefs_list:
             try:
                 # Check if user is due for digest now
                 if not _is_user_due_now_precise(user_prefs, user_prefs.digest_frequency):
                     continue
                 
-                logger.info(f"Generating digest for user {user_prefs.user_id}")
-                
-                # Generate digest
-                digest_service = DigestService(db)
-                
                 # Determine tracked_only based on telegram_digest_mode
                 tracked_only = (user_prefs.telegram_digest_mode == 'tracked') if user_prefs.telegram_digest_mode else False
                 
-                digest_data = await digest_service.generate_user_digest(
-                    user_id=str(user_prefs.user_id),
-                    period=user_prefs.digest_frequency,
-                    format_type=user_prefs.digest_format if user_prefs.digest_format else "short",
+                # Queue individual task - will be processed in parallel by workers
+                task = generate_user_digest.delay(
+                    str(user_prefs.user_id),
+                    user_prefs.digest_frequency,
                     tracked_only=tracked_only
                 )
-                
-                # Send via Telegram if enabled
-                if user_prefs.telegram_enabled and user_prefs.telegram_chat_id:
-                    digest_text = digest_service.format_digest_for_telegram(digest_data, user_prefs)
-                    await telegram_service.send_digest(user_prefs.telegram_chat_id, digest_text)
-                    # Show quick controls after sending digest
-                    await telegram_service.send_post_digest_controls(user_prefs.telegram_chat_id)
-                    logger.info(f"Digest sent to Telegram for user {user_prefs.user_id} (mode: {user_prefs.telegram_digest_mode or 'all'})")
-                
-                # Record last sent time
-                await _mark_user_sent_now(db, user_prefs)
-                
-                generated_count += 1
+                queued_tasks.append(task.id)
+                logger.debug(f"Queued digest task for user {user_prefs.user_id} (task_id={task.id})")
                 
             except Exception as e:
-                logger.error(f"Failed to generate digest for user {user_prefs.user_id}: {e}")
+                logger.error(f"Failed to queue digest for user {user_prefs.user_id}: {e}")
                 continue
         
-        return {"status": "success", "generated_count": generated_count}
+        logger.info(f"Queued {len(queued_tasks)} digest tasks for parallel processing")
+        return {"status": "queued", "task_count": len(queued_tasks), "task_ids": queued_tasks}
 
 
 async def _generate_weekly_digests_async():
-    """Async implementation of weekly digest generation"""
-    async with AsyncSessionLocal() as db:
-        # Get all users with digest enabled and weekly frequency
+    """
+    Async implementation of weekly digest generation.
+    
+    Two-phase approach:
+    1. Phase 1: Quick selection of users due for digest
+    2. Phase 2: Queue individual tasks for parallel processing
+    """
+    async with CelerySessionLocal() as db:
+        # Phase 1: Quick selection of users
         result = await db.execute(
             select(UserPreferences).where(
                 UserPreferences.digest_enabled == True,
@@ -191,51 +134,43 @@ async def _generate_weekly_digests_async():
         
         logger.info(f"Found {len(user_prefs_list)} users with enabled weekly digests")
         
-        generated_count = 0
+        # Phase 2: Queue individual tasks for parallel processing
+        queued_tasks = []
         for user_prefs in user_prefs_list:
             try:
                 # Check if user is due for digest now
                 if not _is_user_due_now_precise(user_prefs, "weekly"):
                     continue
                 
-                logger.info(f"Generating weekly digest for user {user_prefs.user_id}")
-                
-                # Generate digest
-                digest_service = DigestService(db)
-                
                 # Determine tracked_only based on telegram_digest_mode
                 tracked_only = (user_prefs.telegram_digest_mode == 'tracked') if user_prefs.telegram_digest_mode else False
                 
-                digest_data = await digest_service.generate_user_digest(
-                    user_id=str(user_prefs.user_id),
-                    period="weekly",
-                    format_type=user_prefs.digest_format if user_prefs.digest_format else "short",
+                # Queue individual task - will be processed in parallel by workers
+                task = generate_user_digest.delay(
+                    str(user_prefs.user_id),
+                    "weekly",
                     tracked_only=tracked_only
                 )
-                
-                # Send via Telegram if enabled
-                if user_prefs.telegram_enabled and user_prefs.telegram_chat_id:
-                    digest_text = digest_service.format_digest_for_telegram(digest_data, user_prefs)
-                    await telegram_service.send_digest(user_prefs.telegram_chat_id, digest_text)
-                    # Show quick controls after sending digest
-                    await telegram_service.send_post_digest_controls(user_prefs.telegram_chat_id)
-                    logger.info(f"Weekly digest sent to Telegram for user {user_prefs.user_id} (mode: {user_prefs.telegram_digest_mode or 'all'})")
-                
-                # Record last sent time
-                await _mark_user_sent_now(db, user_prefs)
-                
-                generated_count += 1
+                queued_tasks.append(task.id)
+                logger.debug(f"Queued weekly digest task for user {user_prefs.user_id} (task_id={task.id})")
                 
             except Exception as e:
-                logger.error(f"Failed to generate weekly digest for user {user_prefs.user_id}: {e}")
+                logger.error(f"Failed to queue weekly digest for user {user_prefs.user_id}: {e}")
                 continue
         
-        return {"status": "success", "generated_count": generated_count}
+        logger.info(f"Queued {len(queued_tasks)} weekly digest tasks for parallel processing")
+        return {"status": "queued", "task_count": len(queued_tasks), "task_ids": queued_tasks}
 
 
 async def _generate_user_digest_async(user_id: str, digest_type: str, tracked_only: bool = False):
-    """Async implementation of user digest generation"""
-    async with AsyncSessionLocal() as db:
+    """
+    Async implementation of user digest generation.
+    
+    This is called for each user individually, allowing parallel processing.
+    """
+    start_time = time.perf_counter()
+    
+    async with CelerySessionLocal() as db:
         # Get user preferences
         result = await db.execute(
             select(UserPreferences).where(UserPreferences.user_id == user_id)
@@ -243,6 +178,7 @@ async def _generate_user_digest_async(user_id: str, digest_type: str, tracked_on
         user_prefs = result.scalar_one_or_none()
         
         if not user_prefs:
+            logger.warning(f"User preferences not found for user {user_id}")
             return {"status": "error", "message": "User preferences not found"}
         
         # Generate digest
@@ -265,6 +201,23 @@ async def _generate_user_digest_async(user_id: str, digest_type: str, tracked_on
             await telegram_service.send_digest(user_prefs.telegram_chat_id, digest_text)
             # Show quick controls after sending digest
             await telegram_service.send_post_digest_controls(user_prefs.telegram_chat_id)
+            logger.info(f"Digest sent to Telegram for user {user_id} (type: {digest_type}, mode: {user_prefs.telegram_digest_mode or 'all'})")
+        
+        # Record last sent time (only for scheduled digests, not manual requests)
+        # This is safe to do here because generate_user_digest is called both from
+        # scheduled tasks and manual requests, but marking is idempotent
+        try:
+            await _mark_user_sent_now(db, user_prefs)
+        except Exception as e:
+            logger.warning(f"Failed to mark user {user_id} as sent: {e}")
+        
+        # Записываем метрику длительности генерации дайджеста
+        duration = time.perf_counter() - start_time
+        try:
+            from app.instrumentation.celery_metrics import _metrics
+            _metrics.record_digest_duration(digest_type, duration)
+        except Exception:
+            pass
         
         return {"status": "success", "user_id": user_id, "digest_type": digest_type, "news_count": digest_data["news_count"]}
 
@@ -393,7 +346,7 @@ def send_channel_digest(self):
     logger.info("Starting channel digest generation")
     
     try:
-        result = _run_async(_send_channel_digest_async)
+        result = run_async_task(_send_channel_digest_async())
         logger.info("Channel digest sent successfully")
         return result
         
@@ -404,7 +357,7 @@ def send_channel_digest(self):
 
 async def _send_channel_digest_async():
     """Async implementation of channel digest"""
-    async with AsyncSessionLocal() as db:
+    async with CelerySessionLocal() as db:
         # Generate a general digest (top news from all companies)
         digest_service = DigestService(db)
         
