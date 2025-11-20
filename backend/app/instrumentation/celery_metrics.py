@@ -259,6 +259,39 @@ class PrometheusAdapter:
             registry=self._registry,
             buckets=buckets,
         )
+        
+        # Scraper-specific metrics
+        self._scraper_requests_total = Counter(
+            "scraper_requests_total",
+            "Total HTTP requests made by scraper",
+            ["status", "source_type"],
+            namespace=namespace,
+            registry=self._registry,
+        )
+        self._scraper_dead_urls_count = Gauge(
+            "scraper_dead_urls_count",
+            "Number of disabled/dead URLs per company",
+            ["company_id"],
+            namespace=namespace,
+            registry=self._registry,
+        )
+        self._scraper_duplicate_requests_total = Counter(
+            "scraper_duplicate_requests_total",
+            "Duplicate requests prevented by deduplication",
+            ["source_type"],
+            namespace=namespace,
+            registry=self._registry,
+        )
+        
+        # Digest-specific metrics
+        self._digests_duration_seconds = Histogram(
+            "digests_duration_seconds",
+            "Digest generation duration in seconds",
+            ["digest_type"],
+            namespace=namespace,
+            registry=self._registry,
+            buckets=buckets,
+        )
 
         if getattr(settings, "CELERY_METRICS_EXPOSE_SERVER", True):
             self._ensure_server()
@@ -304,6 +337,30 @@ class PrometheusAdapter:
             return
         queue = self._queue_label(labels)
         self._task_duplicates.labels(task_name=task_name, queue=queue).inc()
+    
+    def record_scraper_request(self, status: str, source_type: str = "unknown") -> None:
+        """Record a scraper HTTP request."""
+        if not self._enabled or not self._scraper_requests_total:
+            return
+        self._scraper_requests_total.labels(status=status, source_type=source_type).inc()
+    
+    def update_dead_urls_count(self, company_id: str, count: int) -> None:
+        """Update the count of dead URLs for a company."""
+        if not self._enabled or not self._scraper_dead_urls_count:
+            return
+        self._scraper_dead_urls_count.labels(company_id=company_id).set(count)
+    
+    def record_duplicate_request(self, source_type: str = "unknown") -> None:
+        """Record a duplicate request that was prevented."""
+        if not self._enabled or not self._scraper_duplicate_requests_total:
+            return
+        self._scraper_duplicate_requests_total.labels(source_type=source_type).inc()
+    
+    def record_digest_duration(self, digest_type: str, duration: float) -> None:
+        """Record digest generation duration."""
+        if not self._enabled or not self._digests_duration_seconds:
+            return
+        self._digests_duration_seconds.labels(digest_type=digest_type).observe(duration)
 
 
 class CeleryMetrics:
@@ -324,6 +381,22 @@ class CeleryMetrics:
     def on_duplicate(self, task_name: str, labels: MetricLabels) -> None:
         self._prometheus.on_duplicate(task_name, labels)
         self._otel.on_duplicate(task_name, labels)
+    
+    def record_scraper_request(self, status: str, source_type: str = "unknown") -> None:
+        """Record a scraper HTTP request."""
+        self._prometheus.record_scraper_request(status, source_type)
+    
+    def update_dead_urls_count(self, company_id: str, count: int) -> None:
+        """Update the count of dead URLs for a company."""
+        self._prometheus.update_dead_urls_count(company_id, count)
+    
+    def record_duplicate_request(self, source_type: str = "unknown") -> None:
+        """Record a duplicate request that was prevented."""
+        self._prometheus.record_duplicate_request(source_type)
+    
+    def record_digest_duration(self, digest_type: str, duration: float) -> None:
+        """Record digest generation duration."""
+        self._prometheus.record_digest_duration(digest_type, duration)
 
 
 _metrics = CeleryMetrics()
