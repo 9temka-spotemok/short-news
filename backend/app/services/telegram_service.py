@@ -5,7 +5,72 @@ Telegram bot service
 from typing import Dict, Any, Optional
 from loguru import logger
 import aiohttp
+import asyncio
+import time
+from collections import deque
 from app.core.config import settings
+
+
+class TelegramRateLimiter:
+    """
+    Rate limiter for Telegram API calls.
+    
+    Telegram allows up to 20 messages per second per bot.
+    This limiter ensures we don't exceed this limit.
+    """
+    
+    def __init__(self, max_per_second: int = 20):
+        """
+        Initialize rate limiter.
+        
+        Args:
+            max_per_second: Maximum number of requests per second (default: 20 for Telegram)
+        """
+        self._max_per_second = max_per_second
+        self._request_times: deque = deque()
+        self._lock = asyncio.Lock()
+    
+    async def acquire(self, chat_id: str) -> None:
+        """
+        Acquire permission to send a message.
+        
+        This will block if the rate limit is exceeded.
+        
+        Args:
+            chat_id: Chat ID (for logging purposes, not used for per-chat limiting)
+        """
+        now = time.monotonic()
+        
+        async with self._lock:
+            # Remove timestamps older than 1 second
+            while self._request_times and now - self._request_times[0] >= 1.0:
+                self._request_times.popleft()
+            
+            # If we've hit the limit, wait until we can send
+            if len(self._request_times) >= self._max_per_second:
+                # Calculate how long to wait
+                oldest_time = self._request_times[0]
+                wait_time = 1.0 - (now - oldest_time)
+                if wait_time > 0:
+                    logger.debug(f"Rate limit reached, waiting {wait_time:.2f}s before sending to {chat_id}")
+                    await asyncio.sleep(wait_time)
+                    # Recalculate after wait
+                    now = time.monotonic()
+                    while self._request_times and now - self._request_times[0] >= 1.0:
+                        self._request_times.popleft()
+            
+            # Record this request
+            self._request_times.append(now)
+    
+    def release(self, chat_id: str) -> None:
+        """
+        Release permission (for compatibility with context manager pattern).
+        
+        Args:
+            chat_id: Chat ID (not used, but kept for API consistency)
+        """
+        # No-op for now, as we're using time-based limiting
+        pass
 
 
 class TelegramService:
@@ -15,6 +80,8 @@ class TelegramService:
         self.bot_token = settings.TELEGRAM_BOT_TOKEN if hasattr(settings, 'TELEGRAM_BOT_TOKEN') else None
         self.channel_id = settings.TELEGRAM_CHANNEL_ID if hasattr(settings, 'TELEGRAM_CHANNEL_ID') else None
         self.base_url = f"https://api.telegram.org/bot{self.bot_token}" if self.bot_token else None
+        # Initialize rate limiter (20 messages per second as per Telegram API limits)
+        self._rate_limiter = TelegramRateLimiter(max_per_second=20)
     
     async def send_digest(self, chat_id: str, digest_text: str) -> bool:
         """
@@ -46,6 +113,9 @@ class TelegramService:
             logger.debug(f"Split into {len(messages)} message(s)")
             
             for i, message in enumerate(messages):
+                # Apply rate limiting before sending
+                await self._rate_limiter.acquire(chat_id)
+                
                 payload = {
                     "chat_id": chat_id,
                     "text": message,
@@ -53,26 +123,30 @@ class TelegramService:
                     "disable_web_page_preview": True
                 }
                 
-                async with aiohttp.ClientSession() as session:
-                    async with session.post(url, json=payload) as response:
-                        logger.debug(f"Response status: {response.status}, chat_id: {chat_id}, message_part: {i+1}/{len(messages)}")
-                        
-                        if response.status != 200:
-                            response_text = await response.text()
-                            logger.error(f"Failed to send Telegram message to chat_id={chat_id}: HTTP {response.status}, response: {response_text[:200]}")
-                            return False
-                        
-                        try:
-                            result = await response.json()
-                        except Exception as json_error:
-                            response_text = await response.text()
-                            logger.error(f"Failed to parse JSON response: {json_error}, response text: {response_text[:200]}")
-                            return False
+                try:
+                    async with aiohttp.ClientSession() as session:
+                        async with session.post(url, json=payload) as response:
+                            logger.debug(f"Response status: {response.status}, chat_id: {chat_id}, message_part: {i+1}/{len(messages)}")
                             
-                        if not result.get("ok"):
-                            error_desc = result.get("description", "Unknown error")
-                            logger.error(f"Telegram API error for chat_id={chat_id}: {error_desc}, full response: {result}")
-                            return False
+                            if response.status != 200:
+                                response_text = await response.text()
+                                logger.error(f"Failed to send Telegram message to chat_id={chat_id}: HTTP {response.status}, response: {response_text[:200]}")
+                                return False
+                            
+                            try:
+                                result = await response.json()
+                            except Exception as json_error:
+                                response_text = await response.text()
+                                logger.error(f"Failed to parse JSON response: {json_error}, response text: {response_text[:200]}")
+                                return False
+                            
+                            if not result.get("ok"):
+                                error_desc = result.get("description", "Unknown error")
+                                logger.error(f"Telegram API error for chat_id={chat_id}: {error_desc}, full response: {result}")
+                                return False
+                finally:
+                    # Release rate limiter (for consistency, though it's a no-op)
+                    self._rate_limiter.release(chat_id)
             
             logger.info(f"Digest sent successfully to chat {chat_id} ({len(messages)} message(s))")
             return True
@@ -469,17 +543,24 @@ class TelegramService:
                 if keyboard and i == len(messages) - 1:
                     payload["reply_markup"] = keyboard
                 
-                async with aiohttp.ClientSession() as session:
-                    async with session.post(url, json=payload) as response:
-                        if response.status != 200:
-                            error_text = await response.text()
-                            logger.error(f"Failed to send Telegram message with keyboard: {response.status} - {error_text}")
-                            return False
-                        
-                        result = await response.json()
-                        if not result.get("ok"):
-                            logger.error(f"Telegram API error: {result}")
-                            return False
+                # Apply rate limiting before sending
+                await self._rate_limiter.acquire(chat_id)
+                
+                try:
+                    async with aiohttp.ClientSession() as session:
+                        async with session.post(url, json=payload) as response:
+                            if response.status != 200:
+                                error_text = await response.text()
+                                logger.error(f"Failed to send Telegram message with keyboard: {response.status} - {error_text}")
+                                return False
+                            
+                            result = await response.json()
+                            if not result.get("ok"):
+                                logger.error(f"Telegram API error: {result}")
+                                return False
+                finally:
+                    # Release rate limiter (for consistency, though it's a no-op)
+                    self._rate_limiter.release(chat_id)
             
             logger.info(f"Message with keyboard sent to chat {chat_id}")
             return True
