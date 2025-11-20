@@ -104,7 +104,7 @@ services:
       redis:
         condition: service_healthy
     working_dir: /app
-    command: celery -A app.celery_app worker --loglevel=info -Q celery,analytics
+    command: celery -A app.celery_app worker --loglevel=info -Q celery,analytics,telegram
 
   # Celery Beat (Scheduler)
   celery-beat:

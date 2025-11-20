@@ -31,10 +31,12 @@ celery_app = Celery(
 celery_app.conf.task_queues = (
     Queue("celery", Exchange("celery"), routing_key="celery"),
     Queue("analytics", Exchange("analytics"), routing_key="analytics"),
+    Queue("telegram", Exchange("telegram"), routing_key="telegram"),
 )
 celery_app.conf.task_default_queue = "celery"
 celery_app.conf.task_routes = {
     "app.tasks.analytics.*": {"queue": "analytics"},
+    "app.tasks.digest.generate_user_digest": {"queue": "telegram"},
 }
 
 # Configure Celery
@@ -200,12 +202,12 @@ def refresh_dynamic_schedule(sender, **kwargs):
         schedule = _load_dynamic_schedule_sync()
         sender.conf.beat_schedule = schedule
         logger.info(
-            "Beat schedule configured with %d task(s)",
+            "Beat schedule configured with {} task(s)",
             len(schedule)
         )
     except Exception as exc:  # pragma: no cover
         logger.warning(
-            "Failed to load dynamic crawl schedule in on_after_configure, using defaults: %s",
+            "Failed to load dynamic crawl schedule in on_after_configure, using defaults: {}",
             exc,
             exc_info=True
         )
