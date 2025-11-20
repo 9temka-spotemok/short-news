@@ -8,6 +8,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import re
+import time
 from collections import OrderedDict
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -27,7 +28,7 @@ from app.scrapers.config_loader import (
     SourceRetryConfig,
 )
 from app.scrapers.headless import fetch_page_with_headless
-from app.scrapers.rate_limiter import RateLimiter
+from app.scrapers.rate_limiter import RateLimiter, SourceFetchLock
 from app.utils.datetime_utils import utc_now_naive
 
 
@@ -99,6 +100,11 @@ class UniversalBlogScraper:
             )
         self.config_registry = config_registry or ScraperConfigRegistry()
         self.rate_limiter = rate_limiter or RateLimiter()
+        # In-memory cache for request deduplication within a single scraper instance
+        # Key: (normalized_url, company_name), Value: (html, final_url, fetched_at)
+        self._request_cache: Dict[Tuple[str, str], Tuple[str, str, float]] = {}
+        # Distributed lock for preventing duplicate requests across workers
+        self._fetch_lock = SourceFetchLock()
 
     @staticmethod
     def detect_blog_urls(website: str) -> List[str]:
@@ -141,6 +147,9 @@ class UniversalBlogScraper:
         news_page_url: Optional[str] = None,
         max_articles: int = 10,
         source_overrides: Optional[List[Dict[str, Any]]] = None,
+        skip_urls: Optional[Set[str]] = None,
+        company_id: Optional[str] = None,
+        health_service: Optional[Any] = None,
     ) -> List[Dict[str, Any]]:
         """
         Scrape blog/news from a company website.
@@ -148,6 +157,10 @@ class UniversalBlogScraper:
         logger.info(
             f"Scraping blog for {company_name} (news_page_url={news_page_url}, overrides={bool(source_overrides)})"
         )
+
+        # Сохраняем company_id и health_service для использования в _fetch_with_retry
+        self._current_company_id = company_id
+        self._current_health_service = health_service
 
         news_items: List[Dict[str, Any]] = []
         seen_urls: Set[str] = set()
@@ -158,6 +171,25 @@ class UniversalBlogScraper:
             manual_url=news_page_url,
             overrides=source_overrides,
         )
+        
+        # Фильтруем source_configs по skip_urls
+        if skip_urls:
+            filtered_configs = []
+            for source_config in source_configs:
+                # Проверяем, есть ли URL в skip_urls
+                should_skip = False
+                for url in source_config.urls:
+                    normalized = self._normalize_url(str(url))
+                    if normalized in skip_urls:
+                        should_skip = True
+                        logger.debug(
+                            f"Skipping source {source_config.id} for {company_name} "
+                            f"(URL {url} is in skip_urls)"
+                        )
+                        break
+                if not should_skip:
+                    filtered_configs.append(source_config)
+            source_configs = filtered_configs
 
         discoveries: List[SourceConfig] = []
         has_custom_sources = any(not cfg.id.startswith("default_") for cfg in source_configs)
@@ -201,7 +233,7 @@ class UniversalBlogScraper:
                     f"Scraping source {source_config.id} for {company_name} with {per_source_limit} max articles"
                 )
                 try:
-                    source_items = await self._scrape_source(
+                    source_items, source_stats = await self._scrape_source(
                         company_name=company_name,
                         source_config=source_config,
                         max_articles=per_source_limit,
@@ -416,10 +448,12 @@ class UniversalBlogScraper:
         return all_news
 
     async def close(self) -> None:
-        """Close HTTP sessions."""
+        """Close HTTP sessions and clear request cache."""
         await self.session.aclose()
         if self.proxy_session:
             await self.proxy_session.aclose()
+        # Clear request cache when closing scraper
+        self._request_cache.clear()
 
     async def _scrape_source(
         self,
@@ -427,14 +461,52 @@ class UniversalBlogScraper:
         source_config: SourceConfig,
         max_articles: int,
         seen_urls: Set[str],
-    ) -> List[Dict[str, Any]]:
+    ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+        """
+        Scrape a source and return items along with statistics.
+        
+        Returns:
+            Tuple of (items, stats) where stats contains:
+            - source_url: str
+            - status: int (HTTP status code)
+            - items_count: int
+            - success: bool
+        """
         items: List[Dict[str, Any]] = []
+        source_stats: Dict[str, Any] = {
+            "source_url": None,
+            "status": None,
+            "items_count": 0,
+            "success": False,
+        }
 
         for raw_url in source_config.urls:
             url = str(raw_url)
-            html, final_url = await self._fetch_with_retry(url, source_config)
+            source_stats["source_url"] = url
+            
+            # Получаем company_id и health_service из параметров scraper
+            company_id = getattr(self, '_current_company_id', None)
+            health_service = getattr(self, '_current_health_service', None)
+            source_type_str = source_config.source_type
+            
+            html, final_url, status_code = await self._fetch_with_retry(
+                url, 
+                source_config, 
+                company_name=company_name,
+                company_id=company_id,
+                health_service=health_service,
+                source_type=source_type_str,
+            )
+            source_stats["status"] = status_code
+            
             if not html:
+                # Если HTML не получен, это может быть 404 или другая ошибка
+                source_stats["success"] = False
+                source_stats["items_count"] = 0
                 continue
+
+            # Если HTML получен, считаем успешным
+            source_stats["success"] = True
 
             snapshot_path = self._persist_snapshot(company_name, source_config.id, final_url, html)
             soup = BeautifulSoup(html, "html.parser")
@@ -445,11 +517,20 @@ class UniversalBlogScraper:
                 logger.debug(
                     f"No articles found for {company_name} at {final_url} (source {source_config.id})"
                 )
+                source_stats["items_count"] = 0
+                # Записываем результат в health_service (пустой ответ)
+                if company_id and health_service:
+                    await self._record_health_result(
+                        company_id, url, False, status_code, 0,
+                        health_service, source_type_str
+                    )
+                # Не прерываем цикл, продолжаем со следующим URL
                 continue
 
             logger.info(
                 f"Found {len(articles)} articles for {company_name} at {final_url} (source {source_config.id})"
             )
+            source_stats["items_count"] = len(articles)
 
             for idx, article in enumerate(articles):
                 if article["url"] in seen_urls:
@@ -480,66 +561,229 @@ class UniversalBlogScraper:
 
             if len(items) >= max_articles:
                 break
+            
+            # Записываем результат в health_service после обработки URL
+            if company_id and health_service:
+                await self._record_health_result(
+                    company_id, url, source_stats["success"], 
+                    source_stats["status"], source_stats["items_count"],
+                    health_service, source_type_str
+                )
 
-        return items
+        return items, source_stats
+    
+    async def _record_health_result(
+        self,
+        company_id: str,
+        source_url: str,
+        success: bool,
+        status: int,
+        items_count: int,
+        health_service: Any,
+        source_type: Optional[str] = None,
+    ) -> None:
+        """Helper method to record health result."""
+        try:
+            from uuid import UUID
+            from app.models.news import SourceType as ST
+            
+            company_uuid = UUID(company_id) if isinstance(company_id, str) else company_id
+            st = ST.BLOG  # По умолчанию BLOG
+            
+            # Определяем source_type
+            if source_type == "news_site":
+                st = ST.NEWS_SITE
+            elif source_type == "press_release":
+                st = ST.PRESS_RELEASE
+            
+            await health_service.record_result(
+                company_id=company_uuid,
+                source_url=source_url,
+                success=success,
+                status=status,
+                items_count=items_count,
+                source_type=st,
+            )
+            logger.debug(
+                f"Recorded source health result for {source_url} "
+                f"(status={status}, items={items_count}, success={success})"
+            )
+        except Exception as exc:
+            logger.warning(
+                f"Failed to record source health result for {source_url}: {exc}",
+                exc_info=True
+            )
+
+    def _normalize_url(self, url: str) -> str:
+        """
+        Нормализует URL для сравнения:
+        - Убирает trailing slash
+        - Приводит домен к lowercase
+        - Убирает query params для сравнения
+        - Возвращает канонический URL
+        """
+        parsed = urlparse(url)
+        # Приводим домен к lowercase
+        netloc = parsed.netloc.lower() if parsed.netloc else ""
+        # Убираем trailing slash из path
+        path = parsed.path.rstrip("/") if parsed.path else ""
+        # Собираем URL без query params и fragment
+        normalized = f"{parsed.scheme}://{netloc}{path}"
+        return normalized
 
     async def _fetch_with_retry(
         self,
         url: str,
         source_config: SourceConfig,
-    ) -> Tuple[Optional[str], str]:
+        company_name: Optional[str] = None,
+        company_id: Optional[str] = None,
+        health_service: Optional[Any] = None,
+        source_type: Optional[str] = None,
+    ) -> Tuple[Optional[str], str, int]:
+        """
+        Fetch URL with retry logic and request deduplication.
+        
+        Args:
+            url: URL to fetch
+            source_config: Source configuration
+            company_name: Company name for cache key (optional, for deduplication)
+            company_id: Company ID for health service (optional)
+            health_service: SourceHealthService instance (optional)
+            source_type: Source type for health service (optional)
+            
+        Returns:
+            Tuple of (html, final_url, status_code)
+        """
+        # Нормализуем URL для дедупликации
+        normalized_url = self._normalize_url(url)
+        
+        # Проверяем кэш перед запросом (если указано имя компании)
+        if company_name:
+            cache_key = (normalized_url, company_name)
+            if cache_key in self._request_cache:
+                cached_html, cached_final_url, cached_time = self._request_cache[cache_key]
+                logger.debug(
+                    f"Using cached response for {url} (normalized: {normalized_url}, "
+                    f"cached at {cached_time})"
+                )
+                # Записываем метрику дубликата
+                try:
+                    from app.instrumentation.celery_metrics import _metrics
+                    _metrics.record_duplicate_request(source_type or "unknown")
+                except Exception:
+                    pass
+                # Возвращаем статус 200 для кэшированного ответа
+                return cached_html, cached_final_url, 200
+        
         attempts = max(1, source_config.retry.attempts + 1)
         timeout = source_config.timeout or settings.SCRAPER_TIMEOUT
-        proxy = settings.SCRAPER_PROXY_URL if source_config.use_proxy and settings.SCRAPER_PROXY_URL else None
-        parsed = urlparse(url)
-        host_key = parsed.netloc or url
+        
+        # Попытка получить межпроцессную блокировку
+        lock_acquired = await self._fetch_lock.acquire(normalized_url, timeout)
+        if not lock_acquired:
+            logger.debug(
+                f"Lock not acquired for {url} (normalized: {normalized_url}), "
+                f"another worker is already fetching it"
+            )
+            return None, url, 0  # Статус 0 означает, что запрос не был выполнен
+        
+        try:
+            proxy = settings.SCRAPER_PROXY_URL if source_config.use_proxy and settings.SCRAPER_PROXY_URL else None
+            parsed = urlparse(url)
+            host_key = parsed.netloc or url
 
-        for attempt in range(attempts):
+            for attempt in range(attempts):
+                try:
+                    await self.rate_limiter.throttle(
+                        key=host_key,
+                        max_requests=source_config.rate_limit.requests,
+                        period=source_config.rate_limit.interval,
+                    )
+                    client = self.proxy_session if proxy else self.session
+                    response = await client.get(url, timeout=timeout)
+                    if self._requires_headless(response):
+                        raise NeedsHeadless(f"Blocked by edge protection ({response.status_code})")
+                    response.raise_for_status()
+
+                    if source_config.min_delay:
+                        await asyncio.sleep(source_config.min_delay)
+
+                    html = response.text
+                    final_url = str(response.url)
+                    status_code = response.status_code
+                    
+                    # Записываем метрику запроса
+                    try:
+                        from app.instrumentation.celery_metrics import _metrics
+                        _metrics.record_scraper_request(str(status_code), source_type or "unknown")
+                    except Exception:
+                        pass
+                    
+                    # Сохраняем результат в кэш (если указано имя компании)
+                    if company_name:
+                        cache_key = (normalized_url, company_name)
+                        self._request_cache[cache_key] = (html, final_url, time.time())
+                        logger.debug(
+                            f"Cached response for {url} (normalized: {normalized_url})"
+                        )
+                    
+                    return html, final_url, status_code
+                except NeedsHeadless as exc:
+                    logger.warning(f"Headless fetch required for {url}: {exc}")
+                    if self._can_use_headless(source_config):
+                        html = await fetch_page_with_headless(url, timeout)
+                        if html:
+                            return html, url, 200
+                    break
+                except httpx.HTTPStatusError as exc:
+                    status = exc.response.status_code
+                    logger.debug(f"Attempt {attempt + 1} failed for {url}: {exc}")
+                    # Записываем метрику запроса (даже для ошибок)
+                    try:
+                        from app.instrumentation.celery_metrics import _metrics
+                        _metrics.record_scraper_request(str(status), source_type or "unknown")
+                    except Exception:
+                        pass
+                    if status in (404, 410):
+                        logger.debug(f"Received {status} for {url}; not retrying further")
+                        # Записываем результат в health_service перед выходом
+                        if company_id and health_service:
+                            await self._record_health_result(
+                                company_id, url, False, status, 0, health_service, source_type
+                            )
+                        break
+                    if attempt + 1 < attempts:
+                        backoff = (source_config.retry.backoff_factor) ** attempt
+                        await asyncio.sleep(min(10, backoff))
+                    else:
+                        logger.warning(f"Gave up fetching {url} after {attempts} attempts")
+                        break
+                except (httpx.TimeoutException, httpx.HTTPError) as exc:
+                    logger.debug(f"Attempt {attempt + 1} failed for {url}: {exc}")
+                    # Записываем метрику timeout/error
+                    try:
+                        from app.instrumentation.celery_metrics import _metrics
+                        error_type = "timeout" if isinstance(exc, httpx.TimeoutException) else "error"
+                        _metrics.record_scraper_request(error_type, source_type or "unknown")
+                    except Exception:
+                        pass
+                    if attempt + 1 < attempts:
+                        backoff = (source_config.retry.backoff_factor) ** attempt
+                        await asyncio.sleep(min(10, backoff))
+                    else:
+                        logger.warning(f"Gave up fetching {url} after {attempts} attempts")
+                        break
+
+            # Записываем метрику для финальной ошибки
             try:
-                await self.rate_limiter.throttle(
-                    key=host_key,
-                    max_requests=source_config.rate_limit.requests,
-                    period=source_config.rate_limit.interval,
-                )
-                client = self.proxy_session if proxy else self.session
-                response = await client.get(url, timeout=timeout)
-                if self._requires_headless(response):
-                    raise NeedsHeadless(f"Blocked by edge protection ({response.status_code})")
-                response.raise_for_status()
-
-                if source_config.min_delay:
-                    await asyncio.sleep(source_config.min_delay)
-
-                return response.text, str(response.url)
-            except NeedsHeadless as exc:
-                logger.warning(f"Headless fetch required for {url}: {exc}")
-                if self._can_use_headless(source_config):
-                    html = await fetch_page_with_headless(url, timeout)
-                    if html:
-                        return html, url
-                break
-            except httpx.HTTPStatusError as exc:
-                status = exc.response.status_code
-                logger.debug(f"Attempt {attempt + 1} failed for {url}: {exc}")
-                if status in (404, 410):
-                    logger.debug(f"Received {status} for {url}; not retrying further")
-                    break
-                if attempt + 1 < attempts:
-                    backoff = (source_config.retry.backoff_factor) ** attempt
-                    await asyncio.sleep(min(10, backoff))
-                else:
-                    logger.warning(f"Gave up fetching {url} after {attempts} attempts")
-                    break
-            except (httpx.TimeoutException, httpx.HTTPError) as exc:
-                logger.debug(f"Attempt {attempt + 1} failed for {url}: {exc}")
-                if attempt + 1 < attempts:
-                    backoff = (source_config.retry.backoff_factor) ** attempt
-                    await asyncio.sleep(min(10, backoff))
-                else:
-                    logger.warning(f"Gave up fetching {url} after {attempts} attempts")
-                    break
-
-        return None, url
+                from app.instrumentation.celery_metrics import _metrics
+                _metrics.record_scraper_request("failed", source_type or "unknown")
+            except Exception:
+                pass
+            return None, url, 404  # Предполагаем 404, если не удалось получить HTML
+        finally:
+            # Всегда освобождаем блокировку
+            await self._fetch_lock.release(normalized_url)
 
     def _extract_articles(
         self,
