@@ -8,7 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_
 from loguru import logger
 from urllib.parse import urlparse
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
+from uuid import UUID as UUIDType
 
 from app.core.database import get_db
 from app.models.company import Company
@@ -43,6 +44,217 @@ def normalize_url(url: str) -> str:
     path = parsed.path.rstrip('/')
     normalized = f"{parsed.scheme}://{netloc}{path}"
     return normalized
+
+
+async def _generate_quick_analysis_data(
+    db: AsyncSession,
+    query: str,
+    include_competitors: bool = True
+) -> Dict[str, Any]:
+    """
+    Генерирует данные быстрого анализа компании из существующих данных БД.
+    Использует алгоритм из CompanyAnalysisFlow (suggest_competitors).
+    
+    Args:
+        db: Database session
+        query: Company name or URL
+        include_competitors: Whether to include competitors analysis
+        
+    Returns:
+        Dictionary with report data: company, categories, news, sources, pricing, competitors
+        
+    Raises:
+        ValueError: If company not found
+    """
+    # Определить, является ли query URL или названием
+    is_url = False
+    website_url = None
+    company_name = query
+    
+    try:
+        parsed = urlparse(query)
+        if parsed.scheme and parsed.netloc:
+            is_url = True
+            website_url = query
+            company_name = parsed.netloc.replace('www.', '').split('.')[0].title()
+    except Exception:
+        pass
+    
+    # Найти компанию в БД
+    company = None
+    if is_url:
+        # Нормализовать URL
+        normalized_url = normalize_url(website_url)
+        result = await db.execute(
+            select(Company).where(
+                or_(
+                    func.lower(func.replace(Company.website, 'www.', '')) == normalized_url.lower(),
+                    Company.name.ilike(f"%{company_name}%")
+                )
+            ).limit(1)  # Ограничиваем до 1 результата чтобы избежать "Multiple rows"
+        )
+        company = result.scalar_one_or_none()
+    else:
+        result = await db.execute(
+            select(Company).where(Company.name.ilike(f"%{query}%")).limit(1)  # Ограничиваем до 1 результата
+        )
+        company = result.scalar_one_or_none()
+    
+    if not company:
+        raise ValueError(f"Company not found for query: {query}. Please add company first or use full URL.")
+    
+    # ========== СОБРАТЬ ВСЕ ДАННЫЕ ==========
+    
+    # 1. Полная информация о компании (ВСЕ поля)
+    company_data = {
+        "id": str(company.id),
+        "name": company.name,
+        "website": company.website,
+        "description": company.description,
+        "logo_url": company.logo_url,
+        "category": company.category,
+        "twitter_handle": company.twitter_handle,
+        "github_org": company.github_org,
+        "created_at": company.created_at.isoformat() if company.created_at else None,
+    }
+    
+    # 2. Новости компании (последние 5)
+    news_result = await db.execute(
+        select(NewsItem)
+        .where(NewsItem.company_id == company.id)
+        .order_by(NewsItem.published_at.desc())
+        .limit(5)
+    )
+    news_items_db = news_result.scalars().all()
+    
+    # 3. Категории новостей с количеством
+    category_counts = {}
+    for news in news_items_db:
+        if news.category:
+            # Безопасное извлечение значения категории (может быть enum или строка)
+            cat_key = news.category.value if hasattr(news.category, 'value') else str(news.category)
+            category_counts[cat_key] = category_counts.get(cat_key, 0) + 1
+    
+    categories = [
+        {
+            "category": cat,
+            "technicalCategory": cat,
+            "count": count
+        }
+        for cat, count in category_counts.items()
+    ] if category_counts else None
+    
+    # 4. Источники новостей с количеством
+    source_counts = {}
+    for news in news_items_db:
+        source_url = news.source_url
+        # Безопасное извлечение значения source_type (может быть enum или строка)
+        if news.source_type:
+            source_type = news.source_type.value if hasattr(news.source_type, 'value') else str(news.source_type)
+        else:
+            source_type = "blog"
+        
+        try:
+            parsed = urlparse(source_url)
+            base_url = f"{parsed.scheme}://{parsed.netloc}"
+        except Exception:
+            base_url = source_url
+        
+        if base_url not in source_counts:
+            source_counts[base_url] = {
+                "url": base_url,
+                "type": source_type,
+                "count": 0
+            }
+        source_counts[base_url]["count"] += 1
+    
+    sources = list(source_counts.values()) if source_counts else None
+    
+    # 5. Новости в формате для API (с summary)
+    news_items = []
+    for news in (news_items_db or []):
+        # Безопасное извлечение значения категории
+        category_value = None
+        if news.category:
+            category_value = news.category.value if hasattr(news.category, 'value') else str(news.category)
+        
+        news_items.append({
+            "id": str(news.id),
+            "title": news.title,
+            "summary": news.summary,
+            "source_url": news.source_url,
+            "category": category_value,
+            "published_at": news.published_at.isoformat() if news.published_at else None,
+            "created_at": news.created_at.isoformat() if news.created_at else None,
+        })
+    
+    news_items = news_items if news_items else None
+    
+    # 6. Pricing информация из description + новости о pricing
+    pricing_info = None
+    if company.description:
+        description_lower = company.description.lower()
+        if any(keyword in description_lower for keyword in ['pricing', 'price', '$', 'cost', 'plan']):
+            pricing_news = [
+                news for news in (news_items or [])
+                if news.get("category") == "pricing_change" or
+                any(keyword in (news.get("title", "") + " " + (news.get("summary", "") or "")).lower()
+                    for keyword in ['price', 'pricing', '$', 'cost', 'plan'])
+            ][:5]
+            
+            pricing_info = {
+                "description": company.description,
+                "news": pricing_news if pricing_news else None
+            }
+    
+    # 7. Конкуренты (если запрошено) - используем алгоритм из CompanyAnalysisFlow
+    competitors = None
+    if include_competitors:
+        try:
+            from app.services.competitor_service import CompetitorAnalysisService
+            competitor_service = CompetitorAnalysisService(db)
+            company_uuid = UUIDType(str(company.id))
+            date_from = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=30)
+            date_to = datetime.now(timezone.utc).replace(tzinfo=None)
+            
+            suggestions_list = await competitor_service.suggest_competitors(
+                company_uuid,
+                limit=5,
+                date_from=date_from,
+                date_to=date_to
+            )
+            
+            if suggestions_list:
+                competitors = [
+                    {
+                        "company": suggestion.get("company", {}),
+                        "similarity_score": suggestion.get("similarity_score", 0.0),
+                        "common_categories": suggestion.get("common_categories", []),
+                        "reason": suggestion.get("reason", "Similar company")
+                    }
+                    for suggestion in suggestions_list[:5]
+                    if suggestion and isinstance(suggestion, dict)
+                ]
+                if competitors:
+                    logger.info(f"Found {len(competitors)} competitors for company {company.id}")
+        except ImportError as e:
+            logger.warning(f"Could not import CompetitorAnalysisService: {e}")
+            competitors = None
+        except Exception as e:
+            logger.warning(f"Failed to get competitors for company {company.id}: {e}", exc_info=True)
+            # Не прерываем возврат отчёта из-за ошибки конкурентов
+            competitors = None
+    
+    # Формируем данные отчёта
+    return {
+        "company": company_data,
+        "categories": categories,
+        "news": news_items,
+        "sources": sources,
+        "pricing": pricing_info,
+        "competitors": competitors,
+        "company_id": str(company.id),  # Для сохранения в report.company_id
+    }
 
 
 @router.get("/")
@@ -462,6 +674,66 @@ async def create_company(
         await db.rollback()
         logger.error(f"Failed to create/update company: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to create/update company: {str(e)}")
+
+
+@router.post("/quick-analysis")
+async def quick_company_analysis(
+    request: dict = Body(...),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Быстрый анализ компании без скрапинга.
+    Использует только существующие данные из БД.
+    
+    ВРЕМЕННОЕ РЕШЕНИЕ: Только БД данные для демонстрации.
+    В БУДУЩЕМ: Будет поддерживать внешние сервисы для новых компаний.
+    
+    Request: { 
+        "query": "AccuRanker" или "https://www.accuranker.com",
+        "include_competitors": true
+    }
+    
+    Response: Полная структура Report со всеми данными:
+    - company (name, website, description, logo_url, category, twitter_handle, github_org)
+    - categories (категории новостей с количеством)
+    - news (последние 5 новостей)
+    - sources (источники новостей)
+    - pricing (информация о ценах из description + новости)
+    - competitors (конкуренты, если include_competitors=true)
+    """
+    query = request.get("query", "").strip()
+    include_competitors = request.get("include_competitors", False)
+    
+    if not query:
+        raise HTTPException(status_code=400, detail="Query is required")
+    
+    try:
+        # Использовать общую функцию для генерации данных
+        report_data = await _generate_quick_analysis_data(db, query, include_competitors)
+        company_id = report_data.pop("company_id")  # Извлечь company_id отдельно
+        
+        # Формируем ответ в формате Report (ВСЕ данные)
+        return {
+            "id": f"quick-analysis-{company_id}",
+            "query": query,
+            "status": "ready",
+            "company_id": company_id,
+            **report_data,  # company, categories, news, sources, pricing, competitors
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "completed_at": datetime.now(timezone.utc).isoformat(),
+            # Метаданные для будущего расширения
+            "_metadata": {
+                "data_source": "database",
+                "is_temporary_solution": True,
+                "note": "В будущем будет добавлена поддержка внешних сервисов для новых компаний"
+            }
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to analyze company: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to analyze company: {str(e)}")
 
 
 

@@ -520,43 +520,58 @@ class CompetitorAnalysisService:
         """
         logger.info(f"Suggesting competitors for company {company_id}")
         
-        # Set default date range if not provided
-        if not date_from:
-            date_from = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=30)
-        if not date_to:
-            date_to = datetime.now(timezone.utc).replace(tzinfo=None)
-        
-        # 1. Получить профиль целевой компании
-        target_profile = await self._get_company_profile(company_id, date_from, date_to)
-        
-        # 2. Получить профили всех других компаний
-        all_companies = await self._get_all_companies_except(company_id)
-        candidates = []
-        
-        for company in all_companies:
-            company_profile = await self._get_company_profile(company.id, date_from, date_to)
+        try:
+            # Set default date range if not provided
+            if not date_from:
+                date_from = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=30)
+            if not date_to:
+                date_to = datetime.now(timezone.utc).replace(tzinfo=None)
             
-            # 3. Посчитать схожесть
-            similarity = self._calculate_similarity(target_profile, company_profile)
+            # 1. Получить профиль целевой компании
+            target_profile = await self._get_company_profile(company_id, date_from, date_to)
             
-            if similarity > 0.3:  # Минимальный порог
-                candidates.append({
-                    "company": {
-                        "id": str(company.id),
-                        "name": company.name,
-                        "website": company.website,
-                        "description": company.description,
-                        "logo_url": company.logo_url,
-                        "category": company.category
-                    },
-                    "similarity_score": similarity,
-                    "common_categories": self._find_common_categories(target_profile, company_profile),
-                    "reason": self._generate_reason(target_profile, company_profile)
-                })
-        
-        # 4. Отсортировать по схожести
-        candidates.sort(key=lambda x: x["similarity_score"], reverse=True)
-        return candidates[:limit]
+            # 2. Получить профили других компаний (ограничиваем до 50 для производительности)
+            all_companies = await self._get_all_companies_except(company_id, limit=50)
+            
+            if not all_companies:
+                logger.warning(f"No other companies found for competitor analysis")
+                return []
+            
+            candidates = []
+            
+            # Обрабатываем компании с обработкой ошибок
+            for company in all_companies:
+                try:
+                    company_profile = await self._get_company_profile(company.id, date_from, date_to)
+                    
+                    # 3. Посчитать схожесть
+                    similarity = self._calculate_similarity(target_profile, company_profile)
+                    
+                    if similarity > 0.3:  # Минимальный порог
+                        candidates.append({
+                            "company": {
+                                "id": str(company.id),
+                                "name": company.name,
+                                "website": company.website,
+                                "description": company.description,
+                                "logo_url": company.logo_url,
+                                "category": company.category
+                            },
+                            "similarity_score": similarity,
+                            "common_categories": self._find_common_categories(target_profile, company_profile),
+                            "reason": self._generate_reason(target_profile, company_profile)
+                        })
+                except Exception as e:
+                    logger.warning(f"Error processing company {company.id} for competitor analysis: {e}")
+                    continue
+            
+            # 4. Отсортировать по схожести
+            candidates.sort(key=lambda x: x["similarity_score"], reverse=True)
+            return candidates[:limit]
+            
+        except Exception as e:
+            logger.error(f"Error suggesting competitors for company {company_id}: {e}", exc_info=True)
+            return []
     
     def _calculate_similarity(
         self, 
@@ -633,13 +648,66 @@ class CompetitorAnalysisService:
     ) -> Dict[str, Any]:
         """Get comprehensive company profile"""
         
-        # Get company info
-        result = await self.db.execute(
-            select(Company).where(Company.id == company_id)
-        )
-        company = result.scalar_one_or_none()
-        
-        if not company:
+        try:
+            # Get company info
+            result = await self.db.execute(
+                select(Company).where(Company.id == company_id)
+            )
+            company = result.scalar_one_or_none()
+            
+            if not company:
+                return {
+                    "category_distribution": {},
+                    "source_distribution": {},
+                    "activity_level": 0,
+                    "avg_priority": 0.0,
+                    "company_category": "unknown"
+                }
+            
+            # Get news items with limit to avoid loading too many
+            result = await self.db.execute(
+                select(NewsItem)
+                .where(
+                    and_(
+                        NewsItem.company_id == company_id,
+                        NewsItem.published_at >= date_from,
+                        NewsItem.published_at <= date_to
+                    )
+                )
+                .limit(1000)  # Limit to avoid loading too many news items
+            )
+            news_items = list(result.scalars().all())
+            
+            # Calculate distributions
+            category_distribution = {}
+            source_distribution = {}
+            total_priority = 0.0
+            
+            for item in news_items:
+                # Category distribution
+                if item.category:
+                    cat_key = item.category.value if hasattr(item.category, 'value') else str(item.category)
+                    category_distribution[cat_key] = category_distribution.get(cat_key, 0) + 1
+                
+                # Source distribution
+                if item.source_type:
+                    source_key = item.source_type.value if hasattr(item.source_type, 'value') else str(item.source_type)
+                    source_distribution[source_key] = source_distribution.get(source_key, 0) + 1
+                
+                # Priority
+                total_priority += item.priority_score or 0
+            
+            avg_priority = total_priority / len(news_items) if news_items else 0.0
+            
+            return {
+                "category_distribution": category_distribution,
+                "source_distribution": source_distribution,
+                "activity_level": len(news_items),
+                "avg_priority": avg_priority,
+                "company_category": company.category or "unknown"
+            }
+        except Exception as e:
+            logger.error(f"Error getting company profile for {company_id}: {e}", exc_info=True)
             return {
                 "category_distribution": {},
                 "source_distribution": {},
@@ -647,53 +715,19 @@ class CompetitorAnalysisService:
                 "avg_priority": 0.0,
                 "company_category": "unknown"
             }
-        
-        # Get news items
-        result = await self.db.execute(
-            select(NewsItem)
-            .where(
-                and_(
-                    NewsItem.company_id == company_id,
-                    NewsItem.published_at >= date_from,
-                    NewsItem.published_at <= date_to
-                )
-            )
-        )
-        news_items = result.scalars().all()
-        
-        # Calculate distributions
-        category_distribution = {}
-        source_distribution = {}
-        total_priority = 0.0
-        
-        for item in news_items:
-            # Category distribution
-            if item.category:
-                category_distribution[item.category] = category_distribution.get(item.category, 0) + 1
-            
-            # Source distribution
-            if item.source_type:
-                source_distribution[item.source_type] = source_distribution.get(item.source_type, 0) + 1
-            
-            # Priority
-            total_priority += item.priority_score or 0
-        
-        avg_priority = total_priority / len(news_items) if news_items else 0.0
-        
-        return {
-            "category_distribution": category_distribution,
-            "source_distribution": source_distribution,
-            "activity_level": len(news_items),
-            "avg_priority": avg_priority,
-            "company_category": company.category or "unknown"
-        }
     
-    async def _get_all_companies_except(self, exclude_id: uuid.UUID) -> List[Company]:
-        """Get all companies except the excluded one"""
-        result = await self.db.execute(
-            select(Company).where(Company.id != exclude_id)
-        )
-        return list(result.scalars().all())
+    async def _get_all_companies_except(self, exclude_id: uuid.UUID, limit: int = 100) -> List[Company]:
+        """Get all companies except the excluded one, with a limit to avoid loading too many"""
+        try:
+            result = await self.db.execute(
+                select(Company)
+                .where(Company.id != exclude_id)
+                .limit(limit)
+            )
+            return list(result.scalars().all())
+        except Exception as e:
+            logger.error(f"Error fetching companies for competitor analysis: {e}", exc_info=True)
+            return []
     
     def _find_common_categories(
         self, 
@@ -859,4 +893,5 @@ class CompetitorAnalysisService:
         return list(result.scalars().all())
 
 
-
+# Alias for backward compatibility
+CompetitorService = CompetitorAnalysisService
