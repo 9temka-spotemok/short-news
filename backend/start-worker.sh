@@ -46,6 +46,7 @@ exec celery -A app.celery_app worker \
     --max-tasks-per-child=1000 \
     --max-memory-per-child=200000 \
     --pool=prefork \
+    -Q celery,analytics,telegram \
     --without-gossip \
     --without-mingle \
     --without-heartbeat

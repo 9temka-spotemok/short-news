@@ -9,9 +9,21 @@
 - Выводит итоговую диагностику
 
 Использование:
-    python backend/scripts/fix_worker_issues.py
-    # или через Railway CLI:
-    railway run --service web -- python backend/scripts/fix_worker_issues.py
+    # Локально:
+    cd backend
+    python scripts/fix_worker_issues.py
+    
+    # Или через модульный импорт:
+    python -m scripts.fix_worker_issues
+    
+    # Через Railway CLI (из корня проекта):
+    railway run --service web -- python scripts/fix_worker_issues.py
+    
+    # Или через модульный импорт:
+    railway run --service web -- python -m scripts.fix_worker_issues
+    
+    # Или с переходом в директорию:
+    railway run --service web -- sh -c "cd /app && python scripts/fix_worker_issues.py"
 """
 
 import asyncio
@@ -332,14 +344,68 @@ async def run_diagnostics(session):
         return False
 
 
+async def check_all_fixes_applied(session) -> bool:
+    """Проверить, применены ли все исправления."""
+    try:
+        # Проверить enum типы
+        result = await session.execute(text("""
+            SELECT COUNT(*) FROM pg_type 
+            WHERE typname IN ('newscategory', 'newstopic', 'sentimentlabel')
+        """))
+        enum_count = result.scalar()
+        
+        # Проверить колонки
+        result = await session.execute(text("""
+            SELECT COUNT(*) FROM information_schema.columns 
+            WHERE table_name = 'news_items' 
+            AND column_name IN ('topic', 'sentiment', 'raw_snapshot_url')
+        """))
+        columns_count = result.scalar()
+        
+        # Проверить тип interested_categories
+        result = await session.execute(text("""
+            SELECT typname FROM pg_type WHERE oid = (
+                SELECT typelem FROM pg_type WHERE typname = (
+                    SELECT udt_name FROM information_schema.columns 
+                    WHERE table_name = 'user_preferences' AND column_name = 'interested_categories'
+                )
+            )
+        """))
+        element_type = result.scalar()
+        
+        return (enum_count == 3 and 
+                columns_count == 3 and 
+                element_type == 'newscategory')
+    except Exception as e:
+        logger.warning(f"Ошибка при проверке статуса: {e}")
+        return False
+
+
 async def main():
     """Основная функция."""
     logger.info("=" * 50)
-    logger.info("ИСПРАВЛЕНИЕ ПРОБЛЕМ WORKER СЕРВИСА")
+    logger.info("ПРОВЕРКА И ИСПРАВЛЕНИЕ ПРОБЛЕМ WORKER СЕРВИСА")
     logger.info("=" * 50)
+    logger.info(f"Рабочая директория: {Path.cwd()}")
+    logger.info(f"Путь к скрипту: {Path(__file__).resolve()}")
     logger.info("")
     
     async with AsyncSessionLocal() as session:
+        # Сначала проверить, применены ли все исправления
+        logger.info("Проверка текущего статуса...")
+        all_applied = await check_all_fixes_applied(session)
+        
+        if all_applied:
+            logger.success("\n✅ ВСЕ SQL ИСПРАВЛЕНИЯ УЖЕ ПРИМЕНЕНЫ!")
+            logger.info("\nВыполняю финальную диагностику...")
+            await run_diagnostics(session)
+            logger.info("\n⚠️  ВАЖНО: Проблема с event loop исправляется в коде Python.")
+            logger.info("   Убедитесь, что изменения в backend/app/tasks/digest.py задеплоены")
+            logger.info("   и worker сервис перезапущен.")
+            return 0
+        
+        logger.info("⚠️  Обнаружены проблемы, применяю исправления...\n")
+        
         success = True
         
         # 1. Создать enum типы
