@@ -10,7 +10,8 @@ from loguru import logger
 import uvicorn
 
 from app.core.config import settings
-from app.core.database import init_db, engine
+from app.core.database import init_db, engine, AsyncSessionLocal
+from app.core.db_utils import ensure_news_items_columns
 from app.api.v1.api import api_router
 from app.api.v2.api import api_v2_router
 from app.core.exceptions import setup_exception_handlers
@@ -151,6 +152,15 @@ async def startup_event():
 
     # Initialize database
     await init_db()
+    
+    # Ensure required columns exist (fallback mechanism if migrations failed)
+    try:
+        async with AsyncSessionLocal() as session:
+            columns_ok = await ensure_news_items_columns(session)
+            if not columns_ok:
+                logger.warning("Failed to ensure news_items columns, but continuing startup...")
+    except Exception as e:
+        logger.warning(f"Error ensuring news_items columns: {e}, but continuing startup...")
     
     logger.info("Application startup complete!")
 
