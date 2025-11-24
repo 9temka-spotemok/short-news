@@ -5,7 +5,7 @@ Enhanced API v1 router configuration with improved organization
 from fastapi import APIRouter
 from loguru import logger
 
-from app.api.v1.endpoints import auth, news, users, digest, companies, notifications, competitors, telegram, schedules
+from app.api.v1.endpoints import auth, news, users, digest, companies, notifications, competitors, telegram, schedules, reports
 from app.api.v1.endpoints.admin import scraping as admin_scraping
 
 # Create main API router with enhanced configuration
@@ -108,6 +108,15 @@ api_router.include_router(
     }
 )
 
+api_router.include_router(
+    reports.router,
+    prefix="/reports",
+    tags=["Reports"],
+    responses={
+        404: {"description": "Report not found"}
+    }
+)
+
 # Health check endpoint
 @api_router.get("/health")
 async def health_check():
@@ -128,6 +137,7 @@ async def health_check():
             "digest": "/digest",
             "notifications": "/notifications",
             "competitors": "/competitors",
+            "reports": "/reports",
             "admin": "/admin"
         }
     }
