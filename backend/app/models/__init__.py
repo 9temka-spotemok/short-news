@@ -46,6 +46,7 @@ from .competitor import (
     CompetitorComparison,
     CompetitorPricingSnapshot,
 )
+from .report import Report, ReportStatus
 
 __all__ = [
     "Base",
@@ -98,4 +99,6 @@ __all__ = [
     "RelationshipType",
     "AnalyticsGraphEdge",
     "UserReportPreset",
+    "Report",
+    "ReportStatus",
 ]
