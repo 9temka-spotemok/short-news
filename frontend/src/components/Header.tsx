@@ -21,6 +21,7 @@ export default function Header() {
   // Навигация для авторизованных пользователей
   const authenticatedNavigation = [
     { name: 'Dashboard', href: '/dashboard' },
+    { name: 'Dashboard Test', href: '/dashboard-test' },
     { name: 'News', href: '/news' },
     { name: 'Analytics', href: '/news-analytics' },
     { name: 'Competitors analysis', href: '/competitor-analysis' },

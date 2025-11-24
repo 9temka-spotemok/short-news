@@ -10,7 +10,7 @@ import { enUS } from 'date-fns/locale'
 import { Bell, Calendar, ChevronDown, ChevronUp, ExternalLink, Filter, Github, Globe, Search, TrendingUp, Twitter } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
- 
+  
 
 interface NewsItem {
   id: string

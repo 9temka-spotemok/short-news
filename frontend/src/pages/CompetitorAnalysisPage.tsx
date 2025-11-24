@@ -4,33 +4,33 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import ProgressSteps from '../components/ProgressSteps'
 import {
-    AnalysisModeSelection,
-    AnalysisResultsStep,
-    AnalyticsTabs,
-    CompanyAnalysisFlow,
-    companyAnalyticsInsightsQueryKey,
-    CompanySelectionStep,
-    CompetitorSuggestionStep,
-    fetchCompanyAnalyticsInsights,
-    ImpactPanel,
-    PresetManager,
-    useAnalysisFlow,
-    useAnalyticsExportHandler,
-    useChangeEventsQuery,
-    useCompanyAnalyticsInsights,
-    useComparisonManager,
-    useExportAnalyticsMutation,
-    useFiltersState,
-    usePrefetchAnalytics,
-    useRecomputeChangeEventMutation,
-    useReportPresetActions,
-    useReportPresetsQuery
+  AnalysisModeSelection,
+  AnalysisResultsStep,
+  AnalyticsTabs,
+  CompanyAnalysisFlow,
+  companyAnalyticsInsightsQueryKey,
+  CompanySelectionStep,
+  CompetitorSuggestionStep,
+  fetchCompanyAnalyticsInsights,
+  ImpactPanel,
+  PresetManager,
+  useAnalysisFlow,
+  useAnalyticsExportHandler,
+  useChangeEventsQuery,
+  useCompanyAnalyticsInsights,
+  useComparisonManager,
+  useExportAnalyticsMutation,
+  useFiltersState,
+  usePrefetchAnalytics,
+  useRecomputeChangeEventMutation,
+  useReportPresetActions,
+  useReportPresetsQuery
 } from '../features/competitor-analysis'
 import { ApiService } from '../services/api'
 import {
-    CompanyAnalyticsSnapshot,
-    ComparisonSubjectRequest,
-    ReportPreset
+  CompanyAnalyticsSnapshot,
+  ComparisonSubjectRequest,
+  ReportPreset
 } from '../types'
 
 type AnalysisMode = 'company' | 'custom'
@@ -634,7 +634,7 @@ export default function CompetitorAnalysisPage() {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto py-4 sm:py-6 lg:py-8 px-4 sm:px-6 lg:px-8">
         <div className="mb-4 sm:mb-6">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3">
+          <h1 className="text-3xl sm:text-3xl font-bold text-gray-900 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3">
             <BarChart3 className="w-6 h-6 sm:w-8 sm:h-8" />
             <span>Competitor Analysis</span>
           </h1>

@@ -203,7 +203,7 @@ export default function AuthNewsPage() {
       <div className="mb-6 sm:mb-8">
         <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4 lg:gap-6">
           <div className="flex-1">
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-2">
+            <h1 className="text-3xl sm:text-3xl lg:text-3xl font-bold text-gray-900 mb-2">
               AI Industry News
             </h1>
             {newsData && (
