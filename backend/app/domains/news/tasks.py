@@ -9,12 +9,11 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator, Awaitable, Callable
-import threading
-import asyncio
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.celery_async import run_async_task
 from app.core.database import AsyncSessionLocal
 from app.domains.news import NewsFacade
 from app.services.nlp_service import PIPELINE
@@ -62,31 +61,7 @@ async def extract_keywords(news_id: str | UUID, *, limit: int = 8) -> dict:
 
 def run_in_loop(coro_factory: Callable[[], Awaitable[dict]]) -> dict:
     """
-    Execute async coroutine in a fresh loop.
-
-    Celery tasks are synchronous by default; this helper allows us to keep the
-    async implementation in the domain while providing a sync bridge.
+    Execute async coroutine using the shared Celery event loop.
     """
-    try:
-        asyncio.get_running_loop()
-    except RuntimeError:
-        return asyncio.run(coro_factory())
-
-    result_holder: dict[str, dict] = {}
-    exception_holder: dict[str, BaseException] = {}
-
-    def _runner() -> None:
-        try:
-            result_holder["value"] = asyncio.run(coro_factory())
-        except BaseException as exc:  # pragma: no cover - propagate to caller
-            exception_holder["error"] = exc
-
-    thread = threading.Thread(target=_runner, daemon=True)
-    thread.start()
-    thread.join()
-
-    if "error" in exception_holder:
-        raise exception_holder["error"]
-
-    return result_holder.get("value")
+    return run_async_task(coro_factory())
 

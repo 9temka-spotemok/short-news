@@ -4,7 +4,6 @@ Helpers bridging Celery tasks with the competitors domain.
 
 from __future__ import annotations
 
-import asyncio
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator, Awaitable, Callable, Optional
 from uuid import UUID
@@ -13,6 +12,7 @@ import httpx
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.celery_async import run_async_task
 from app.core.database import AsyncSessionLocal
 from app.domains.competitors import CompetitorFacade
 from app.models import SourceType
@@ -101,7 +101,7 @@ async def list_change_events(
 
 
 def run_in_loop(factory: Callable[[], Awaitable[dict]]) -> dict:
-    return asyncio.run(factory())
+    return run_async_task(factory())
 
 
 

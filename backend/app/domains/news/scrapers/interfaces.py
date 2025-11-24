@@ -41,6 +41,7 @@ class ScraperProvider(Protocol):
         company: CompanyContext,
         *,
         max_articles: int = 10,
+        skip_urls: Optional[set[str]] = None,
     ) -> List[ScrapedNewsItem]:
         ...
 
