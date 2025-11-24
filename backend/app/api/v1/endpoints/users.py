@@ -6,6 +6,8 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm.attributes import flag_modified
 from pydantic import BaseModel, field_validator
 from loguru import logger
 import uuid
@@ -312,47 +314,85 @@ async def subscribe_to_company(
         if not company:
             raise HTTPException(status_code=404, detail="Company not found")
         
-        # Get user preferences
+        # Get user preferences with FOR UPDATE lock to prevent race conditions
+        # This ensures that concurrent requests are serialized
         result = await db.execute(
-            select(UserPreferences).where(UserPreferences.user_id == current_user.id)
+            select(UserPreferences)
+            .where(UserPreferences.user_id == current_user.id)
+            .with_for_update()
         )
         preferences = result.scalar_one_or_none()
         
         # Create default preferences if they don't exist
         if not preferences:
             logger.info(f"Creating default preferences for user {current_user.id}")
-            preferences = UserPreferences(
-                id=uuid.uuid4(),
-                user_id=current_user.id,
-                subscribed_companies=[],
-                interested_categories=[],
-                keywords=[],
-                notification_frequency='daily',
-                digest_enabled=False,
-                digest_frequency='daily',
-                digest_custom_schedule={},
-                digest_format='short',
-                digest_include_summaries=True,
-                telegram_chat_id=None,
-                telegram_enabled=False,
-                timezone='UTC',
-                week_start_day=0
-            )
-            db.add(preferences)
+            try:
+                preferences = UserPreferences(
+                    id=uuid.uuid4(),
+                    user_id=current_user.id,
+                    subscribed_companies=[],
+                    interested_categories=[],
+                    keywords=[],
+                    notification_frequency='daily',
+                    digest_enabled=False,
+                    digest_frequency='daily',
+                    digest_custom_schedule={},
+                    digest_format='short',
+                    digest_include_summaries=True,
+                    telegram_chat_id=None,
+                    telegram_enabled=False,
+                    timezone='UTC',
+                    week_start_day=0
+                )
+                db.add(preferences)
+                await db.flush()  # Flush to get the ID
+            except IntegrityError:
+                # Preferences were created by another concurrent request
+                logger.info(f"Preferences already exist for user {current_user.id}, retrying select")
+                await db.rollback()
+                # Retry select with lock
+                result = await db.execute(
+                    select(UserPreferences)
+                    .where(UserPreferences.user_id == current_user.id)
+                    .with_for_update()
+                )
+                preferences = result.scalar_one_or_none()
+                if not preferences:
+                    raise HTTPException(status_code=500, detail="Failed to create or retrieve user preferences")
         
-        # Add company to subscriptions if not already subscribed
-        if not preferences.subscribed_companies:
+        # Initialize subscribed_companies if None
+        if preferences.subscribed_companies is None:
             preferences.subscribed_companies = []
         
-        if company_uuid not in preferences.subscribed_companies:
-            preferences.subscribed_companies.append(company_uuid)
-            await db.commit()
+        # Add company to subscriptions if not already subscribed
+        # Check again after acquiring lock to handle race conditions
+        was_already_subscribed = company_uuid in (preferences.subscribed_companies or [])
+        
+        if not was_already_subscribed:
+            # Create a new list to ensure SQLAlchemy detects the change
+            current_companies = list(preferences.subscribed_companies) if preferences.subscribed_companies else []
+            current_companies.append(company_uuid)
+            preferences.subscribed_companies = current_companies
+            logger.info(f"Adding company {company_id} to user {current_user.id} subscriptions. Total will be: {len(preferences.subscribed_companies)}")
+        else:
+            logger.info(f"Company {company_id} already in subscriptions for user {current_user.id}")
+        
+        # Mark the object as modified to ensure SQLAlchemy detects the change to ARRAY field
+        # This is critical for PostgreSQL ARRAY fields as SQLAlchemy may not detect in-place mutations
+        flag_modified(preferences, "subscribed_companies")
+        
+        await db.commit()
+        logger.info(f"Committed changes for user {current_user.id}")
+        
+        # Refresh to get the latest state after commit
+        await db.refresh(preferences)
+        logger.info(f"Final subscribed_companies count for user {current_user.id}: {len(preferences.subscribed_companies or [])}, IDs: {[str(c) for c in (preferences.subscribed_companies or [])]}")
         
         return {
             "status": "success",
             "company_id": company_id,
             "company_name": company.name,
-            "message": "Successfully subscribed to company"
+            "message": "Successfully subscribed to company" if not was_already_subscribed else "Already subscribed to company"
         }
         
     except HTTPException:
