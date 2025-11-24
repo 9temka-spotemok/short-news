@@ -56,6 +56,25 @@ shot-news/
 
 ## ♻️ Свежие улучшения (январь 2025)
 
+### Исправление ошибок создания отчётов (январь 2025)
+
+**Исправлена ошибка 500 при создании отчётов:**
+- ✅ **Оптимизация поиска конкурентов** — добавлено ограничение на количество анализируемых компаний (до 50) в методе `suggest_competitors()` для предотвращения перегрузки БД
+- ✅ **Лимиты на загрузку данных** — добавлен лимит на загрузку новостей (1000) в `_get_company_profile()` для предотвращения избыточной загрузки данных
+- ✅ **Улучшена обработка ошибок** — добавлена защита от SQLAlchemy asyncpg ошибок с детальной обработкой исключений в `create_report()` и `suggest_competitors()`
+- ✅ **Безопасное извлечение данных** — исправлено извлечение `company_id` из `report_data` с использованием `.get()` вместо `.pop()` для предотвращения KeyError
+- ✅ **Исправлены импорты** — обновлены импорты `CompetitorService` на `CompetitorAnalysisService` во всех местах использования, добавлен alias для обратной совместимости
+- ✅ **Улучшена обработка транзакций** — добавлена правильная обработка rollback при ошибках создания отчёта
+- ✅ **Исправлена ошибка 'str' object has no attribute 'value'** — добавлена безопасная проверка `hasattr()` перед обращением к `.value` для enum полей (`news.category`, `news.source_type`) в `_generate_quick_analysis_data()` и других местах, где обрабатываются новости
+- ✅ **Исправлена ошибка Database error при сохранении report_data** — добавлена проверка и очистка не-JSON-сериализуемых объектов в `report_data` перед сохранением в БД, улучшена обработка ошибок при создании и обновлении отчётов, добавлена валидация `company_id` перед сохранением
+- ✅ **Исправлена ошибка "invalid input value for enum reportstatus: READY"** — добавлена нормализация значения status в нижний регистр перед сохранением в БД, добавлен `values_callable` в определение ENUM для правильной обработки значений enum SQLAlchemy, добавлены множественные проверки status перед flush в БД для предотвращения передачи неправильного значения
+
+**Файлы:**
+- `backend/app/services/competitor_service.py` - оптимизирован `suggest_competitors()`, добавлены лимиты и улучшена обработка ошибок
+- `backend/app/api/v1/endpoints/reports.py` - улучшена обработка ошибок в `create_report()`, безопасное извлечение `company_id`
+- `backend/app/api/v1/endpoints/companies.py` - улучшена обработка ошибок при получении конкурентов в `_generate_quick_analysis_data()`
+- `backend/app/tasks/reports.py` - обновлены импорты на `CompetitorAnalysisService`
+
 ### Оптимизация Celery и Scraper (Фаза 0-4)
 
 **Критические исправления Scraper:**
@@ -90,6 +109,34 @@ shot-news/
 **Документация:**
 - `docs/CELERY_SCRAPER_OPTIMIZATION_PLAN.md` — полный план оптимизации
 - `docs/SCRAPER_SOURCE_HEALTH.md` — документация по системе здоровья источников
+
+## ♻️ Свежие улучшения (ноябрь 2025)
+
+### Система отчётов с быстрым анализом (Discover Tab Refactoring)
+
+**Реализована система отчётов с сохранением результатов в БД:**
+
+- ✅ **Поле `report_data` (JSON)** в модели `Report` для сохранения полных данных отчёта (company, news, categories, sources, pricing, competitors)
+- ✅ **Миграция `32e8440a3173_add_report_data_to_reports`** добавляет поле `report_data` в таблицу `reports`
+- ✅ **Метод `update_report_data()`** в `ReportRepository` для сохранения данных отчёта в БД
+- ✅ **Функция `_generate_quick_analysis_data()`** в `companies.py` - вынесена логика quick-analysis для переиспользования
+- ✅ **Endpoint `/reports/create`** теперь сразу вызывает quick-analysis, создаёт отчёт со статусом `ready`, сохраняет результаты в `report_data`
+- ✅ **Логика статусов сохранена** (processing, ready, error) - для будущего full report через Celery task
+- ✅ **Celery task `generate_company_report`** обновлён для сохранения результатов в `report_data` при завершении
+- ✅ **GET `/reports/{report_id}`** сначала проверяет `report_data` из БД, если нет - собирает динамически (fallback)
+- ✅ **Frontend:** Убран Quick Analysis блок из вкладки "My Competitors", оставлен один блок поиска на вкладке "Discover"
+- ✅ **Frontend:** `handleCreateReport` обновлён для обработки статуса `ready` сразу после создания отчёта
+- ✅ **Frontend:** Добавлен компонент `ConfirmDeleteModal` для подтверждения удаления отчёта
+
+**Файлы:**
+- `backend/app/models/report.py` - добавлено поле `report_data: Mapped[Optional[Dict[str, Any]]]`
+- `backend/alembic/versions/32e8440a3173_add_report_data_to_reports.py` - миграция для `report_data`
+- `backend/app/domains/reports/repositories/report_repository.py` - метод `update_report_data()`
+- `backend/app/api/v1/endpoints/companies.py` - функция `_generate_quick_analysis_data()`
+- `backend/app/api/v1/endpoints/reports.py` - обновлён `/reports/create` и `GET /reports/{report_id}`
+- `backend/app/tasks/reports.py` - обновлён `generate_company_report` для сохранения в `report_data`
+- `frontend/src/pages/DashboardPageTest.tsx` - убран Quick Analysis из "My Competitors", обновлён `handleCreateReport`
+- `frontend/src/components/dashboard/ConfirmDeleteModal.tsx` - новый компонент для подтверждения удаления
 
 ## ♻️ Свежие улучшения (ноябрь 2025)
 
@@ -641,6 +688,7 @@ python -m alembic upgrade head
 - `competitors.py` - Управление отслеживаемыми компаниями
 - `notifications.py` - Уведомления пользователей
 - `telegram.py` - Webhook для Telegram бота, обработка callback queries и сообщений
+- `reports.py` - **Новый:** Эндпоинты для системы отчётов о компаниях. `POST /reports/create` (создание отчёта с быстрым анализом, сразу возвращает ready статус с данными в report_data), `GET /reports/{report_id}/status` (проверка статуса), `GET /reports/{report_id}` (получение полных данных отчёта - сначала из report_data, fallback на динамическую сборку), `GET /reports/` (список отчётов пользователя), `DELETE /reports/{report_id}` (удаление отчёта). **Исправлено:** улучшена обработка ошибок при создании отчётов, добавлена защита от SQLAlchemy asyncpg ошибок, оптимизирован поиск конкурентов с ограничением количества компаний для анализа
 - `admin.py` - Административные функции
 
 **API Endpoints v2 (`app/api/v2/endpoints/`):**
@@ -659,6 +707,7 @@ python -m alembic upgrade head
 - `preferences.py` - Настройки пользователя (UserPreferences: дайджесты, Telegram, категории)
 - `notification.py` - Уведомления (Notification)
 - `activity.py` - Активность пользователя (UserActivity)
+- `report.py` - **Новый:** Модель отчётов о компаниях (Report) с полями: `id`, `user_id`, `query`, `status` (enum: processing/ready/error), `company_id`, `error_message`, `created_at`, `completed_at`, `report_data` (JSON). Используется для сохранения полных данных отчёта (company, news, categories, sources, pricing, competitors) в БД. Поддерживает как быстрый анализ (ready сразу), так и асинхронную генерацию через Celery (processing)
 - `analytics.py` - Модели аналитики: `CompanyAnalyticsSnapshot` (снапшоты метрик), `ImpactComponent` (компоненты impact score), `AnalyticsGraphEdge` (edges knowledge graph), `UserReportPreset` (пресеты отчетов), энумы `AnalyticsPeriod`, `ImpactComponentType`, `AnalyticsEntityType`, `RelationshipType`
 
 **Сервисы (`app/services/`):**
@@ -666,7 +715,7 @@ python -m alembic upgrade head
 - `nlp_service.py` - NLP-пайплайн: эвристическая классификация тем, расчёт тональности, приоритета и извлечение ключевых слов
 - `digest_service.py` - Legacy-адаптер; основная логика генерации вынесена в `app/domains/notifications/services/digest_service.py`.
 - `telegram_service.py` - Отправка сообщений в Telegram, клавиатуры, webhook. Добавлено `send_post_digest_controls()` и улучшено `send_digest_settings_menu()`
-- `competitor_service.py` - Управление отслеживаемыми компаниями
+- `competitor_service.py` - Анализ конкурентов и сравнение компаний. Класс `CompetitorAnalysisService` с методами `suggest_competitors()` для поиска похожих компаний, `compare_companies()` для сравнения метрик. **Исправлено:** оптимизирован метод `suggest_competitors()` с ограничением количества анализируемых компаний (до 50), добавлены лимиты на загрузку новостей (1000), улучшена обработка ошибок и добавлен alias `CompetitorService = CompetitorAnalysisService` для обратной совместимости
 - `notification_service.py` - Legacy-адаптер для доменного `app/domains/notifications/services/notification_service.py`
 - `company_info_extractor.py` - Извлечение метаданных компании из веб-сайта (название, описание, логотип, категория)
 - `analytics_comparison_service.py` - Legacy-адаптер для сравнения аналитики; постепенно мигрируется в `app/domains/analytics/services/comparison_service.py`
@@ -676,12 +725,16 @@ python -m alembic upgrade head
 - `services/snapshot_service.py` - Сервис создания snapshots: вычисление метрик (news volume, sentiment, priority, pricing changes, feature updates, funding events), построение impact components, вычисление impact score и trend delta
 - `services/comparison_service.py` - Сервис сравнения аналитики между компаниями и пресетами
 
+**Доменные сервисы отчётов (`app/domains/reports/`):**
+- `repositories/report_repository.py` - **Новый:** Репозиторий для работы с отчётами. Методы: `create()` (создание отчёта), `get_by_id()` (получение по ID), `get_by_user()` (список отчётов пользователя с пагинацией), `update_status()` (обновление статуса), `update_report_data()` (сохранение полных данных отчёта в report_data), `get_by_status()` (получение отчётов по статусу)
+
 **Фоновые задачи (`app/tasks/`):**
 - `digest.py` - Celery задачи для генерации и отправки дайджестов. После отправки каждого дайджеста пользователю показываются быстрые кнопки. **Исправлено:** использует отдельный engine с `NullPool` для задач Celery, что устраняет ошибки "Task got Future attached to a different loop"
 - `scraping.py` - Задачи для сбора новостей. **Исправлено:** использует `_run_async` helper для корректной работы async кода в Celery (устранена проблема с event loop)
 - `notifications.py` - Celery задачи для обработки уведомлений: `dispatch_notification_deliveries` (отправка pending доставок). Использует `_run_async` helper для безопасного выполнения async кода в Celery
 - `nlp.py` - Обновлённые задачи NLP: классификация тем/тональности/приоритета, генерация summary и ключевых слов
 - `analytics.py` - Celery задачи для аналитики: `recompute_company_analytics` (пересчет для одной компании), `recompute_all_analytics` (пересчет для всех компаний), `sync_company_knowledge_graph` (синхронизация knowledge graph). Автоматически запускаются каждые 6 часов через Celery Beat
+- `reports.py` - **Новый:** Celery задача `generate_company_report` для асинхронной генерации отчётов о компаниях. Разрешает query (URL или название компании), находит/создаёт компанию через существующую логику scan_company, собирает данные (новости, категории, источники, pricing информация, конкуренты) и сохраняет в `report_data` через `update_report_data()`. Также используется функция `_generate_quick_analysis_data()` из `companies.py` для быстрого анализа без скрапинга
 
 **Скраперы (`app/scrapers/`):**
 - `universal_scraper.py` - Универсальный скрапер для блогов и новостных страниц компаний. **Обновлен:** добавлена поддержка ручного указания URL страницы с новостями через параметр `news_page_url` и заполнение базовых NLP полей (`priority_score`, `topic`, `sentiment`, `raw_snapshot_url` как заглушки)
@@ -706,13 +759,14 @@ python -m alembic upgrade head
 - `start-worker.sh` - Скрипт запуска Celery worker для Railway. Автоматически применяет миграции перед запуском worker. Используется в `Dockerfile.worker` и при деплое на Railway.
 
 **Диагностика:**
+- `RAILWAY_SQL_DIAGNOSTICS.md` - **Комплексные SQL команды для диагностики Railway системы** (проверка версии PostgreSQL, таблиц, миграций, статистики, подключений, целостности данных, производительности)
 - `backend/TELEGRAM_DIAGNOSTICS.md` - Подробная инструкция по диагностике проблем с Telegram ботом на Railway
 - `backend/TEST_TELEGRAM_BUTTONS_RAILWAY.md` - Инструкция по тестированию кнопок через Railway CLI
-- `backend/RAILWAY_CLI_DIAGNOSTICS.md` - Диагностика через Railway CLI и SQL
+- `backend/RAILWAY_CLI_DIAGNOSTICS.md` - Диагностика через Railway CLI и SQL (специфично для Telegram пользователей)
 - API эндпоинт `/api/v1/telegram/check-user/{chat_id}` - Проверка настроек пользователя через API
 
 **Frontend (`frontend/`):**
-- `src/components/` - React компоненты (22 компонента)
+- `src/components/` - React компоненты (23 компонента)
   - `Header.tsx` - Навигация и меню пользователя (десктоп и мобильная версия). Включает ссылки на Profile и Settings
   - `AddCompetitorModal.tsx` - Модальное окно для ручного добавления конкурентов с расширенным функционалом:
     - Режим сканирования: автоматическое определение и сканирование новостей
@@ -720,14 +774,22 @@ python -m alembic upgrade head
     - Редактирование информации о компании перед добавлением
     - Выбор новостей для добавления (можно выбрать конкретные или добавить все/ничего)
     - Улучшенная валидация URL и обязательных полей
+  - `dashboard/ReportCard.tsx` - **Новый:** Компонент карточки отчёта с аккордеоном. Отображает статус отчёта (processing/ready/error), информацию о компании, категории новостей и табы: News (последние 5 новостей), Sources (источники с количеством новостей), Pricing (информация о ценообразовании), Competitors (конкуренты с lazy loading). Поддерживает кнопки Retry (для error статуса), Edit, Delete, Load Competitors
+  - `dashboard/ConfirmDeleteModal.tsx` - **Новый:** Модальное окно для подтверждения удаления отчёта
 - `src/pages/` - Страницы приложения (14 страниц)
   - `DashboardPage.tsx` - Главная страница дашборда. **Обновлена:** добавлена кнопка "Add Competitor" на вкладке Competitors list для открытия модального окна добавления компании
+  - `DashboardPageTest.tsx` - **Обновлена:** Вкладка Discover переработана для системы отчётов:
+    - Упрощённый Hero Section с полем ввода (без модального окна)
+    - Создание отчётов по Enter
+    - Polling статуса отчётов (интервал 2 сек, таймаут 5 мин)
+    - Отображение отчётов в виде аккордеонов с табами News/Sources/Pricing
+    - Toast уведомления для всех событий
   - `SettingsPage.tsx` - Страница настроек личного кабинета. Интегрирована с реальным API. Включает разделы: Profile (редактирование имени), Notifications (частота уведомлений), Preferences (отслеживаемые компании, интересующие категории, ключевые слова), Security (смена пароля). Работает на всех устройствах (десктоп и мобильный)
   - `ProfilePage.tsx` - Страница профиля пользователя (просмотр информации)
   - `DigestSettingsPage.tsx` - Настройки дайджестов (частота, формат, Telegram интеграция)
   - `CompetitorAnalysisPage.tsx` - Аналитика конкурентов. **Обновлена:** добавлены фильтры (тип источника, тема, тональность, min priority) и визуализации распределения тем/тональности, а также средний приоритет новости
 - `src/services/` - API клиенты
-  - `api.ts` - API сервис с методами для работы с пользователями, настройками, компаниями, категориями. **Добавлены методы:** `scanCompany()` (сканирование компании), `createCompany()` (создание/обновление компании)
+  - `api.ts` - API сервис с методами для работы с пользователями, настройками, компаниями, категориями. **Добавлены методы:** `scanCompany()` (сканирование компании), `createCompany()` (создание/обновление компании), `createReport(query)` (создание отчёта с быстрым анализом, возвращает ready статус), `getReportStatus()` (проверка статуса), `getReport(reportId, includeCompetitors)` (получение полных данных), `getReports()` (список отчётов), `deleteReport()` (удаление отчёта)
 - `src/store/` - State management (Zustand)
   - `authStore.ts` - Хранилище состояния аутентификации (пользователь, токены, методы login/logout/updateUser)
 
