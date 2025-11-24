@@ -28,8 +28,13 @@ import type {
   RefreshTokenRequest,
   RefreshTokenResponse,
   RegisterRequest,
+  Report,
+  ReportCreateRequest,
+  ReportCreateResponse,
   ReportPreset,
   ReportPresetCreateRequest,
+  ReportStatusResponse,
+  ReportsListResponse,
   SearchRequest,
   SnapshotSeries,
   SourceTypeInfo,
@@ -1350,6 +1355,78 @@ export class ApiService {
 
   private static today(): string {
     return new Date().toISOString().split('T')[0]
+  }
+
+  // Report methods
+  /**
+   * Create a new report
+   */
+  static async createReport(query: string): Promise<ReportCreateResponse> {
+    const response = await api.post<ReportCreateResponse>(
+      '/reports/create',
+      { query } as ReportCreateRequest
+    )
+    return response.data
+  }
+
+  /**
+   * Get report status
+   */
+  static async getReportStatus(reportId: string): Promise<ReportStatusResponse> {
+    const response = await api.get<ReportStatusResponse>(
+      `/reports/${reportId}/status`
+    )
+    return response.data
+  }
+
+  /**
+   * Get full report data
+   * @param reportId - Report ID
+   * @param includeCompetitors - Whether to include competitors (may be slow, default: false)
+   */
+  static async getReport(reportId: string, includeCompetitors: boolean = false): Promise<Report> {
+    const response = await api.get<Report>(
+      `/reports/${reportId}`,
+      {
+        params: {
+          include_competitors: includeCompetitors
+        }
+      }
+    )
+    return response.data
+  }
+
+  /**
+   * Get list of user's reports
+   */
+  static async getReports(limit: number = 20, offset: number = 0): Promise<ReportsListResponse> {
+    const response = await api.get<ReportsListResponse>(
+      '/reports/',
+      {
+        params: { limit, offset }
+      }
+    )
+    return response.data
+  }
+
+  /**
+   * Delete a report
+   */
+  static async deleteReport(reportId: string): Promise<void> {
+    await api.delete(`/reports/${reportId}`)
+  }
+
+  /**
+   * Quick company analysis using existing database data
+   * @param query - Company name or URL
+   * @param includeCompetitors - Whether to include competitors (default: false)
+   */
+  static async quickCompanyAnalysis(query: string, includeCompetitors: boolean = false): Promise<Report> {
+    const response = await api.post<Report>('/companies/quick-analysis', {
+      query: query.trim(),
+      include_competitors: includeCompetitors
+    })
+    return response.data
   }
 }
 

@@ -764,3 +764,69 @@ export interface CreateCompanyResponse {
     total: number
   }
 }
+
+// Report types
+export type ReportStatus = 'processing' | 'ready' | 'error'
+
+export interface CategoryStats {
+  category: string
+  technicalCategory: string
+  count: number
+}
+
+export interface SourceStats {
+  url: string
+  type: string
+  count: number
+}
+
+export interface PricingInfo {
+  description?: string
+  news?: NewsItem[]
+}
+
+export interface CompetitorInfo {
+  company: Company
+  similarity_score: number
+  common_categories: string[]
+  reason: string
+}
+
+export interface Report {
+  id: string
+  query: string
+  status: ReportStatus
+  company_id?: string
+  company?: Company
+  error_message?: string
+  created_at: string
+  completed_at?: string
+  // Данные отчёта (только для status='ready')
+  categories?: CategoryStats[]
+  news?: NewsItem[]
+  sources?: SourceStats[]
+  pricing?: PricingInfo
+  competitors?: CompetitorInfo[]
+}
+
+export interface ReportCreateRequest {
+  query: string
+}
+
+export interface ReportCreateResponse {
+  report_id: string
+  status: string
+  created_at: string
+}
+
+export interface ReportStatusResponse {
+  status: ReportStatus
+  error?: string
+}
+
+export interface ReportsListResponse {
+  items: Report[]
+  total: number
+  limit: number
+  offset: number
+}
