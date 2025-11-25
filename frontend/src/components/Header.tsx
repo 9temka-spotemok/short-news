@@ -15,13 +15,12 @@ export default function Header() {
   // Навигация для неавторизованных пользователей
   const publicNavigation = [
     { name: 'Home', href: '/' },
-    { name: 'News', href: '/news' },
+    // { name: 'News', href: '/news' },
   ]
 
   // Навигация для авторизованных пользователей
   const authenticatedNavigation = [
     { name: 'Dashboard', href: '/dashboard' },
-    { name: 'Dashboard Test', href: '/dashboard-test' },
     { name: 'News', href: '/news' },
     { name: 'Analytics', href: '/news-analytics' },
     { name: 'Competitors analysis', href: '/competitor-analysis' },
@@ -64,7 +63,7 @@ export default function Header() {
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <div className="flex items-center">
-            <Link to={isAuthenticated ? "/dashboard" : "/"} className="flex items-center space-x-2">
+            <Link to={isAuthenticated ? "/dashboard-test" : "/"} className="flex items-center space-x-2">
               <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold text-sm">AI</span>
               </div>

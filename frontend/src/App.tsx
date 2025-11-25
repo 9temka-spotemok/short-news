@@ -10,7 +10,6 @@ import { queryClient } from '@/lib/queryClient'
 import CategoryDetailPage from '@/pages/CategoryDetailPage'
 import CompetitorAnalysisPage from '@/pages/CompetitorAnalysisPage'
 import DashboardPage from '@/pages/DashboardPage'
-import DashboardPageTest from '@/pages/DashboardPageTest'
 import DigestSettingsPage from '@/pages/DigestSettingsPage'
 import HomePage from '@/pages/HomePage'
 import LoginPage from '@/pages/LoginPage'
@@ -46,10 +45,6 @@ function App() {
           {/* Protected routes - с DashboardLayout (без Footer) */}
           <Route element={<DashboardLayout />}>
             <Route 
-              path="dashboard-test" 
-              element={isAuthenticated ? <DashboardPageTest /> : <Navigate to="/login" />} 
-            />
-            <Route 
               path="dashboard" 
               element={isAuthenticated ? <DashboardPage /> : <Navigate to="/login" />} 
             />
@@ -81,6 +76,8 @@ function App() {
               path="category/:categoryName" 
               element={isAuthenticated ? <CategoryDetailPage /> : <Navigate to="/login" />} 
             />
+            <Route path="*" 
+            element={isAuthenticated ? <Navigate to="/dashboard" /> : <Navigate to="/login" />} />
           </Route>
 
           {/* 404 route */}
