@@ -201,6 +201,23 @@ const attachInterceptors = (instance: AxiosInstance) => {
           }
           break
 
+        case 410: {
+          // Session expired (Gone) - для онбординга
+          const isOnboardingRequest = config?.url?.includes('/onboarding/')
+          if (isOnboardingRequest) {
+            // Очистить истекшую сессию и начать новую
+            sessionStorage.removeItem('onboarding_session_token')
+            toast.error('Сессия онбординга истекла. Начинаем новую сессию...')
+            // Перезагрузить страницу для создания новой сессии
+            if (window.location.pathname.includes('/onboarding')) {
+              window.location.reload()
+            }
+          } else {
+            toast.error('Resource no longer available.')
+          }
+          break
+        }
+
         case 422: {
           const validationError = response.data as ApiResponse<any>
           toast.error(validationError.message || 'Validation failed. Please check your input.')
@@ -1425,6 +1442,133 @@ export class ApiService {
     const response = await api.post<Report>('/companies/quick-analysis', {
       query: query.trim(),
       include_competitors: includeCompetitors
+    })
+    return response.data
+  }
+
+  // Onboarding endpoints
+  /**
+   * Start a new onboarding session
+   */
+  static async startOnboarding(): Promise<{
+    session_token: string
+    session_id: string
+    current_step: string
+  }> {
+    const response = await api.post('/onboarding/start')
+    return response.data
+  }
+
+  /**
+   * Get company data from onboarding session
+   */
+  static async getOnboardingCompany(sessionToken: string): Promise<{
+    company: any
+    current_step: string
+  }> {
+    const response = await api.get('/onboarding/company', {
+      params: { session_token: sessionToken }
+    })
+    return response.data
+  }
+
+  /**
+   * Analyze company website for onboarding
+   */
+  static async analyzeCompanyForOnboarding(websiteUrl: string, sessionToken: string): Promise<{
+    company: any
+    current_step: string
+  }> {
+    const response = await api.post('/onboarding/company/analyze', {
+      website_url: websiteUrl,
+      session_token: sessionToken
+    })
+    return response.data
+  }
+
+  /**
+   * Suggest competitors for onboarding
+   */
+  static async suggestCompetitorsForOnboarding(sessionToken: string, limit: number = 10): Promise<{
+    competitors: Array<{
+      company: any
+      similarity_score: number
+      reason: string
+    }>
+    current_step: string
+  }> {
+    const response = await api.get('/onboarding/competitors/suggest', {
+      params: { session_token: sessionToken, limit }
+    })
+    return response.data
+  }
+
+  /**
+   * Select competitors in onboarding
+   */
+  static async selectCompetitorsInOnboarding(sessionToken: string, competitorIds: string[], competitorData?: any[]): Promise<{
+    status: string
+    current_step: string
+  }> {
+    const response = await api.post('/onboarding/competitors/select', {
+      session_token: sessionToken,
+      selected_competitor_ids: competitorIds,
+      competitor_data: competitorData
+    })
+    return response.data
+  }
+
+  /**
+   * Setup observation for competitors
+   */
+  static async setupObservation(sessionToken: string): Promise<{
+    task_id: string
+    status: string
+  }> {
+    const response = await apiScan.post('/onboarding/observation/setup', {
+      session_token: sessionToken
+    })
+    return response.data
+  }
+
+  /**
+   * Get observation setup status
+   */
+  static async getObservationStatus(taskId: string): Promise<{
+    status: string
+    progress: number
+  }> {
+    const response = await api.get('/onboarding/observation/status', {
+      params: { task_id: taskId }
+    })
+    return response.data
+  }
+
+  /**
+   * Replace competitor in onboarding
+   */
+  static async replaceCompetitorInOnboarding(sessionToken: string, competitorIdToReplace: string): Promise<{
+    company: any
+    current_step: string
+  }> {
+    const response = await api.post('/onboarding/competitors/replace', {
+      session_token: sessionToken,
+      competitor_id_to_replace: competitorIdToReplace
+    })
+    return response.data
+  }
+
+  /**
+   * Complete onboarding
+   */
+  static async completeOnboarding(sessionToken: string, userId?: string): Promise<{
+    status: string
+    company_id: string | null
+    competitor_count: number
+  }> {
+    const response = await api.post('/onboarding/complete', {
+      session_token: sessionToken,
+      user_id: userId
     })
     return response.data
   }

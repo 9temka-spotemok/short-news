@@ -7,6 +7,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { z } from 'zod'
 
 import { authService } from '@/services/authService'
+import { useAuthStore } from '@/store/authStore'
 
 const registerSchema = z.object({
   email: z.string().email('Invalid email'),
@@ -25,6 +26,7 @@ export default function RegisterPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const navigate = useNavigate()
+  const { login } = useAuthStore()
 
   const {
     register,
@@ -37,13 +39,15 @@ export default function RegisterPage() {
   const onSubmit = async (data: RegisterForm) => {
     setIsLoading(true)
     try {
-      await authService.register({
+      const response = await authService.register({
         email: data.email,
         password: data.password,
         full_name: data.full_name,
       })
-      toast.success('Registration successful! Check your email for confirmation.')
-      navigate('/login')
+      // Automatically login after registration
+      login(response)
+      toast.success('Registration successful!')
+      navigate('/dashboard')
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Registration error')
     } finally{

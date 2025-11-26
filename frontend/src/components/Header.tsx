@@ -13,10 +13,10 @@ export default function Header() {
   const { isAuthenticated, user, logout } = useAuthStore()
 
   // Навигация для неавторизованных пользователей
-  const publicNavigation = [
-    { name: 'Home', href: '/' },
-    // { name: 'News', href: '/news' },
-  ]
+  // const publicNavigation = [
+  //   { name: 'Home', href: '/' },
+  //   { name: 'News', href: '/news' },
+  // ]
 
   // Навигация для авторизованных пользователей
   const authenticatedNavigation = [
@@ -74,7 +74,7 @@ export default function Header() {
           {/* Desktop Navigation */}
           {showPublicNavigation && (
             <nav className="hidden md:flex space-x-8">
-              {publicNavigation.map((item) => (
+              {/* {publicNavigation.map((item) => (
                 <Link
                   key={item.name}
                   to={item.href}
@@ -86,7 +86,7 @@ export default function Header() {
                 >
                   {item.name}
                 </Link>
-              ))}
+              ))} */}
             </nav>
           )}
 
@@ -206,20 +206,7 @@ export default function Header() {
         <div className="md:hidden">
           <div className="px-2 pt-2 pb-3 space-y-1 bg-white border-t border-gray-200">
             {/* Public Navigation */}
-            {showPublicNavigation && publicNavigation.map((item) => (
-              <Link
-                key={item.name}
-                to={item.href}
-                onClick={() => setIsMenuOpen(false)}
-                className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
-                  isActive(item.href)
-                    ? 'text-primary-600 bg-primary-50'
-                    : 'text-gray-700 hover:text-primary-600 hover:bg-gray-50'
-                }`}
-              >
-                {item.name}
-              </Link>
-            ))}
+            {showPublicNavigation}
 
             {/* Authenticated Navigation */}
             {showAuthenticatedNavigation && authenticatedNavigation.map((item) => (

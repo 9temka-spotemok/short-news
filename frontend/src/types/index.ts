@@ -92,6 +92,11 @@ export type SourceType =
   | 'reddit'
   | 'news_site'
   | 'press_release'
+  | 'facebook'
+  | 'instagram'
+  | 'linkedin'
+  | 'youtube'
+  | 'tiktok'
 
 export type NewsTopic =
   | 'product'
@@ -460,6 +465,7 @@ export interface ApiResponse<T> {
   message?: string
   status?: 'success' | 'error'
   error?: string
+  detail?: string
   details?: Record<string, any>
   status_code?: number
 }
@@ -829,4 +835,152 @@ export interface ReportsListResponse {
   total: number
   limit: number
   offset: number
+}
+
+// Onboarding types
+export type OnboardingStep = 
+  | 'company_input'
+  | 'company_card'
+  | 'competitor_selection'
+  | 'observation_setup'
+  | 'subscription_confirm'
+  | 'completed'
+
+export interface OnboardingSession {
+  id: string
+  user_id?: string | null
+  session_token: string
+  current_step: OnboardingStep
+  company_data?: OnboardingCompanyData | null
+  selected_competitors?: OnboardingCompetitor[] | null
+  observation_config?: OnboardingObservationConfig | null
+  created_at: string
+  updated_at: string
+  completed_at?: string | null
+}
+
+export interface OnboardingCompanyData {
+  name: string
+  website: string
+  description: string  // AI-generated description
+  logo_url?: string | null
+  category?: string | null
+  industry_signals?: string[]
+  meta_description?: string | null
+}
+
+export interface OnboardingCompetitor {
+  id: string
+  name: string
+  website: string
+  logo_url?: string | null
+  category?: string | null
+  description?: string | null
+  ai_description: string  // AI-generated description
+  similarity_score?: number
+  common_categories?: string[]
+  reason?: string
+}
+
+export interface OnboardingObservationConfig {
+  task_id: string
+  status: 'pending' | 'processing' | 'completed' | 'failed'
+  progress?: number
+  message?: string
+  started_at?: string
+  competitor_count?: number
+}
+
+export interface OnboardingStartResponse {
+  session_token: string
+  session_id: string
+  current_step: OnboardingStep
+}
+
+export interface OnboardingCompanyAnalyzeRequest {
+  website_url: string
+  session_token: string
+}
+
+export interface OnboardingCompanyAnalyzeResponse {
+  company: OnboardingCompanyData
+  current_step: OnboardingStep
+}
+
+export interface OnboardingCompanyResponse {
+  company: OnboardingCompanyData
+  current_step: OnboardingStep
+}
+
+export interface OnboardingCompetitorsSuggestResponse {
+  competitors: Array<{
+    company: OnboardingCompetitor
+    similarity_score: number
+    common_categories: string[]
+    reason: string
+  }>
+  total: number
+}
+
+export interface OnboardingCompetitorReplaceRequest {
+  session_token: string
+  competitor_id_to_replace?: string
+}
+
+export interface OnboardingCompetitorReplaceResponse {
+  company: OnboardingCompetitor
+  similarity_score: number
+  common_categories: string[]
+  reason: string
+}
+
+export interface OnboardingCompetitorsSelectRequest {
+  session_token: string
+  selected_competitor_ids: string[]
+}
+
+export interface OnboardingCompetitorsSelectResponse {
+  status: string
+  selected_count: number
+  current_step: OnboardingStep
+}
+
+export interface OnboardingObservationSetupRequest {
+  session_token: string
+}
+
+export interface OnboardingObservationSetupResponse {
+  task_id: string
+  status: string
+  message: string
+}
+
+export interface OnboardingObservationStatusResponse {
+  task_id: string
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'completed_with_errors'
+  progress?: number
+  message?: string
+  current_step?: string
+  current_company?: string
+  total?: number
+  completed?: number
+  errors?: number
+}
+
+export interface OnboardingCompleteRequest {
+  session_token: string
+  user_id?: string
+}
+
+export interface OnboardingCompleteResponse {
+  status: string
+  message: string
+  company_id: string
+  competitor_count: number
+  companies?: Array<{
+    id: string
+    name: string
+    website?: string
+  }>
+  completed_at?: string | null
 }

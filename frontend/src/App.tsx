@@ -29,7 +29,7 @@ function App() {
         <Routes>
           {/* Public routes */}
           <Route path="/" element={<Layout />}>
-            <Route index element={<HomePage />} />
+            <Route index element={isAuthenticated ? <Navigate to="/dashboard" /> : <HomePage />} />
             <Route path="news" element={<NewsPageWrapper />} />
             <Route path="news/:id" element={<NewsDetailPage />} />
             <Route 
