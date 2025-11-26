@@ -10,6 +10,13 @@ from .auth import (
     UserResponse,
     AuthResponse,
 )
+from .company import (
+    CompanyBase,
+    CompanyCreate,
+    CompanyUpdate,
+    CompanyResponse,
+    CompanySocialMediaHandles,
+)
 
 __all__ = [
     "UserRegister",
@@ -18,6 +25,11 @@ __all__ = [
     "TokenData",
     "UserResponse",
     "AuthResponse",
+    "CompanyBase",
+    "CompanyCreate",
+    "CompanyUpdate",
+    "CompanyResponse",
+    "CompanySocialMediaHandles",
 ]
 
 

@@ -45,8 +45,10 @@ from .competitor import (
     CompetitorChangeEvent,
     CompetitorComparison,
     CompetitorPricingSnapshot,
+    CompetitorMonitoringMatrix,
 )
 from .report import Report, ReportStatus
+from .onboarding import OnboardingSession, OnboardingStep
 
 __all__ = [
     "Base",
@@ -86,6 +88,7 @@ __all__ = [
     "CompetitorComparison",
     "CompetitorPricingSnapshot",
     "CompetitorChangeEvent",
+    "CompetitorMonitoringMatrix",
     "ChangeProcessingStatus",
     "ChangeNotificationStatus",
     "NewsNLPLog",
@@ -101,4 +104,6 @@ __all__ = [
     "UserReportPreset",
     "Report",
     "ReportStatus",
+    "OnboardingSession",
+    "OnboardingStep",
 ]

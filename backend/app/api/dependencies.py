@@ -3,7 +3,7 @@ API dependencies
 """
 
 from typing import Optional
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Security
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -94,8 +94,11 @@ async def get_current_active_user(
     return current_user
 
 
+oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
+
+
 async def get_current_user_optional(
-    token: Optional[str] = Depends(oauth2_scheme),
+    token: Optional[str] = Security(oauth2_scheme_optional),
     db: AsyncSession = Depends(get_db)
 ) -> Optional[User]:
     """
