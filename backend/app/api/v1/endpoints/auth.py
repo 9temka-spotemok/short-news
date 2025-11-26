@@ -24,13 +24,14 @@ router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
 
-@router.post("/register", response_model=dict)
+@router.post("/register", response_model=AuthResponse)
 async def register(
     user_data: UserRegister,
     db: AsyncSession = Depends(get_db)
 ):
     """
     User registration endpoint
+    Returns AuthResponse with tokens to automatically authenticate the user
     """
     logger.info(f"User registration attempt: {user_data.email}")
     
@@ -63,12 +64,27 @@ async def register(
     await db.commit()
     await db.refresh(new_user)
     
+    # Create tokens for automatic login
+    access_token = create_access_token(data={"sub": str(new_user.id), "email": new_user.email})
+    refresh_token = create_refresh_token(data={"sub": str(new_user.id), "email": new_user.email})
+    
     logger.info(f"User registered successfully: {user_data.email}")
     
-    return {
-        "message": "Регистрация успешна. Проверьте email для подтверждения.",
-        "email": user_data.email
-    }
+    # Return AuthResponse with tokens (same as login)
+    return AuthResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        token_type="bearer",
+        user=UserResponse(
+            id=str(new_user.id),
+            email=new_user.email,
+            full_name=new_user.full_name,
+            is_active=new_user.is_active,
+            is_verified=new_user.is_verified,
+            created_at=new_user.created_at,
+            updated_at=new_user.updated_at
+        )
+    )
 
 
 @router.post("/login", response_model=AuthResponse)

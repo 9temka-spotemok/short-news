@@ -51,6 +51,7 @@ class CrawlScheduleService:
             select(CrawlSchedule).where(
                 and_(CrawlSchedule.scope == scope, CrawlSchedule.scope_value == scope_value)
             )
+
         )
         return result.scalar_one_or_none()
 
@@ -144,11 +145,15 @@ class CrawlScheduleService:
             return profile
 
         schedule_id = schedule.id if schedule else None
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc)
         profile = SourceProfile(
             company_id=company_uuid,
             source_type=source_type,
             mode=mode or CrawlMode.ALWAYS_UPDATE,
             schedule_id=schedule_id,
+            created_at=now,
+            updated_at=now,
         )
         self.db.add(profile)
         await self.db.commit()
@@ -157,14 +162,17 @@ class CrawlScheduleService:
 
     async def record_run_start(self, profile: SourceProfile, schedule: Optional[CrawlSchedule]) -> CrawlRun:
         """Record start of crawl run."""
+        now = datetime.now(timezone.utc)
         run = CrawlRun(
             profile_id=profile.id,
             schedule_id=schedule.id if schedule else None,
             status=CrawlStatus.RUNNING,
-            started_at=datetime.now(timezone.utc),
+            started_at=now,
+            created_at=now,
+            updated_at=now,
         )
         self.db.add(run)
-        profile.last_run_at = run.started_at
+        profile.last_run_at = now
         await self.db.commit()
         await self.db.refresh(run)
         return run
@@ -337,5 +345,6 @@ async def load_effective_celery_schedule(db_factory, base_schedule: Dict[str, di
                 exc_info=True
             )
         return base_schedule
+
 
 

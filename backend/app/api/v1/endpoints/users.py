@@ -21,6 +21,45 @@ from app.models.user import UserUpdateSchema
 router = APIRouter()
 
 
+def build_default_preferences() -> dict:
+    """
+    Build a default preferences payload.
+    Used for unauthenticated users or fallback scenarios.
+    """
+    return {
+        "subscribed_companies": [],
+        "interested_categories": [],
+        "keywords": [],
+        "notification_frequency": "daily",
+        "digest_enabled": False,
+        "digest_frequency": "daily",
+        "digest_custom_schedule": {},
+        "digest_format": "short",
+        "digest_include_summaries": True,
+        "telegram_chat_id": None,
+        "telegram_enabled": False,
+        "timezone": "UTC",
+        "week_start_day": 0,
+    }
+
+
+def safe_enum_to_string(value, default: str = "daily") -> str:
+    """
+    Safely convert enum value to string.
+    Handles None, enum instances, and string values.
+    """
+    if value is None:
+        return default
+    if isinstance(value, str):
+        return value
+    if hasattr(value, 'value'):
+        try:
+            return str(value.value)
+        except (AttributeError, TypeError):
+            return str(value) if value else default
+    return str(value) if value else default
+
+
 class DigestSettingsUpdate(BaseModel):
     """Model for updating digest settings"""
     digest_enabled: Optional[bool] = None
@@ -114,7 +153,7 @@ async def update_current_user(
         }
         
     except Exception as e:
-        logger.error(f"Error updating user profile: {e}")
+        logger.error("Error updating user profile: {}", e)
         await db.rollback()
         raise HTTPException(status_code=500, detail="Failed to update user profile")
 
@@ -130,21 +169,7 @@ async def get_user_preferences(
     # If user is not authenticated, return default preferences
     if current_user is None:
         logger.info("Get user preferences - not authenticated, returning defaults")
-        return {
-            "subscribed_companies": [],
-            "interested_categories": [],
-            "keywords": [],
-            "notification_frequency": "daily",
-            "digest_enabled": False,
-            "digest_frequency": "daily",
-            "digest_custom_schedule": {},
-            "digest_format": "short",
-            "digest_include_summaries": True,
-            "telegram_chat_id": None,
-            "telegram_enabled": False,
-            "timezone": "UTC",
-            "week_start_day": 0
-        }
+        return build_default_preferences()
     
     logger.info(f"Get user preferences for user {current_user.id}")
     
@@ -157,17 +182,18 @@ async def get_user_preferences(
         # Create default preferences if they don't exist
         if not preferences:
             logger.info(f"Creating default preferences for user {current_user.id}")
+            
             preferences = UserPreferences(
                 id=uuid.uuid4(),
                 user_id=current_user.id,
                 subscribed_companies=[],
                 interested_categories=[],
                 keywords=[],
-                notification_frequency='daily',
+                notification_frequency='daily',  # Use string value, not enum
                 digest_enabled=False,
-                digest_frequency='daily',
+                digest_frequency='daily',  # Use string value, not enum
                 digest_custom_schedule={},
-                digest_format='short',
+                digest_format='short',  # Use string value, not enum
                 digest_include_summaries=True,
                 telegram_chat_id=None,
                 telegram_enabled=False,
@@ -178,15 +204,27 @@ async def get_user_preferences(
             await db.commit()
             await db.refresh(preferences)
         
+        # Safely convert interested_categories to list of strings
+        interested_categories_list = []
+        if preferences.interested_categories:
+            for cat in preferences.interested_categories:
+                if hasattr(cat, 'value'):
+                    try:
+                        interested_categories_list.append(cat.value)
+                    except (AttributeError, TypeError):
+                        interested_categories_list.append(str(cat))
+                else:
+                    interested_categories_list.append(str(cat))
+        
         return {
             "subscribed_companies": [str(company_id) for company_id in (preferences.subscribed_companies or [])],
-            "interested_categories": [cat.value for cat in (preferences.interested_categories or [])],
+            "interested_categories": interested_categories_list,
             "keywords": preferences.keywords or [],
-            "notification_frequency": preferences.notification_frequency or "daily",
+            "notification_frequency": safe_enum_to_string(preferences.notification_frequency, "daily"),
             "digest_enabled": preferences.digest_enabled,
-            "digest_frequency": preferences.digest_frequency or "daily",
+            "digest_frequency": safe_enum_to_string(preferences.digest_frequency, "daily"),
             "digest_custom_schedule": preferences.digest_custom_schedule or {},
-            "digest_format": preferences.digest_format or "short",
+            "digest_format": safe_enum_to_string(preferences.digest_format, "short"),
             "digest_include_summaries": preferences.digest_include_summaries,
             "telegram_chat_id": preferences.telegram_chat_id,
             "telegram_enabled": preferences.telegram_enabled,
@@ -195,8 +233,12 @@ async def get_user_preferences(
         }
         
     except Exception as e:
-        logger.error(f"Error fetching user preferences: {e}")
-        raise HTTPException(status_code=500, detail="Failed to fetch user preferences")
+        logger.error("Error fetching user preferences: {}", e, exc_info=True)
+        try:
+            await db.rollback()
+        except Exception as rollback_error:
+            logger.warning(f"Rollback failed while handling preferences error: {rollback_error}", exc_info=True)
+        return build_default_preferences()
 
 
 @router.put("/preferences")
@@ -268,20 +310,32 @@ async def update_user_preferences(
         await db.commit()
         await db.refresh(preferences)
         
+        # Safely convert interested_categories to list of strings
+        interested_categories_list = []
+        if preferences.interested_categories:
+            for cat in preferences.interested_categories:
+                if hasattr(cat, 'value'):
+                    try:
+                        interested_categories_list.append(cat.value)
+                    except (AttributeError, TypeError):
+                        interested_categories_list.append(str(cat))
+                else:
+                    interested_categories_list.append(str(cat))
+        
         return {
             "status": "success",
             "preferences": {
                 "subscribed_companies": [str(company_id) for company_id in (preferences.subscribed_companies or [])],
-                "interested_categories": [cat.value for cat in (preferences.interested_categories or [])],
+                "interested_categories": interested_categories_list,
                 "keywords": preferences.keywords or [],
-                "notification_frequency": preferences.notification_frequency or "daily"
+                "notification_frequency": safe_enum_to_string(preferences.notification_frequency, "daily")
             }
         }
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error updating user preferences: {e}")
+        logger.error("Error updating user preferences: {}", e)
         await db.rollback()
         raise HTTPException(status_code=500, detail="Failed to update user preferences")
 
@@ -398,7 +452,7 @@ async def subscribe_to_company(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error subscribing to company: {e}")
+        logger.error("Error subscribing to company: {}", e)
         await db.rollback()
         raise HTTPException(status_code=500, detail="Failed to subscribe to company")
 
@@ -441,7 +495,7 @@ async def unsubscribe_from_company(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error unsubscribing from company: {e}")
+        logger.error("Error unsubscribing from company: {}", e)
         await db.rollback()
         raise HTTPException(status_code=500, detail="Failed to unsubscribe from company")
 
@@ -490,21 +544,21 @@ async def get_digest_settings(
         
         return {
             "digest_enabled": preferences.digest_enabled,
-            "digest_frequency": preferences.digest_frequency if preferences.digest_frequency else "daily",
-            "digest_custom_schedule": preferences.digest_custom_schedule,
-            "digest_format": preferences.digest_format if preferences.digest_format else "short",
+            "digest_frequency": safe_enum_to_string(preferences.digest_frequency, "daily"),
+            "digest_custom_schedule": preferences.digest_custom_schedule or {},
+            "digest_format": safe_enum_to_string(preferences.digest_format, "short"),
             "digest_include_summaries": preferences.digest_include_summaries,
             "telegram_chat_id": preferences.telegram_chat_id,
             "telegram_enabled": preferences.telegram_enabled,
-            "telegram_digest_mode": preferences.telegram_digest_mode if preferences.telegram_digest_mode else "all",
-            "timezone": preferences.timezone if hasattr(preferences, 'timezone') else "UTC",
-            "week_start_day": preferences.week_start_day if hasattr(preferences, 'week_start_day') else 0
+            "telegram_digest_mode": safe_enum_to_string(preferences.telegram_digest_mode, "all"),
+            "timezone": preferences.timezone or "UTC",
+            "week_start_day": preferences.week_start_day or 0
         }
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error fetching digest settings: {e}")
+        logger.error("Error fetching digest settings: {}", e)
         raise HTTPException(status_code=500, detail="Failed to fetch digest settings")
 
 
@@ -581,25 +635,25 @@ async def update_digest_settings(
             "status": "success",
             "digest_settings": {
                 "digest_enabled": preferences.digest_enabled,
-                "digest_frequency": preferences.digest_frequency if preferences.digest_frequency else None,
-                "digest_custom_schedule": preferences.digest_custom_schedule,
-                "digest_format": preferences.digest_format if preferences.digest_format else None,
+                "digest_frequency": safe_enum_to_string(preferences.digest_frequency, "daily"),
+                "digest_custom_schedule": preferences.digest_custom_schedule or {},
+                "digest_format": safe_enum_to_string(preferences.digest_format, "short"),
                 "digest_include_summaries": preferences.digest_include_summaries,
                 "telegram_chat_id": preferences.telegram_chat_id,
                 "telegram_enabled": preferences.telegram_enabled,
-                "telegram_digest_mode": telegram_digest_mode if telegram_digest_mode else 'all',
-                "timezone": preferences.timezone if hasattr(preferences, 'timezone') else "UTC",
-                "week_start_day": preferences.week_start_day if hasattr(preferences, 'week_start_day') else 0
+                "telegram_digest_mode": safe_enum_to_string(telegram_digest_mode, "all"),
+                "timezone": preferences.timezone or "UTC",
+                "week_start_day": preferences.week_start_day or 0
             }
         }
         
     except HTTPException:
         raise
     except ValueError as e:
-        logger.error(f"Validation error updating digest settings: {e}")
+        logger.error("Validation error updating digest settings: {}", e)
         await db.rollback()
         raise HTTPException(status_code=400, detail=f"Invalid value: {e}")
     except Exception as e:
-        logger.error(f"Error updating digest settings: {e}", exc_info=True)
+        logger.error("Error updating digest settings: {}", e, exc_info=True)
         await db.rollback()
         raise HTTPException(status_code=500, detail=f"Failed to update digest settings: {str(e)}")

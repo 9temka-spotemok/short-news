@@ -74,6 +74,15 @@ class NewsScraperService:
 
         ingested = 0
         for item in items:
+            # Проверяем, что company.id существует перед созданием новости
+            if not company.id:
+                logger.warning(
+                    "Skipping news item %s: company %s has no ID",
+                    item.source_url,
+                    company.name
+                )
+                continue
+                
             payload = {
                 "title": item.title,
                 "summary": item.summary,
@@ -82,7 +91,7 @@ class NewsScraperService:
                 "source_type": item.source_type,
                 "category": item.category,
                 "published_at": _coerce_published_at(item.published_at),
-                "company_id": str(company.id) if company.id else company.name,
+                "company_id": str(company.id),  # Всегда передаем UUID, не имя компании
             }
             try:
                 news_item = await self._ingestion_service.create_news_item(payload)

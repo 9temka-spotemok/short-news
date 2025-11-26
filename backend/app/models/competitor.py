@@ -222,3 +222,101 @@ class CompetitorChangeEvent(BaseModel):
         back_populates="previous_change_events",
     )
 
+
+class CompetitorMonitoringMatrix(BaseModel):
+    """Consolidated monitoring matrix for competitor observation."""
+
+    __tablename__ = "competitor_monitoring_matrices"
+    __table_args__ = (
+        Index(
+            "ix_competitor_monitoring_matrix_company_updated",
+            "company_id",
+            "last_updated",
+        ),
+    )
+
+    company_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        unique=True,  # One matrix per company
+    )
+
+    # General monitoring configuration
+    monitoring_config: Mapped[Dict[str, Any]] = mapped_column(
+        JSON, default=dict, nullable=False
+    )
+
+    # Social media sources discovered and monitored
+    social_media_sources: Mapped[Dict[str, Any]] = mapped_column(
+        JSON, default=dict, nullable=False
+    )
+    # Structure: {
+    #   "facebook": {"url": "...", "handle": "...", "last_checked": "..."},
+    #   "instagram": {...},
+    #   ...
+    # }
+
+    # Website structure snapshots
+    website_sources: Mapped[Dict[str, Any]] = mapped_column(
+        JSON, default=dict, nullable=False
+    )
+    # Structure: {
+    #   "snapshots": [...],
+    #   "structure": {...},
+    #   "key_pages": [...],
+    #   "last_snapshot_at": "..."
+    # }
+
+    # News and press release sources
+    news_sources: Mapped[Dict[str, Any]] = mapped_column(
+        JSON, default=dict, nullable=False
+    )
+    # Structure: {
+    #   "press_release_urls": [...],
+    #   "blog_urls": [...],
+    #   "last_scraped_at": "..."
+    # }
+
+    # Marketing change tracking
+    marketing_sources: Mapped[Dict[str, Any]] = mapped_column(
+        JSON, default=dict, nullable=False
+    )
+    # Structure: {
+    #   "banners": [...],
+    #   "landing_pages": [...],
+    #   "products": [...],
+    #   "job_postings": [...],
+    #   "last_checked_at": "..."
+    # }
+
+    # SEO signals collected
+    seo_signals: Mapped[Dict[str, Any]] = mapped_column(
+        JSON, default=dict, nullable=False
+    )
+    # Structure: {
+    #   "meta_tags": {...},
+    #   "structured_data": {...},
+    #   "robots_txt": "...",
+    #   "sitemap_url": "...",
+    #   "canonical_urls": [...],
+    #   "last_collected_at": "..."
+    # }
+
+    # Timestamp of last update
+    last_updated: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        index=True,
+        default=datetime.utcnow,
+    )
+
+    # Relationships
+    company = relationship("Company", backref="monitoring_matrix")
+
+    def __repr__(self) -> str:
+        return (
+            f"<CompetitorMonitoringMatrix(id={self.id}, company_id={self.company_id}, "
+            f"last_updated={self.last_updated})>"
+        )

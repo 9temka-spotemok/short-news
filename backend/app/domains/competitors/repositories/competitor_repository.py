@@ -151,6 +151,8 @@ class CompetitorRepository:
             await self.session.commit()
             return
 
+        # Создаем глобальную компанию-конкурента (user_id=None)
+        # Конкуренты являются общими для всех пользователей, не привязаны к конкретному пользователю
         company = Company(
             name=data["name"],
             website=data.get("website"),
@@ -159,6 +161,7 @@ class CompetitorRepository:
             twitter_handle=data.get("twitter_handle"),
             github_org=data.get("github_org"),
             logo_url=data.get("logo_url"),
+            user_id=None  # Глобальная компания-конкурент
         )
         self.session.add(company)
         await self.session.commit()

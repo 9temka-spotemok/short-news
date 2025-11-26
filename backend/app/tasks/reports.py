@@ -98,13 +98,20 @@ async def _generate_company_report_async(report_id: str, query: str, user_id: st
                 # Нормализовать URL для поиска существующей компании
                 normalized_url = _normalize_url(website_url)
                 
-                # Поиск существующей компании
+                # Поиск существующей компании - только пользовательские или глобальные
+                from uuid import UUID as UUIDType
+                user_uuid = UUIDType(user_id)
+                user_filter = or_(
+                    Company.user_id == user_uuid,
+                    Company.user_id.is_(None)  # Глобальные компании
+                )
                 result = await db.execute(
                     select(Company).where(
                         or_(
                             func.lower(func.replace(Company.website, 'www.', '')) == normalized_url.lower(),
                             Company.name.ilike(f"%{company_name}%")
-                        )
+                        ),
+                        user_filter
                     )
                 )
                 existing_company = result.scalar_one_or_none()
@@ -114,19 +121,22 @@ async def _generate_company_report_async(report_id: str, query: str, user_id: st
                     company_id = str(company.id)
                     logger.info(f"Found existing company: {company.name}")
                 else:
-                    # Создать новую компанию
+                    # Создать новую компанию - привязать к пользователю для изоляции данных
+                    from uuid import UUID as UUIDType
+                    user_uuid = UUIDType(user_id)
                     company = Company(
                         name=company_name,
                         website=website_url,
                         description=company_info.get("description"),
                         logo_url=company_info.get("logo_url"),
                         category=company_info.get("category"),
+                        user_id=user_uuid  # Привязка к пользователю для изоляции данных
                     )
                     db.add(company)
                     await db.flush()
                     await db.refresh(company)
                     company_id = str(company.id)
-                    logger.info(f"Created new company: {company.name}")
+                    logger.info(f"Created new company: {company.name} for user {user_id}")
                 
                 # Проверить, есть ли уже новости в БД (для быстрого отчёта достаточно 5)
                 news_repo = NewsRepository(db)

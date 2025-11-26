@@ -100,7 +100,8 @@ async def extract_company_info(website_url: str) -> Dict[str, Optional[str]]:
             
             # Infer category from domain/name (basic heuristic)
             category = None
-            domain = urlparse(website_url).netloc.lower()
+            parsed_url = urlparse(website_url)
+            domain = (parsed_url.netloc or '').lower()
             name_lower = (name or '').lower()
             
             if any(kw in domain or kw in name_lower for kw in ['ai', 'ml', 'machine-learning', 'artificial-intelligence']):
@@ -110,6 +111,28 @@ async def extract_company_info(website_url: str) -> Dict[str, Optional[str]]:
             elif any(kw in domain or kw in name_lower for kw in ['tool', 'platform', 'saas', 'software']):
                 category = 'toolkit'
             
+            # If name is still None, try to extract from domain
+            if not name:
+                parsed_url = urlparse(website_url)
+                domain = parsed_url.netloc or ''
+                # Remove www. and extract main domain name
+                domain = domain.replace('www.', '').split('.')[0]
+                if domain:
+                    # Capitalize properly (handle camelCase domains like "openAI" -> "OpenAI")
+                    if domain.lower() in ['openai', 'anthropic', 'cohere', 'meta', 'microsoft']:
+                        # Known company name mappings
+                        name_mapping = {
+                            'openai': 'OpenAI',
+                            'anthropic': 'Anthropic',
+                            'cohere': 'Cohere',
+                            'meta': 'Meta',
+                            'microsoft': 'Microsoft'
+                        }
+                        name = name_mapping.get(domain.lower(), domain.capitalize())
+                    else:
+                        # Capitalize first letter
+                        name = domain.capitalize()
+            
             return {
                 'name': name,
                 'description': description,
@@ -118,19 +141,79 @@ async def extract_company_info(website_url: str) -> Dict[str, Optional[str]]:
             }
             
     except httpx.HTTPError as e:
-        logger.error(f"HTTP error extracting company info from {website_url}: {e}")
+        logger.warning(f"HTTP error extracting company info from {website_url}: {e}")
+        # Fallback: extract name from domain
+        parsed_url = urlparse(website_url)
+        domain = parsed_url.netloc or ''
+        domain = domain.replace('www.', '').split('.')[0]
+        if domain:
+            # Known company name mappings
+            name_mapping = {
+                'openai': 'OpenAI',
+                'anthropic': 'Anthropic',
+                'cohere': 'Cohere',
+                'meta': 'Meta',
+                'microsoft': 'Microsoft',
+                'google': 'Google',
+                'amazon': 'Amazon',
+                'apple': 'Apple'
+            }
+            name = name_mapping.get(domain.lower(), domain.capitalize())
+        else:
+            name = None
+        
+        # Infer category from domain
+        category = None
+        domain_lower = domain.lower() if domain else ''
+        if any(kw in domain_lower for kw in ['ai', 'ml', 'machine-learning', 'artificial-intelligence']):
+            category = 'llm_provider'
+        elif any(kw in domain_lower for kw in ['search', 'engine', 'seo']):
+            category = 'search_engine'
+        elif any(kw in domain_lower for kw in ['tool', 'platform', 'saas', 'software']):
+            category = 'toolkit'
+        
         return {
-            'name': None,
+            'name': name,
             'description': None,
             'logo_url': None,
-            'category': None
+            'category': category
         }
     except Exception as e:
         logger.error(f"Failed to extract company info from {website_url}: {e}")
+        # Fallback: extract name from domain
+        parsed_url = urlparse(website_url)
+        domain = parsed_url.netloc or ''
+        domain = domain.replace('www.', '').split('.')[0]
+        if domain:
+            # Known company name mappings
+            name_mapping = {
+                'openai': 'OpenAI',
+                'anthropic': 'Anthropic',
+                'cohere': 'Cohere',
+                'meta': 'Meta',
+                'microsoft': 'Microsoft',
+                'google': 'Google',
+                'amazon': 'Amazon',
+                'apple': 'Apple'
+            }
+            name = name_mapping.get(domain.lower(), domain.capitalize())
+        else:
+            name = None
+        
+        # Infer category from domain
+        category = None
+        domain_lower = domain.lower() if domain else ''
+        if any(kw in domain_lower for kw in ['ai', 'ml', 'machine-learning', 'artificial-intelligence']):
+            category = 'llm_provider'
+        elif any(kw in domain_lower for kw in ['search', 'engine', 'seo']):
+            category = 'search_engine'
+        elif any(kw in domain_lower for kw in ['tool', 'platform', 'saas', 'software']):
+            category = 'toolkit'
+        
         return {
-            'name': None,
+            'name': name,
             'description': None,
             'logo_url': None,
-            'category': None
+            'category': category
         }
 

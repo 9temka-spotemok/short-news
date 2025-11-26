@@ -125,7 +125,7 @@ async def create_report(
             
             # Генерируем данные быстрого анализа (включая конкурентов по умолчанию)
             try:
-                report_data = await _generate_quick_analysis_data(db, request.query, include_competitors=True)
+                report_data = await _generate_quick_analysis_data(db, request.query, include_competitors=True, user_id=current_user.id)
             except Exception as analysis_error:
                 # Логируем детали ошибки анализа
                 logger.error(f"Error in _generate_quick_analysis_data for query '{request.query}': {analysis_error}", exc_info=True)

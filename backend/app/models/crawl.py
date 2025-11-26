@@ -22,7 +22,7 @@ from sqlalchemy.dialects.postgresql import UUID, JSON
 from sqlalchemy.orm import relationship
 
 from .base import BaseModel
-from .news import SourceType
+from .news import SourceType, source_type_enum
 from .company import Company
 
 
@@ -51,6 +51,37 @@ class CrawlStatus(str, enum.Enum):
     SKIPPED = "skipped"
 
 
+# Define PostgreSQL ENUMs with values_callable to ensure values are used, not names
+def enum_values(enum_cls):
+    """Helper to extract enum values for SQLAlchemy Enum definition."""
+    return [member.value for member in enum_cls]
+
+
+crawl_scope_enum = Enum(
+    CrawlScope,
+    name="crawlscope",
+    values_callable=enum_values,
+    native_enum=True,
+    create_type=False,
+)
+
+crawl_mode_enum = Enum(
+    CrawlMode,
+    name="crawlmode",
+    values_callable=enum_values,
+    native_enum=True,
+    create_type=False,
+)
+
+crawl_status_enum = Enum(
+    CrawlStatus,
+    name="crawlstatus",
+    values_callable=enum_values,
+    native_enum=True,
+    create_type=False,
+)
+
+
 class CrawlSchedule(BaseModel):
     """
     Adaptive crawl schedule configuration.
@@ -60,9 +91,9 @@ class CrawlSchedule(BaseModel):
 
     __tablename__ = "crawl_schedules"
 
-    scope = Column(Enum(CrawlScope), nullable=False, index=True)
+    scope = Column(crawl_scope_enum, nullable=False, index=True)
     scope_value = Column(String(255), nullable=False, index=True)
-    mode = Column(Enum(CrawlMode), nullable=False, default=CrawlMode.ALWAYS_UPDATE)
+    mode = Column(crawl_mode_enum, nullable=False, default=CrawlMode.ALWAYS_UPDATE)
     frequency_seconds = Column(Integer, nullable=False, default=15 * 60)
     jitter_seconds = Column(Integer, nullable=False, default=5 * 60)
     max_retries = Column(Integer, nullable=False, default=3)
@@ -89,8 +120,8 @@ class SourceProfile(BaseModel):
     __tablename__ = "source_profiles"
 
     company_id = Column(UUID(as_uuid=True), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False)
-    source_type = Column(Enum(SourceType), nullable=False, index=True)
-    mode = Column(Enum(CrawlMode), nullable=False, default=CrawlMode.ALWAYS_UPDATE)
+    source_type = Column(source_type_enum, nullable=False, index=True)
+    mode = Column(crawl_mode_enum, nullable=False, default=CrawlMode.ALWAYS_UPDATE)
     last_content_hash = Column(String(255))
     last_run_at = Column(DateTime(timezone=True))
     last_success_at = Column(DateTime(timezone=True))
@@ -121,7 +152,7 @@ class CrawlRun(BaseModel):
 
     profile_id = Column(UUID(as_uuid=True), ForeignKey("source_profiles.id", ondelete="CASCADE"), nullable=False, index=True)
     schedule_id = Column(UUID(as_uuid=True), ForeignKey("crawl_schedules.id", ondelete="SET NULL"))
-    status = Column(Enum(CrawlStatus), nullable=False, default=CrawlStatus.SCHEDULED, index=True)
+    status = Column(crawl_status_enum, nullable=False, default=CrawlStatus.SCHEDULED, index=True)
     started_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
     finished_at = Column(DateTime(timezone=True))
     item_count = Column(Integer, nullable=False, default=0)

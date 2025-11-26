@@ -21,7 +21,7 @@ from app.models.news import (
     SentimentLabel,
 )
 from app.services.company_info_extractor import extract_company_info
-from app.api.dependencies import get_current_user
+from app.api.dependencies import get_current_user, get_current_user_optional
 from app.models import User
 from app.domains.news.scrapers import CompanyContext, NewsScraperRegistry
 from app.tasks.scraping import scan_company_sources_initial
@@ -40,16 +40,18 @@ def normalize_url(url: str) -> str:
         Normalized URL string
     """
     parsed = urlparse(url)
-    netloc = parsed.netloc.lower().replace('www.', '')
-    path = parsed.path.rstrip('/')
-    normalized = f"{parsed.scheme}://{netloc}{path}"
+    netloc = (parsed.netloc or '').lower().replace('www.', '')
+    path = parsed.path.rstrip('/') if parsed.path else ''
+    scheme = parsed.scheme or 'https'
+    normalized = f"{scheme}://{netloc}{path}"
     return normalized
 
 
 async def _generate_quick_analysis_data(
     db: AsyncSession,
     query: str,
-    include_competitors: bool = True
+    include_competitors: bool = True,
+    user_id: Optional[UUIDType] = None
 ) -> Dict[str, Any]:
     """
     Генерирует данные быстрого анализа компании из существующих данных БД.
@@ -59,6 +61,7 @@ async def _generate_quick_analysis_data(
         db: Database session
         query: Company name or URL
         include_competitors: Whether to include competitors analysis
+        user_id: User ID for data isolation (only show user's companies or global)
         
     Returns:
         Dictionary with report data: company, categories, news, sources, pricing, competitors
@@ -80,6 +83,17 @@ async def _generate_quick_analysis_data(
     except Exception:
         pass
     
+    # Build user filter for data isolation
+    if user_id:
+        # Authenticated user: show their companies and global companies
+        user_filter = or_(
+            Company.user_id == user_id,
+            Company.user_id.is_(None)  # Global companies
+        )
+    else:
+        # Anonymous user: only show global companies
+        user_filter = Company.user_id.is_(None)
+    
     # Найти компанию в БД
     company = None
     if is_url:
@@ -90,13 +104,17 @@ async def _generate_quick_analysis_data(
                 or_(
                     func.lower(func.replace(Company.website, 'www.', '')) == normalized_url.lower(),
                     Company.name.ilike(f"%{company_name}%")
-                )
+                ),
+                user_filter
             ).limit(1)  # Ограничиваем до 1 результата чтобы избежать "Multiple rows"
         )
         company = result.scalar_one_or_none()
     else:
         result = await db.execute(
-            select(Company).where(Company.name.ilike(f"%{query}%")).limit(1)  # Ограничиваем до 1 результата
+            select(Company).where(
+                Company.name.ilike(f"%{query}%"),
+                user_filter
+            ).limit(1)  # Ограничиваем до 1 результата
         )
         company = result.scalar_one_or_none()
     
@@ -262,16 +280,30 @@ async def get_companies(
     search: Optional[str] = Query(None, description="Search companies by name"),
     limit: int = Query(100, ge=1, le=200, description="Number of companies to return"),
     offset: int = Query(0, ge=0, description="Number of companies to skip"),
+    current_user: Optional[User] = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Get list of companies with optional search
+    Get list of companies with optional search.
+    Returns only user's own companies and global companies (user_id is None).
     """
-    logger.info(f"Companies request: search={search}, limit={limit}, offset={offset}")
+    logger.info(f"Companies request: search={search}, limit={limit}, offset={offset}, user={current_user.id if current_user else 'anonymous'}")
     
     try:
-        # Build query
-        query = select(Company).order_by(Company.name)
+        from sqlalchemy import or_
+        
+        # Build query with user isolation: only show user's companies or global companies
+        if current_user:
+            # Authenticated user: show their companies and global companies
+            user_filter = or_(
+                Company.user_id == current_user.id,
+                Company.user_id.is_(None)
+            )
+        else:
+            # Anonymous user: only show global companies
+            user_filter = Company.user_id.is_(None)
+        
+        query = select(Company).where(user_filter).order_by(Company.name)
         
         # Apply search filter
         if search:
@@ -284,8 +316,8 @@ async def get_companies(
         result = await db.execute(query)
         companies = result.scalars().all()
         
-        # Get total count
-        count_query = select(func.count(Company.id))
+        # Get total count with same filters
+        count_query = select(func.count(Company.id)).where(user_filter)
         if search:
             count_query = count_query.where(Company.name.ilike(f"%{search}%"))
         
@@ -320,15 +352,18 @@ async def get_companies(
 @router.get("/{company_id}")
 async def get_company(
     company_id: str,
+    current_user: Optional[User] = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Get a specific company by ID
+    Get a specific company by ID.
+    Only accessible if company belongs to current user or is global (user_id is None).
     """
-    logger.info(f"Get company: {company_id}")
+    logger.info(f"Get company: {company_id}, user={current_user.id if current_user else 'anonymous'}")
     
     try:
         from uuid import UUID
+        from sqlalchemy import or_
         
         # Parse UUID
         try:
@@ -344,6 +379,13 @@ async def get_company(
         
         if not company:
             raise HTTPException(status_code=404, detail="Company not found")
+        
+        # Check access: user can only access their own companies or global companies
+        if company.user_id is not None:
+            # Company belongs to a user
+            if not current_user or company.user_id != current_user.id:
+                raise HTTPException(status_code=403, detail="Access denied: Company belongs to another user")
+        # If company.user_id is None, it's global and accessible to everyone
         
         return {
             "id": str(company.id),
@@ -527,19 +569,30 @@ async def create_company(
         # Normalize URL for comparison
         normalized_url = normalize_url(website_url)
         
-        # Check for existing company by URL or name
+        # Check for existing company by URL or name - only user's companies or global
+        # User can only update their own companies or create new ones
+        user_filter = or_(
+            Company.user_id == current_user.id,
+            Company.user_id.is_(None)  # Global companies
+        )
+        
         result = await db.execute(
             select(Company).where(
                 or_(
                     func.lower(func.replace(Company.website, 'www.', '')) == normalized_url.lower(),
                     Company.name.ilike(f"%{company_data.get('name', '')}%")
-                )
+                ),
+                user_filter
             )
         )
         existing_company = result.scalar_one_or_none()
         
         if existing_company:
             # Update existing company - дополняем информацию
+            # Only allow updating own companies or global companies
+            if existing_company.user_id is not None and existing_company.user_id != current_user.id:
+                raise HTTPException(status_code=403, detail="Cannot update company belonging to another user")
+            
             logger.info(f"Updating existing company: {existing_company.name}")
             
             # Дополняем информацию, если она отсутствует
@@ -560,8 +613,8 @@ async def create_company(
             company = existing_company
             action = "updated"
         else:
-            # Create new company
-            logger.info(f"Creating new company: {company_data.get('name')}")
+            # Create new company - assign to current user
+            logger.info(f"Creating new company: {company_data.get('name')} for user {current_user.id}")
             
             company = Company(
                 name=company_data.get("name"),
@@ -570,7 +623,8 @@ async def create_company(
                 logo_url=company_data.get("logo_url"),
                 category=company_data.get("category"),
                 twitter_handle=company_data.get("twitter_handle"),
-                github_org=company_data.get("github_org")
+                github_org=company_data.get("github_org"),
+                user_id=current_user.id  # Assign to current user for data isolation
             )
             db.add(company)
             await db.flush()
@@ -710,7 +764,7 @@ async def quick_company_analysis(
     
     try:
         # Использовать общую функцию для генерации данных
-        report_data = await _generate_quick_analysis_data(db, query, include_competitors)
+        report_data = await _generate_quick_analysis_data(db, query, include_competitors, user_id=current_user.id)
         company_id = report_data.pop("company_id")  # Извлечь company_id отдельно
         
         # Формируем ответ в формате Report (ВСЕ данные)

@@ -41,7 +41,17 @@ class UserPreferences(BaseModel):
     subscribed_companies = Column(ARRAY(UUID), default=list)
     interested_categories = Column(ARRAY(news_category_enum), default=list)
     keywords = Column(ARRAY(String), default=list)
-    notification_frequency = Column(SQLEnum('realtime', 'daily', 'weekly', 'never', name='notification_frequency'), default='daily')
+    notification_frequency = Column(
+        SQLEnum(
+            'realtime',
+            'daily',
+            'weekly',
+            'never',
+            name='notificationfrequency',
+            create_type=False,
+        ),
+        default='daily',
+    )
     
     # Digest settings
     digest_enabled = Column(Boolean, default=False)
