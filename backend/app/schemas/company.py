@@ -66,3 +66,4 @@ class CompanySocialMediaHandles(BaseModel):
     tiktok: Optional[str] = None
 
 
+

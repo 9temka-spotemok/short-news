@@ -68,3 +68,4 @@ def downgrade() -> None:
     op.execute("DROP TABLE IF EXISTS competitor_monitoring_matrices")
 
 
+

@@ -75,3 +75,4 @@ def downgrade() -> None:
     op.execute("ALTER TABLE companies DROP COLUMN IF EXISTS facebook_url")
 
 
+
