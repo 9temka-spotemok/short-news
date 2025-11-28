@@ -870,13 +870,13 @@ export interface OnboardingCompanyData {
 }
 
 export interface OnboardingCompetitor {
-  id: string
+  id: string  // Can be temporary UUID for new competitors
   name: string
   website: string
   logo_url?: string | null
   category?: string | null
   description?: string | null
-  ai_description: string  // AI-generated description
+  ai_description?: string  // AI-generated description (optional, falls back to description)
   similarity_score?: number
   common_categories?: string[]
   reason?: string

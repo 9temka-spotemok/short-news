@@ -269,6 +269,7 @@ export const apiScan = axios.create({
 })
 
 attachInterceptors(api)
+attachInterceptors(apiScan)
 attachInterceptors(apiV2)
 attachInterceptors(apiScan)
 
@@ -1493,11 +1494,14 @@ export class ApiService {
     competitors: Array<{
       company: any
       similarity_score: number
+      common_categories: string[]
       reason: string
     }>
     current_step: string
   }> {
-    const response = await api.get('/onboarding/competitors/suggest', {
+    // Use apiScan for onboarding endpoints with longer timeout (90 seconds)
+    // GPT generation can take time
+    const response = await apiScan.get('/onboarding/competitors/suggest', {
       params: { session_token: sessionToken, limit }
     })
     return response.data
@@ -1549,7 +1553,9 @@ export class ApiService {
    */
   static async replaceCompetitorInOnboarding(sessionToken: string, competitorIdToReplace: string): Promise<{
     company: any
-    current_step: string
+    similarity_score: number
+    common_categories: string[]
+    reason: string
   }> {
     const response = await api.post('/onboarding/competitors/replace', {
       session_token: sessionToken,

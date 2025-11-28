@@ -1,4 +1,5 @@
 import { useAuthStore } from '@/store/authStore'
+import { authService } from '@/services/authService'
 import { ChevronDown, LogOut, Menu, Settings, User, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
@@ -32,11 +33,20 @@ export default function Header() {
   const showPublicNavigation = !isAuthenticated
   const showAuthenticatedNavigation = isAuthenticated
 
-  const handleLogout = () => {
-    logout()
-    setIsMenuOpen(false)
-    setIsDropdownOpen(false)
-    navigate('/')
+  const handleLogout = async () => {
+    try {
+      // Отправить запрос на сервер для выхода
+      await authService.logout()
+    } catch (error) {
+      // Игнорируем ошибки при выходе, чтобы пользователь всегда мог выйти локально
+      console.error('Logout error:', error)
+    } finally {
+      // Очистить локальное состояние
+      logout()
+      setIsMenuOpen(false)
+      setIsDropdownOpen(false)
+      navigate('/')
+    }
   }
 
   // Закрытие dropdown при клике вне его

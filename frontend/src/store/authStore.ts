@@ -41,6 +41,9 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       logout: () => {
+        // Очистить sessionToken онбординга из sessionStorage
+        sessionStorage.removeItem('onboarding_session_token')
+        
         set({
           user: null,
           accessToken: null,
