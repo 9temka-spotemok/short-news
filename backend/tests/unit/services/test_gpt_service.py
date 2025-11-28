@@ -243,3 +243,4 @@ async def test_suggest_industry_signals_parsing(gpt_service, mock_openai_client)
 
 
 
+
