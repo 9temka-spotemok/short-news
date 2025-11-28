@@ -26,6 +26,8 @@ class NewsFilters:
     category: Optional[NewsCategory] = None
     company_id: Optional[str] = None
     company_ids: Optional[List[str]] = None
+    user_id: Optional[UUID] = None  # For optimized JOIN filtering
+    include_global_companies: bool = True  # Include global companies when filtering by user_id
     limit: int = 20
     offset: int = 0
     search_query: Optional[str] = None
@@ -91,9 +93,31 @@ class NewsRepository:
             criteria.append(NewsItem.category == category_value)
 
         if filters.company_ids:
-            criteria.append(NewsItem.company_id.in_(filters.company_ids))
+            # Валидация: проверяем что список не пустой
+            if not filters.company_ids:
+                # Пустой список - не добавляем фильтр (вернет пустой результат)
+                pass
+            else:
+                # КРИТИЧЕСКИ ВАЖНО: Конвертируем строки в UUID для правильного сравнения
+                uuid_ids = []
+                for cid in filters.company_ids:
+                    if not cid:  # Пропускаем пустые строки
+                        continue
+                    try:
+                        uuid_ids.append(UUID(cid) if isinstance(cid, str) else cid)
+                    except (ValueError, TypeError):
+                        # Пропускаем невалидные UUID
+                        continue
+                if uuid_ids:
+                    criteria.append(NewsItem.company_id.in_(uuid_ids))
         elif filters.company_id:
-            criteria.append(NewsItem.company_id == filters.company_id)
+            # Конвертируем строку в UUID если нужно
+            try:
+                company_id_uuid = UUID(filters.company_id) if isinstance(filters.company_id, str) else filters.company_id
+                criteria.append(NewsItem.company_id == company_id_uuid)
+            except (ValueError, TypeError):
+                # Невалидный UUID - не добавляем фильтр
+                pass
 
         if filters.source_type:
             source_type_value = (
@@ -128,6 +152,21 @@ class NewsRepository:
         return criteria
 
     async def list_news(self, filters: NewsFilters) -> Tuple[List[NewsItem], int]:
+        """
+        List news items with filtering.
+        
+        If user_id is provided, uses optimized JOIN query instead of IN clause.
+        Otherwise, uses standard filtering with IN clause for company_ids.
+        """
+        # If user_id is provided, use optimized JOIN method
+        if filters.user_id is not None:
+            return await self.list_news_by_user_id(
+                user_id=filters.user_id,
+                filters=filters,
+                include_global=filters.include_global_companies
+            )
+        
+        # Standard filtering with IN clause (backward compatible)
         stmt = select(NewsItem).options(
             selectinload(NewsItem.company),
             selectinload(NewsItem.keywords),
@@ -148,6 +187,120 @@ class NewsRepository:
             desc(NewsItem.priority_score),
         ).offset(filters.offset).limit(filters.limit)
 
+        result = await self._session.execute(stmt)
+        return result.scalars().all(), total
+
+    async def list_news_by_user_id(
+        self,
+        user_id: UUID,
+        filters: NewsFilters,
+        include_global: bool = True,
+    ) -> Tuple[List[NewsItem], int]:
+        """
+        Optimized method to list news items filtered by user_id using JOIN.
+        
+        This method uses JOIN instead of IN clause for better performance,
+        especially when user has many companies.
+        
+        Args:
+            user_id: User UUID to filter companies by
+            filters: NewsFilters with additional filters (category, search, etc.)
+            include_global: If True, also include news from global companies (user_id IS NULL)
+            
+        Returns:
+            Tuple of (news items list, total count)
+        """
+        # Build base query with JOIN for user_id filtering
+        stmt = (
+            select(NewsItem)
+            .join(Company, NewsItem.company_id == Company.id)
+            .options(
+                selectinload(NewsItem.company),
+                selectinload(NewsItem.keywords),
+            )
+        )
+        
+        count_stmt = (
+            select(func.count(NewsItem.id))
+            .join(Company, NewsItem.company_id == Company.id)
+        )
+        
+        # Filter by user_id using JOIN (optimized)
+        if include_global:
+            # Include user's companies and global companies
+            user_filter = or_(
+                Company.user_id == user_id,
+                Company.user_id.is_(None)  # Global companies
+            )
+        else:
+            # Only user's companies
+            user_filter = Company.user_id == user_id
+        
+        stmt = stmt.where(user_filter)
+        count_stmt = count_stmt.where(user_filter)
+        
+        # Apply additional filters (excluding company_id/company_ids as we filter by user_id)
+        # Create a copy of filters without company filters
+        other_criteria = []
+        
+        bind = getattr(self._session, "bind", None)
+        dialect_name = getattr(getattr(bind, "dialect", None), "name", None)
+        supports_full_text = bool(
+            dialect_name and dialect_name.lower().startswith("postgres")
+        )
+        
+        if filters.category:
+            category_value = (
+                filters.category.value
+                if hasattr(filters.category, "value")
+                else str(filters.category)
+            )
+            other_criteria.append(NewsItem.category == category_value)
+        
+        if filters.source_type:
+            source_type_value = (
+                filters.source_type.value
+                if hasattr(filters.source_type, "value")
+                else str(filters.source_type)
+            )
+            other_criteria.append(NewsItem.source_type == source_type_value)
+        
+        if filters.start_date:
+            other_criteria.append(NewsItem.published_at >= filters.start_date)
+        
+        if filters.end_date:
+            other_criteria.append(NewsItem.published_at <= filters.end_date)
+        
+        if filters.min_priority is not None:
+            other_criteria.append(NewsItem.priority_score >= filters.min_priority)
+        
+        if filters.search_query:
+            like = f"%{filters.search_query}%"
+            if supports_full_text and hasattr(NewsItem, "search_vector"):
+                other_criteria.append(NewsItem.search_vector.match(filters.search_query))
+            else:
+                other_criteria.append(
+                    or_(
+                        NewsItem.title.ilike(like),
+                        NewsItem.content.ilike(like),
+                        NewsItem.summary.ilike(like),
+                    )
+                )
+        
+        if other_criteria:
+            stmt = stmt.where(and_(*other_criteria))
+            count_stmt = count_stmt.where(and_(*other_criteria))
+        
+        # Get total count
+        count_result = await self._session.execute(count_stmt)
+        total = count_result.scalar() or 0
+        
+        # Apply ordering, offset, and limit
+        stmt = stmt.order_by(
+            desc(NewsItem.published_at),
+            desc(NewsItem.priority_score),
+        ).offset(filters.offset).limit(filters.limit)
+        
         result = await self._session.execute(stmt)
         return result.scalars().all(), total
 
@@ -272,9 +425,57 @@ class NewsRepository:
         )
 
     async def aggregate_statistics_for_companies(
-        self, company_ids: List[str]
+        self, 
+        company_ids: List[str],
+        user_id: Optional[UUID] = None,
+        include_global: bool = True,
     ) -> NewsStatistics:
-        id_filter = NewsItem.company_id.in_(company_ids)
+        """
+        Aggregate statistics for companies.
+        
+        If user_id is provided, uses optimized JOIN query instead of IN clause.
+        Otherwise, uses IN clause for backward compatibility.
+        """
+        # Если user_id указан, используем оптимизированный JOIN
+        if user_id is not None:
+            return await self._aggregate_statistics_by_user_id(
+                user_id=user_id,
+                include_global=include_global
+            )
+        
+        # Валидация: проверяем что список не пустой
+        if not company_ids:
+            return NewsStatistics(
+                total_count=0,
+                category_counts={},
+                source_type_counts={},
+                recent_count=0,
+                high_priority_count=0,
+            )
+        
+        # КРИТИЧЕСКИ ВАЖНО: Конвертируем строки в UUID
+        # SQLAlchemy требует UUID объекты для сравнения с UUID колонкой
+        uuid_ids = []
+        for cid in company_ids:
+            if not cid:  # Пропускаем пустые строки
+                continue
+            try:
+                uuid_ids.append(UUID(cid) if isinstance(cid, str) else cid)
+            except (ValueError, TypeError):
+                # Пропускаем невалидные UUID
+                continue
+        
+        if not uuid_ids:
+            # Возвращаем пустую статистику если нет валидных UUID
+            return NewsStatistics(
+                total_count=0,
+                category_counts={},
+                source_type_counts={},
+                recent_count=0,
+                high_priority_count=0,
+            )
+        
+        id_filter = NewsItem.company_id.in_(uuid_ids)
 
         total_result = await self._session.execute(
             select(func.count(NewsItem.id)).where(id_filter)
@@ -320,6 +521,93 @@ class NewsRepository:
         )
         high_priority_count = high_priority_result.scalar() or 0
 
+        return NewsStatistics(
+            total_count=total_count,
+            category_counts=category_counts,
+            source_type_counts=source_type_counts,
+            recent_count=recent_count,
+            high_priority_count=high_priority_count,
+        )
+
+    async def _aggregate_statistics_by_user_id(
+        self,
+        user_id: UUID,
+        include_global: bool = True,
+    ) -> NewsStatistics:
+        """
+        Optimized method to aggregate statistics using JOIN instead of IN.
+        
+        This method uses JOIN for better performance when filtering by user_id.
+        """
+        # Build base query with JOIN for user_id filtering
+        # Filter by user_id using JOIN (optimized)
+        if include_global:
+            # Include user's companies and global companies
+            user_filter = or_(
+                Company.user_id == user_id,
+                Company.user_id.is_(None)  # Global companies
+            )
+        else:
+            # Only user's companies
+            user_filter = Company.user_id == user_id
+        
+        # Total count
+        total_result = await self._session.execute(
+            select(func.count(NewsItem.id))
+            .join(Company, NewsItem.company_id == Company.id)
+            .where(user_filter)
+        )
+        total_count = total_result.scalar() or 0
+        
+        # Category counts
+        category_rows = await self._session.execute(
+            select(NewsItem.category, func.count(NewsItem.id))
+            .join(Company, NewsItem.company_id == Company.id)
+            .where(user_filter)
+            .group_by(NewsItem.category)
+        )
+        category_counts = {
+            str(row[0]): row[1]
+            for row in category_rows
+            if row[0]
+        }
+        
+        # Source type counts
+        source_rows = await self._session.execute(
+            select(NewsItem.source_type, func.count(NewsItem.id))
+            .join(Company, NewsItem.company_id == Company.id)
+            .where(user_filter)
+            .group_by(NewsItem.source_type)
+        )
+        source_type_counts = {
+            str(row[0]): row[1]
+            for row in source_rows
+            if row[0]
+        }
+        
+        # Recent count (last 24 hours)
+        recent_cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).replace(tzinfo=None)
+        recent_result = await self._session.execute(
+            select(func.count(NewsItem.id))
+            .join(Company, NewsItem.company_id == Company.id)
+            .where(
+                user_filter,
+                NewsItem.published_at >= recent_cutoff,
+            )
+        )
+        recent_count = recent_result.scalar() or 0
+        
+        # High priority count
+        high_priority_result = await self._session.execute(
+            select(func.count(NewsItem.id))
+            .join(Company, NewsItem.company_id == Company.id)
+            .where(
+                user_filter,
+                NewsItem.priority_score >= 0.8,
+            )
+        )
+        high_priority_count = high_priority_result.scalar() or 0
+        
         return NewsStatistics(
             total_count=total_count,
             category_counts=category_counts,

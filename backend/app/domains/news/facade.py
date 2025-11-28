@@ -66,6 +66,8 @@ class NewsFacade:
         category: Optional[NewsCategory] = None,
         company_id: Optional[str] = None,
         company_ids: Optional[List[str]] = None,
+        user_id: Optional[str] = None,  # For optimized JOIN filtering
+        include_global_companies: bool = True,
         limit: int = 20,
         offset: int = 0,
         search_query: Optional[str] = None,
@@ -78,6 +80,8 @@ class NewsFacade:
             category=category,
             company_id=company_id,
             company_ids=company_ids,
+            user_id=user_id,
+            include_global_companies=include_global_companies,
             limit=limit,
             offset=offset,
             search_query=search_query,

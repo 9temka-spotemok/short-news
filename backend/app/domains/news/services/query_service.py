@@ -50,6 +50,8 @@ class NewsQueryService:
         category: Optional[NewsCategory] = None,
         company_id: Optional[str] = None,
         company_ids: Optional[List[str]] = None,
+        user_id: Optional[str] = None,  # For optimized JOIN filtering
+        include_global_companies: bool = True,
         limit: int = 20,
         offset: int = 0,
         search_query: Optional[str] = None,
@@ -58,10 +60,22 @@ class NewsQueryService:
         end_date: Optional[str] = None,
         min_priority: Optional[float] = None,
     ) -> Tuple[List[NewsItem], int]:
+        from uuid import UUID
+        
+        # Convert user_id string to UUID if provided
+        user_id_uuid = None
+        if user_id:
+            try:
+                user_id_uuid = UUID(user_id) if isinstance(user_id, str) else user_id
+            except (ValueError, TypeError):
+                user_id_uuid = None
+        
         filters = NewsFilters(
             category=category,
             company_id=company_id,
             company_ids=company_ids,
+            user_id=user_id_uuid,
+            include_global_companies=include_global_companies,
             limit=limit,
             offset=offset,
             search_query=search_query,

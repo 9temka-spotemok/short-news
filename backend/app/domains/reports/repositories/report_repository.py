@@ -102,6 +102,7 @@ class ReportRepository:
         self,
         report_id: UUID | str,
         *,
+        user_id: Optional[UUID] = None,  # НОВЫЙ ПАРАМЕТР для фильтрации по user_id
         include_relations: bool = False
     ) -> Optional[Report]:
         """
@@ -109,6 +110,7 @@ class ReportRepository:
         
         Args:
             report_id: Report UUID or string
+            user_id: Optional user ID to filter by (for access control)
             include_relations: Whether to load related entities (user, company)
             
         Returns:
@@ -131,6 +133,11 @@ class ReportRepository:
                 return None
         
         stmt = stmt.where(Report.id == target_id)
+        
+        # НОВЫЙ ФИЛЬТР ПО user_id (для безопасности и изоляции данных)
+        if user_id:
+            stmt = stmt.where(Report.user_id == user_id)
+        
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
