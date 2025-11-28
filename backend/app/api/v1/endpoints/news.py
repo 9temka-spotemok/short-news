@@ -10,7 +10,7 @@ from loguru import logger
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.dependencies import get_news_facade, get_current_user_optional
+from app.api.dependencies import get_news_facade, get_current_user_optional, get_current_user
 from app.domains.news import NewsFacade
 from app.models.news import (
     NewsCategory,
@@ -25,6 +25,9 @@ from app.models.preferences import UserPreferences
 from app.models import User
 from app.core.database import get_db
 from app.core.exceptions import ValidationError
+from app.core.access_control import get_user_company_ids, check_company_access, check_news_access
+from app.api.dependencies import get_personalization_service
+from app.core.personalization import PersonalizationService
 
 router = APIRouter(prefix="/news", tags=["news"])
 
@@ -148,13 +151,29 @@ async def create_news(
 async def update_news(
     news_id: str,
     payload: NewsUpdateSchema,
+    current_user: User = Depends(get_current_user),
     facade: NewsFacade = Depends(get_news_facade),
+    db: AsyncSession = Depends(get_db),
 ):
-    logger.info(f"Update news request: {news_id}")
+    """
+    Update news item by ID.
+    
+    For authenticated users, checks that the news item belongs to their companies (user_id).
+    """
+    logger.info(f"Update news request: {news_id}, user: {current_user.id}")
     try:
         UUID(news_id)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid news ID format")
+
+    # СНАЧАЛА ПРОВЕРЯЕМ ДОСТУП (по user_id компании, НЕ по subscribed_companies!)
+    news_item = await check_news_access(news_id, current_user, db)
+    if not news_item:
+        # Всегда возвращаем 404 для недоступных ресурсов (безопасность)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"News item with ID {news_id} not found",
+        )
 
     update_data = payload.model_dump(exclude_unset=True)
     if not update_data:
@@ -164,6 +183,7 @@ async def update_news(
         )
 
     try:
+        # ТОЛЬКО ПОСЛЕ ПРОВЕРКИ ОБНОВЛЯЕМ
         news_item = await facade.update_news(news_id, update_data)
         if not news_item:
             raise HTTPException(
@@ -187,15 +207,32 @@ async def update_news(
 )
 async def delete_news(
     news_id: str,
+    current_user: User = Depends(get_current_user),
     facade: NewsFacade = Depends(get_news_facade),
+    db: AsyncSession = Depends(get_db),
 ):
-    logger.info(f"Delete news request: {news_id}")
+    """
+    Delete news item by ID.
+    
+    For authenticated users, checks that the news item belongs to their companies (user_id).
+    """
+    logger.info(f"Delete news request: {news_id}, user: {current_user.id}")
     try:
         UUID(news_id)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid news ID format")
 
+    # СНАЧАЛА ПРОВЕРЯЕМ ДОСТУП (по user_id компании, НЕ по subscribed_companies!)
+    news_item = await check_news_access(news_id, current_user, db)
+    if not news_item:
+        # Всегда возвращаем 404 для недоступных ресурсов (безопасность)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"News item with ID {news_id} not found",
+        )
+
     try:
+        # ТОЛЬКО ПОСЛЕ ПРОВЕРКИ УДАЛЯЕМ
         success = await facade.delete_news(news_id)
         if not success:
             raise HTTPException(
@@ -227,65 +264,128 @@ async def get_news(
     facade: NewsFacade = Depends(get_news_facade),
     current_user: Optional[User] = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
+    personalization: PersonalizationService = Depends(get_personalization_service),
 ):
     """
     Get news items with enhanced filtering and search capabilities
     
     Returns paginated list of news items with comprehensive filtering options.
+    Automatically filters by user's companies if authenticated and no company IDs provided.
     """
     logger.info(f"News request: category={category}, company_id={company_id}, source_type={source_type}, limit={limit}, offset={offset}")
     
     try:
-        # Parse company IDs if provided
-        parsed_company_ids = None
-        normalised_company_id = None
-        if company_ids:
-            parsed_company_ids = [cid.strip() for cid in company_ids.split(',') if cid.strip()]
-        elif company_id:
-            parsed_company_ids = [company_id]
-
-        if parsed_company_ids:
-            normalised_ids = []
-            for cid in parsed_company_ids:
-                try:
-                    normalised_ids.append(UUID(cid))
-                except (ValueError, TypeError):
-                    normalised_ids.append(cid)
-            parsed_company_ids = normalised_ids
-            if len(parsed_company_ids) == 1:
-                normalised_company_id = parsed_company_ids[0]
-        elif company_id:
-            try:
-                normalised_company_id = UUID(company_id)
-            except (ValueError, TypeError):
-                normalised_company_id = company_id
+        # Parse company IDs from query parameters using PersonalizationService
+        parsed_company_ids, normalised_company_id = await personalization.parse_company_ids_from_query(
+            company_ids=company_ids,
+            company_id=company_id
+        )
         
-        # Automatic isolation: if user is authenticated and didn't specify company_ids,
-        # filter by subscribed_companies from UserPreferences
-        if current_user and not parsed_company_ids:
-            try:
-                prefs_result = await db.execute(
-                    select(UserPreferences).where(UserPreferences.user_id == current_user.id)
+        # Get company IDs for filtering (applies personalization if needed)
+        filter_company_ids = await personalization.get_filter_company_ids(
+            user=current_user,
+            provided_ids=parsed_company_ids
+        )
+        
+        # Log personalization
+        if current_user:
+            if parsed_company_ids:
+                logger.info(
+                    f"User {current_user.id} explicitly specified {len(parsed_company_ids)} company IDs"
                 )
-                user_prefs = prefs_result.scalar_one_or_none()
-                
-                if user_prefs and user_prefs.subscribed_companies:
-                    # Automatically filter by subscribed companies for data isolation
-                    parsed_company_ids = user_prefs.subscribed_companies
-                    normalised_company_id = None  # Reset single company_id, use list instead
-                    logger.info(
-                        f"Auto-filtering news by {len(parsed_company_ids)} subscribed companies "
-                        f"for user {current_user.id}"
-                    )
-            except Exception as e:
-                logger.warning(f"Failed to get user preferences for auto-filtering: {e}")
-                # Continue without auto-filtering if there's an error
+            elif filter_company_ids:
+                logger.info(
+                    f"Auto-filtering news by {len(filter_company_ids)} user companies "
+                    f"for user {current_user.id} (company_ids: {[str(cid) for cid in filter_company_ids[:5]]}...)"
+                )
+            elif filter_company_ids == []:
+                logger.warning(
+                    f"User {current_user.id} has no companies, returning empty news list"
+                )
+            else:
+                logger.info(
+                    f"User {current_user.id} - no filtering (filter_company_ids={filter_company_ids})"
+                )
         
-        # Get news items with enhanced filtering
+        # КРИТИЧЕСКИ ВАЖНО: если filter_company_ids пустой список (пользователь без компаний),
+        # возвращаем пустой результат БЕЗ запроса к БД
+        if personalization.should_return_empty(filter_company_ids):
+            logger.info(f"User {current_user.id if current_user else 'anonymous'} has no companies, returning empty news list")
+            return {
+                "items": [],
+                "total": 0,
+                "limit": limit,
+                "offset": offset,
+                "has_more": False,
+                "filters": {
+                    "category": category.value if category and hasattr(category, 'value') else None,
+                    "company_id": company_id,
+                    "source_type": source_type.value if source_type and hasattr(source_type, 'value') else None,
+                    "search_query": search_query,
+                    "min_priority": min_priority
+                }
+            }
+        
+        # ОПТИМИЗАЦИЯ: Если filter_company_ids получен из personalization (не явно указан),
+        # используем user_id для оптимизированного JOIN запроса
+        # Если пользователь явно указал company_ids, используем IN для конкретных компаний
+        use_user_id_filter = (
+            current_user is not None 
+            and parsed_company_ids is None  # Пользователь не указал явно company_ids
+            and filter_company_ids is not None  # Есть компании для фильтрации
+        )
+        
+        final_company_id = None
+        final_company_ids = None
+        final_user_id = None
+        
+        if use_user_id_filter:
+            # Используем оптимизированный JOIN через user_id
+            final_user_id = str(current_user.id)
+            logger.info(f"Using optimized JOIN query for user_id={final_user_id}")
+        elif filter_company_ids is None:
+            # Анонимный пользователь - показываем только глобальные компании
+            # Для этого используем специальный user_id=None в фильтре
+            if current_user is None:
+                logger.info("Anonymous user - showing only global companies")
+                # Для анонимных пользователей используем user_id=None, что означает только глобальные компании
+                # Это обрабатывается в list_news_by_user_id с include_global=False
+                # Но нам нужно показать только глобальные, поэтому не передаем user_id
+                # и используем стандартный запрос без фильтрации по user_id
+                pass
+            else:
+                # Пользователь явно указал company_ids через query params - используем их
+                pass
+        elif not filter_company_ids:
+            # Пустой список - уже обработано выше через should_return_empty
+            logger.warning(f"Empty company_ids list for user {current_user.id if current_user else 'anonymous'}")
+        else:
+            # Пользователь явно указал company_ids - используем IN для конкретных компаний
+            # Валидация: проверяем что все ID валидные
+            valid_ids = [cid for cid in filter_company_ids if isinstance(cid, UUID)]
+            if len(valid_ids) != len(filter_company_ids):
+                logger.warning(
+                    f"Some company IDs are invalid. Valid: {len(valid_ids)}, Total: {len(filter_company_ids)}"
+                )
+            
+            if normalised_company_id and len(valid_ids) == 1:
+                # Single company ID case
+                final_company_id = str(normalised_company_id)
+                final_company_ids = None
+            elif len(valid_ids) == 1:
+                # Single ID from personalization
+                final_company_id = str(valid_ids[0])
+                final_company_ids = None
+            else:
+                # Multiple IDs - конвертируем UUID в строки
+                final_company_ids = [str(cid) for cid in valid_ids]
+        
         news_items, total_count = await facade.list_news(
             category=category,
-            company_id=normalised_company_id,
-            company_ids=parsed_company_ids,
+            company_id=final_company_id,
+            company_ids=final_company_ids,
+            user_id=final_user_id,  # Передаем user_id для оптимизированного JOIN
+            include_global_companies=False,  # КРИТИЧЕСКИ ВАЖНО: Персонализация - только компании пользователя, БЕЗ глобальных
             source_type=source_type,
             search_query=search_query,
             min_priority=min_priority,
@@ -337,7 +437,7 @@ async def get_news_statistics(
     """
     Get comprehensive news statistics
     
-    For authenticated users, automatically filters by subscribed_companies.
+    For authenticated users, automatically filters by user_id companies.
     For anonymous users, returns statistics for all news.
     
     Returns statistics about news items including counts by category,
@@ -346,29 +446,79 @@ async def get_news_statistics(
     logger.info(f"News statistics request - user: {current_user.id if current_user else 'anonymous'}")
     
     try:
-        # Automatic isolation: if user is authenticated, filter by subscribed_companies
+        # Automatic isolation: if user is authenticated, filter by user_id companies
         if current_user:
             try:
-                prefs_result = await db.execute(
-                    select(UserPreferences).where(UserPreferences.user_id == current_user.id)
+                # ПРАВИЛЬНО: фильтруем по user_id компаний
+                user_company_ids = await get_user_company_ids(current_user, db)
+                logger.info(
+                    f"User {current_user.id} - Companies found: {len(user_company_ids)}"
                 )
-                user_prefs = prefs_result.scalar_one_or_none()
+                logger.debug(
+                    f"User {current_user.id} - Company IDs: {[str(cid) for cid in user_company_ids]}"
+                )
                 
-                if user_prefs and user_prefs.subscribed_companies:
-                    # Filter statistics by subscribed companies for data isolation
-                    stats = await facade.get_statistics_for_companies(
-                        [str(cid) for cid in user_prefs.subscribed_companies]
-                    )
+                if user_company_ids:
+                    # Валидация: проверяем что все ID валидные UUID
+                    valid_ids = [cid for cid in user_company_ids if isinstance(cid, UUID)]
+                    if len(valid_ids) != len(user_company_ids):
+                        logger.warning(
+                            f"Some company IDs are invalid for user {current_user.id}. "
+                            f"Valid: {len(valid_ids)}, Total: {len(user_company_ids)}"
+                        )
+                    
+                    if not valid_ids:
+                        logger.warning(
+                            f"No valid company IDs for user {current_user.id}, returning empty statistics"
+                        )
+                        return NewsStatsSchema(
+                            total_count=0,
+                            category_counts={},
+                            source_type_counts={},
+                            recent_count=0,
+                            high_priority_count=0
+                        )
+                    
+                    # Filter statistics by user companies for data isolation
+                    company_ids_str = [str(cid) for cid in valid_ids]
                     logger.info(
-                        f"Filtered statistics by {len(user_prefs.subscribed_companies)} "
-                        f"subscribed companies for user {current_user.id}"
+                        f"Filtering stats by {len(company_ids_str)} companies: {company_ids_str[:5]}..."
+                    )
+                    stats = await facade.get_statistics_for_companies(company_ids_str)
+                    logger.info(
+                        f"Statistics result for user {current_user.id}: "
+                        f"total_count={stats.total_count}, "
+                        f"recent_count={stats.recent_count}, "
+                        f"high_priority_count={stats.high_priority_count}, "
+                        f"categories={len(stats.category_counts)}, "
+                        f"sources={len(stats.source_type_counts)}"
                     )
                     return stats
+                else:
+                    # КРИТИЧЕСКИ ВАЖНО: если у пользователя нет компаний, возвращаем пустую статистику
+                    logger.info(
+                        f"User {current_user.id} has no companies, returning empty statistics"
+                    )
+                    # Return empty statistics structure
+                    return NewsStatsSchema(
+                        total_count=0,
+                        category_counts={},
+                        source_type_counts={},
+                        recent_count=0,
+                        high_priority_count=0
+                    )
             except Exception as e:
-                logger.warning(f"Failed to get user preferences for stats filtering: {e}")
-                # Fall through to general statistics if there's an error
+                logger.warning(f"Failed to get user companies for stats filtering: {e}")
+                # Return empty statistics on error to prevent showing all statistics
+                return NewsStatsSchema(
+                    total_count=0,
+                    category_counts={},
+                    source_type_counts={},
+                    recent_count=0,
+                    high_priority_count=0
+                )
         
-        # For anonymous users or if no subscribed companies, return general statistics
+        # For anonymous users, return general statistics
         stats = await facade.get_statistics()
         return stats
         
@@ -390,7 +540,7 @@ async def get_news_statistics_by_companies(
     """
     Get comprehensive news statistics filtered by company IDs
     
-    For authenticated users, validates that all requested companies are in subscribed_companies.
+    For authenticated users, validates that all requested companies belong to user (user_id).
     Returns statistics about news items for specific companies including counts by category,
     source type, recent news, and high priority items.
     """
@@ -406,40 +556,34 @@ async def get_news_statistics_by_companies(
                 detail="At least one company ID is required"
             )
         
-        # For authenticated users, validate that all requested companies are in subscribed_companies
+        # For authenticated users, validate that all requested companies belong to user (user_id)
         if current_user:
             try:
-                prefs_result = await db.execute(
-                    select(UserPreferences).where(UserPreferences.user_id == current_user.id)
-                )
-                user_prefs = prefs_result.scalar_one_or_none()
+                unauthorized_ids = []
+                for cid in parsed_company_ids:
+                    if cid:
+                        try:
+                            company = await check_company_access(cid, current_user, db)
+                            if not company:
+                                unauthorized_ids.append(cid)
+                        except (ValueError, TypeError) as e:
+                            logger.warning(f"Invalid company ID format: {cid}, error: {e}")
+                            unauthorized_ids.append(cid)
                 
-                if user_prefs and user_prefs.subscribed_companies:
-                    # Convert to sets for comparison
-                    requested_ids = set()
-                    for cid in parsed_company_ids:
-                        if cid:
-                            try:
-                                requested_ids.add(UUID(cid))
-                            except (ValueError, TypeError):
-                                # Skip invalid UUIDs
-                                continue
-                    
-                    subscribed_ids = set(user_prefs.subscribed_companies)
-                    
-                    # Check if all requested companies are in subscribed list
-                    if requested_ids and not requested_ids.issubset(subscribed_ids):
-                        unauthorized_ids = requested_ids - subscribed_ids
-                        raise HTTPException(
-                            status_code=status.HTTP_403_FORBIDDEN,
-                            detail=f"Access denied: You are not subscribed to some of the requested companies. "
-                                   f"Unauthorized company IDs: {[str(uid) for uid in unauthorized_ids]}"
-                        )
+                if unauthorized_ids:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail=f"Access denied: You don't have access to some of the requested companies. "
+                               f"Unauthorized company IDs: {unauthorized_ids}"
+                    )
             except HTTPException:
                 raise
             except Exception as e:
                 logger.warning(f"Failed to validate company access for stats: {e}")
-                # Continue without validation if there's an error (for backward compatibility)
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Failed to validate company access"
+                )
         
         stats = await facade.get_statistics_for_companies(parsed_company_ids)
         return stats
@@ -463,28 +607,86 @@ async def search_news(
     limit: int = Query(20, ge=1, le=100, description="Number of results to return"),
     offset: int = Query(0, ge=0, description="Number of results to skip"),
     facade: NewsFacade = Depends(get_news_facade),
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db),
+    personalization: PersonalizationService = Depends(get_personalization_service),
 ):
     """
     Search news items with advanced filtering
 
     Performs full-text search across news titles, content, and summaries
     with optional filtering by category, source type, and company.
+    
+    For authenticated users, automatically filters by user_id companies.
     """
-    logger.info(f"News search: query='{q}', category={category}, limit={limit}, offset={offset}")
-
+    logger.info(f"News search: query='{q}', category={category}, limit={limit}, offset={offset}, user={current_user.id if current_user else 'anonymous'}")
+    
     try:
+        # Parse company ID from query parameter using PersonalizationService
+        parsed_company_ids, normalised_company_id = await personalization.parse_company_ids_from_query(
+            company_id=company_id
+        )
+        
+        # Get company IDs for filtering (applies personalization if needed)
+        filter_company_ids = await personalization.get_filter_company_ids(
+            user=current_user,
+            provided_ids=parsed_company_ids
+        )
+        
+        # Log personalization
+        if current_user and not parsed_company_ids:
+            if filter_company_ids:
+                logger.info(
+                    f"Auto-filtering search by {len(filter_company_ids)} user companies "
+                    f"for user {current_user.id}"
+                )
+            else:
+                logger.info(
+                    f"User {current_user.id} has no companies, returning empty search results"
+                )
+        
+        # КРИТИЧЕСКИ ВАЖНО: если filter_company_ids пустой список (пользователь без компаний),
+        # возвращаем пустой результат БЕЗ запроса к БД
+        if personalization.should_return_empty(filter_company_ids):
+            logger.info(f"User {current_user.id if current_user else 'anonymous'} has no companies, returning empty search results")
+            return {
+                "query": q,
+                "items": [],
+                "total": 0,
+                "limit": limit,
+                "offset": offset,
+                "has_more": False,
+                "filters": {
+                    "category": category.value if category else None,
+                    "source_type": source_type.value if source_type else None,
+                    "company_id": company_id
+                }
+            }
+        
         # Create search parameters
+        # Use normalised_company_id if single ID, otherwise pass None (filtering will be done after)
         search_params = NewsSearchSchema(
             query=q,
             category=category,
             source_type=source_type,
-            company_id=company_id,
+            company_id=str(normalised_company_id) if normalised_company_id else None,
             limit=limit,
             offset=offset
         )
-
+        
         # Perform search
         news_items, total_count = await facade.search_news(search_params)
+        
+        # Apply company filtering if needed (since NewsSearchSchema doesn't support company_ids)
+        # This happens when user has multiple companies or personalization was applied
+        if filter_company_ids is not None and filter_company_ids:
+            # Filter to only include news from user's companies
+            filtered_items = [
+                item for item in news_items
+                if item.company_id and item.company_id in filter_company_ids
+            ]
+            news_items = filtered_items
+            total_count = len(filtered_items)
 
         # Convert to response format
         items = [
@@ -523,15 +725,19 @@ async def search_news(
 @router.get("/{news_id}", response_model=Dict[str, Any])
 async def get_news_item(
     news_id: str,
+    current_user: Optional[User] = Depends(get_current_user_optional),
     facade: NewsFacade = Depends(get_news_facade),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Get specific news item by ID with full details
     
     Returns detailed information about a specific news item including
     related company information, keywords, and user activities.
+    
+    For authenticated users, checks that the news item belongs to their companies (user_id).
     """
-    logger.info(f"News item request: {news_id}")
+    logger.info(f"News item request: {news_id}, user: {current_user.id if current_user else 'anonymous'}")
     
     try:
         try:
@@ -542,13 +748,24 @@ async def get_news_item(
                 detail="Invalid news ID format",
             )
 
-        news_item = await facade.get_news_item(news_id, include_relations=True)
-        
-        if not news_item:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"News item with ID {news_id} not found",
-            )
+        # Проверка доступа: для авторизованных пользователей проверяем, что новость принадлежит их компаниям
+        if current_user:
+            news_item = await check_news_access(news_id, current_user, db)
+            if not news_item:
+                # Всегда возвращаем 404 для недоступных ресурсов (безопасность)
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"News item with ID {news_id} not found",
+                )
+        else:
+            # Для анонимных пользователей получаем новость без проверки доступа
+            # (но это должно быть только для глобальных компаний)
+            news_item = await facade.get_news_item(news_id, include_relations=True)
+            if not news_item:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"News item with ID {news_id} not found",
+                )
         
         # Build comprehensive response
         company_info = None
@@ -610,14 +827,19 @@ async def get_news_by_category(
     limit: int = Query(20, ge=1, le=100, description="Number of news items to return"),
     offset: int = Query(0, ge=0, description="Number of news items to skip"),
     facade: NewsFacade = Depends(get_news_facade),
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db),
+    personalization: PersonalizationService = Depends(get_personalization_service),
 ):
     """
     Get news items by category with statistics
     
     Returns paginated list of news items for a specific category along with
     statistics about top companies and source distribution.
+    
+    For authenticated users, automatically filters by user_id companies.
     """
-    logger.info(f"News by category request: category={category_name}, company_id={company_id}, source_type={source_type}, limit={limit}, offset={offset}")
+    logger.info(f"News by category request: category={category_name}, company_id={company_id}, source_type={source_type}, limit={limit}, offset={offset}, user={current_user.id if current_user else 'anonymous'}")
     
     try:
         # Validate category name
@@ -631,18 +853,91 @@ async def get_news_by_category(
         # Convert string to enum
         category_enum = NewsCategory(category_name)
         
-        # Parse company IDs if provided
-        parsed_company_ids = None
-        if company_ids:
-            parsed_company_ids = [cid.strip() for cid in company_ids.split(',') if cid.strip()]
-        elif company_id:
-            parsed_company_ids = [company_id]
+        # Parse company IDs from query parameters using PersonalizationService
+        parsed_company_ids, normalised_company_id = await personalization.parse_company_ids_from_query(
+            company_ids=company_ids,
+            company_id=company_id
+        )
+        
+        # Get company IDs for filtering (applies personalization if needed)
+        filter_company_ids = await personalization.get_filter_company_ids(
+            user=current_user,
+            provided_ids=parsed_company_ids
+        )
+        
+        # Log personalization
+        if current_user and not parsed_company_ids:
+            if filter_company_ids:
+                logger.info(
+                    f"Auto-filtering category news by {len(filter_company_ids)} user companies "
+                    f"for user {current_user.id}"
+                )
+            else:
+                logger.info(
+                    f"User {current_user.id} has no companies, returning empty category news"
+                )
+        
+        # КРИТИЧЕСКИ ВАЖНО: если filter_company_ids пустой список (пользователь без компаний),
+        # возвращаем пустой результат БЕЗ запроса к БД
+        if personalization.should_return_empty(filter_company_ids):
+            logger.info(f"User {current_user.id if current_user else 'anonymous'} has no companies, returning empty category news")
+            return {
+                "category": category_name,
+                "category_description": NewsCategory.get_descriptions().get(category_enum),
+                "items": [],
+                "total": 0,
+                "limit": limit,
+                "offset": offset,
+                "has_more": False,
+                "statistics": {
+                    "top_companies": [],
+                    "source_distribution": {},
+                    "total_in_category": 0
+                },
+                "filters": {
+                    "company_id": company_id,
+                    "source_type": (source_type.value if hasattr(source_type, 'value') else str(source_type)) if source_type else None
+                }
+            }
         
         # Get news items
+        # Use normalised_company_id if single ID, otherwise use filter_company_ids list
+        # КРИТИЧЕСКИ ВАЖНО: facade ожидает строки, а не UUID объекты
+        final_company_id = None
+        final_company_ids = None
+        
+        # Валидация: проверяем что filter_company_ids не пустой перед запросом
+        if filter_company_ids is None:
+            # Анонимный пользователь или явно указанные ID - фильтрация не нужна
+            pass
+        elif not filter_company_ids:
+            # Пустой список - уже обработано выше через should_return_empty
+            logger.warning(f"Empty company_ids list for category request, user {current_user.id if current_user else 'anonymous'}")
+        else:
+            # Валидация: проверяем что все ID валидные
+            valid_ids = [cid for cid in filter_company_ids if isinstance(cid, UUID)]
+            if len(valid_ids) != len(filter_company_ids):
+                logger.warning(
+                    f"Some company IDs are invalid for category request. "
+                    f"Valid: {len(valid_ids)}, Total: {len(filter_company_ids)}"
+                )
+            
+            if normalised_company_id and len(valid_ids) == 1:
+                # Single company ID case
+                final_company_id = str(normalised_company_id)
+                final_company_ids = None
+            elif len(valid_ids) == 1:
+                # Single ID from personalization
+                final_company_id = str(valid_ids[0])
+                final_company_ids = None
+            else:
+                # Multiple IDs - конвертируем UUID в строки
+                final_company_ids = [str(cid) for cid in valid_ids]
+        
         news_items, total_count = await facade.list_news(
             category=category_enum,
-            company_id=company_id,
-            company_ids=parsed_company_ids,
+            company_id=final_company_id,
+            company_ids=final_company_ids,
             source_type=source_type,
             limit=limit,
             offset=offset
@@ -655,7 +950,7 @@ async def get_news_by_category(
         ]
         
         # Get statistics for this category
-        category_stats = await facade.get_category_statistics(category_enum, parsed_company_ids)
+        category_stats = await facade.get_category_statistics(category_enum, filter_company_ids)
         
         return {
             "category": category_name,

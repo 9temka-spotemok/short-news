@@ -18,6 +18,9 @@ from app.models import (
 )
 from app.domains.competitors import CompetitorFacade
 from app.schemas.competitor_events import CompetitorChangeEventSchema
+from app.core.access_control import check_company_access
+from app.core.database import get_db
+from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter()
 
@@ -34,6 +37,7 @@ async def compare_companies(
     request_data: dict = Body(...),
     current_user: User = Depends(get_current_user),
     facade: CompetitorFacade = Depends(get_competitor_facade),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Compare multiple companies
@@ -45,6 +49,8 @@ async def compare_companies(
         "date_to": "2025-01-31",     // optional
         "name": "Q1 2025 Comparison" // optional
     }
+    
+    ВАЖНО: Все company_ids должны принадлежать пользователю (user_id).
     """
     logger.info(f"Compare companies request from user {current_user.id}")
     logger.info(f"Request data: {request_data}")
@@ -73,6 +79,24 @@ async def compare_companies(
         
         if len(company_ids) > 5:
             raise HTTPException(status_code=400, detail="Maximum 5 companies can be compared at once")
+        
+        # ВАЛИДАЦИЯ: проверяем доступ к каждой компании (user_id)
+        unauthorized_ids = []
+        for company_id in company_ids:
+            try:
+                company = await check_company_access(company_id, current_user, db)
+                if not company:
+                    unauthorized_ids.append(company_id)
+            except (ValueError, TypeError) as e:
+                logger.warning(f"Invalid company ID format: {company_id}, error: {e}")
+                unauthorized_ids.append(company_id)
+        
+        if unauthorized_ids:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Access denied: You don't have access to some of the requested companies. "
+                       f"Unauthorized company IDs: {unauthorized_ids}"
+            )
         
         # Validate UUIDs
         import uuid as uuid_lib
@@ -229,13 +253,22 @@ async def get_company_activity(
     days: int = 30,
     current_user: User = Depends(get_current_user),
     facade: CompetitorFacade = Depends(get_competitor_facade),
+    db: AsyncSession = Depends(get_db),
 ):
     """
-    Get activity metrics for a specific company
+    Get activity metrics for a specific company.
+    
+    ВАЖНО: Проверяет, что компания принадлежит пользователю (user_id).
     """
     logger.info(f"Get activity for company {company_id} from user {current_user.id}")
     
     try:
+        # Проверка доступа: компания должна принадлежать пользователю
+        company = await check_company_access(company_id, current_user, db)
+        if not company:
+            # Всегда возвращаем 404 для недоступных ресурсов (безопасность)
+            raise HTTPException(status_code=404, detail="Company not found")
+        
         import uuid as uuid_lib
         
         date_from = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)
@@ -278,6 +311,7 @@ async def suggest_competitors(
     days: int = 30,
     current_user: User = Depends(get_current_user),
     facade: CompetitorFacade = Depends(get_competitor_facade),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Автоматически подобрать конкурентов
@@ -285,8 +319,16 @@ async def suggest_competitors(
     Query params:
         limit: сколько конкурентов вернуть (default: 5, max: 10)
         days: за какой период анализировать (default: 30)
+    
+    ВАЖНО: Проверяет, что компания принадлежит пользователю (user_id).
     """
     try:
+        # Проверка доступа: компания должна принадлежать пользователю
+        company = await check_company_access(company_id, current_user, db)
+        if not company:
+            # Всегда возвращаем 404 для недоступных ресурсов (безопасность)
+            raise HTTPException(status_code=404, detail="Company not found")
+        
         import uuid as uuid_lib
         
         company_uuid = uuid_lib.UUID(company_id)

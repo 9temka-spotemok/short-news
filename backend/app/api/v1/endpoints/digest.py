@@ -30,17 +30,30 @@ async def get_daily_digest(
     
     try:
         digest_service = DigestService(db)
+        logger.info(
+            f"Generating daily digest for user {current_user.id}, "
+            f"tracked_only={tracked_only}"
+        )
         digest_data = await digest_service.generate_user_digest(
             user_id=str(current_user.id),
             period="daily",
             tracked_only=tracked_only
         )
-        
+        logger.info(
+            f"Daily digest generated successfully for user {current_user.id}, "
+            f"items_count={len(digest_data.get('items', []))}"
+        )
         return digest_data
         
     except Exception as e:
-        logger.error(f"Error generating daily digest: {e}")
-        raise HTTPException(status_code=500, detail="Failed to generate digest")
+        logger.error(
+            f"Error generating daily digest for user {current_user.id}: {e}",
+            exc_info=True
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate digest: {str(e)}"
+        )
 
 
 @router.get("/weekly")

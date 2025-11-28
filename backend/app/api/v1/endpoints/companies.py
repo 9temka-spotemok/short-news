@@ -25,6 +25,7 @@ from app.api.dependencies import get_current_user, get_current_user_optional
 from app.models import User
 from app.domains.news.scrapers import CompanyContext, NewsScraperRegistry
 from app.tasks.scraping import scan_company_sources_initial
+from app.core.access_control import invalidate_user_cache
 
 router = APIRouter()
 
@@ -363,34 +364,20 @@ async def get_company(
     """
     Get a specific company by ID.
     Only accessible if company belongs to current user or is global (user_id is None).
+    
+    ВАЖНО: Проверка доступа выполняется в SQL запросе для безопасности (не раскрывает информацию).
     """
     logger.info(f"Get company: {company_id}, user={current_user.id if current_user else 'anonymous'}")
     
     try:
-        from uuid import UUID
-        from sqlalchemy import or_
+        from app.core.access_control import check_company_access
         
-        # Parse UUID
-        try:
-            uuid_obj = UUID(company_id)
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid company ID format")
-        
-        # Get company
-        result = await db.execute(
-            select(Company).where(Company.id == uuid_obj)
-        )
-        company = result.scalar_one_or_none()
+        # Проверка доступа в SQL запросе (безопасно - всегда возвращает 404 для недоступных)
+        company = await check_company_access(company_id, current_user, db)
         
         if not company:
+            # Всегда возвращаем 404 для недоступных ресурсов (безопасность)
             raise HTTPException(status_code=404, detail="Company not found")
-        
-        # Check access: user can only access their own companies or global companies
-        if company.user_id is not None:
-            # Company belongs to a user
-            if not current_user or company.user_id != current_user.id:
-                raise HTTPException(status_code=403, detail="Access denied: Company belongs to another user")
-        # If company.user_id is None, it's global and accessible to everyone
         
         return {
             "id": str(company.id),
@@ -617,6 +604,9 @@ async def create_company(
             await db.flush()
             company = existing_company
             action = "updated"
+            # Инвалидируем кеш при обновлении компании
+            if company.user_id:
+                invalidate_user_cache(company.user_id)
         else:
             # Create new company - assign to current user
             logger.info(f"Creating new company: {company_data.get('name')} for user {current_user.id}")
@@ -635,6 +625,8 @@ async def create_company(
             await db.flush()
             await db.commit()  # Commit to get company.id
             action = "created"
+            # Инвалидируем кеш при создании новой компании
+            invalidate_user_cache(current_user.id)
             
             # Запускаем первичное сканирование источников для новой компании
             try:

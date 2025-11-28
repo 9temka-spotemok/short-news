@@ -14,6 +14,7 @@ from app.core.database import get_db
 from app.models.onboarding import OnboardingSession, OnboardingStep
 from app.api.dependencies import get_current_user_optional
 from app.models import User
+from app.core.access_control import invalidate_user_cache
 
 router = APIRouter()
 
@@ -972,6 +973,8 @@ async def complete_onboarding(
                 )
                 db.add(parent_company)
                 await db.flush()
+                # Инвалидируем кеш при создании компании
+                invalidate_user_cache(final_user_id)
             else:
                 # Company already belongs to user, update if needed
                 if not parent_company.description and company_data.get("description"):
@@ -994,6 +997,8 @@ async def complete_onboarding(
             )
             db.add(parent_company)
             await db.flush()
+            # Инвалидируем кеш при создании компании
+            invalidate_user_cache(final_user_id)
             
             # Schedule initial source scan for new parent company
             try:
@@ -1069,6 +1074,8 @@ async def complete_onboarding(
                         )
                         db.add(comp)
                         await db.flush()
+                        # Инвалидируем кеш при создании компании
+                        invalidate_user_cache(final_user_id)
                     else:
                         # Company already belongs to user, use it
                         logger.info(f"Using existing user company: {competitor_name}")
@@ -1091,6 +1098,8 @@ async def complete_onboarding(
             )
             db.add(comp)
             await db.flush()
+            # Инвалидируем кеш при создании компании
+            invalidate_user_cache(final_user_id)
             competitor_companies.append(comp)
             company_ids_to_subscribe.append(comp.id)
             

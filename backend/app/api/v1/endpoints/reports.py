@@ -331,14 +331,12 @@ async def get_report(
         raise HTTPException(status_code=400, detail="Invalid report ID format")
     
     report_repo = ReportRepository(db)
-    report = await report_repo.get_by_id(report_uuid, include_relations=True)
+    # ПРАВИЛЬНО: фильтруем по user_id в SQL запросе (безопасно - всегда возвращает 404 для недоступных)
+    report = await report_repo.get_by_id(report_uuid, user_id=current_user.id, include_relations=True)
     
     if not report:
+        # Всегда возвращаем 404 для недоступных ресурсов (безопасность)
         raise HTTPException(status_code=404, detail="Report not found")
-    
-    # Check ownership
-    if report.user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Access denied")
     
     # If not ready, return basic info
     if report.status != ReportStatus.READY:
