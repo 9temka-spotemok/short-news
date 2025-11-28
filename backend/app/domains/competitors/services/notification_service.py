@@ -12,7 +12,7 @@ from loguru import logger
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import ChangeNotificationStatus, Company, CompetitorChangeEvent
+from app.models import ChangeNotificationStatus, Company, CompetitorChangeEvent, User
 from app.models.notification_channels import (
     NotificationPriority,
     NotificationType,
@@ -126,13 +126,54 @@ class CompetitorNotificationService:
         return result.scalar_one_or_none()
 
     async def _load_watchers(self, company_id: UUID) -> List[UUID]:
-        result = await self._session.execute(select(UserPreferences))
+        """
+        Load watchers for a company change event.
+        Ищет watchers по user_id компаний и subscribed_companies.
+        
+        ВАЖНО: 
+        - Если компания принадлежит пользователю (user_id), он получает уведомление
+        - Также ищет пользователей, у которых компания в subscribed_companies
+        - Проверяет, что компания действительно принадлежит пользователю или является глобальной
+        """
         watchers: List[UUID] = []
+        
+        # Сначала проверяем, кому принадлежит компания (user_id)
+        company_result = await self._session.execute(
+            select(Company).where(Company.id == company_id)
+        )
+        company = company_result.scalar_one_or_none()
+        
+        if not company:
+            logger.warning("Company %s not found, returning empty watchers list", company_id)
+            return []
+        
+        # Если компания принадлежит пользователю (user_id), он должен получить уведомление
+        if company.user_id:
+            watchers.append(company.user_id)
+            logger.debug("Company %s belongs to user %s, added to watchers", company_id, company.user_id)
+        
+        # Также ищем пользователей, у которых компания в subscribed_companies
+        # Но проверяем, что компания действительно принадлежит пользователю или является глобальной
+        result = await self._session.execute(select(UserPreferences))
         company_token = str(company_id)
+        
         for preferences in result.scalars().all():
+            # Пропускаем, если уже добавили этого пользователя (владельца компании)
+            if preferences.user_id in watchers:
+                continue
+            
             companies = self._normalized_company_ids(preferences.subscribed_companies or [])
             if company_token in companies:
-                watchers.append(preferences.user_id)
+                # Проверяем, что компания принадлежит пользователю или является глобальной
+                # (не чужая компания)
+                if company.user_id is None or company.user_id == preferences.user_id:
+                    watchers.append(preferences.user_id)
+                    logger.debug(
+                        "User %s has company %s in subscribed_companies, added to watchers",
+                        preferences.user_id,
+                        company_id
+                    )
+        
         # Удаляем возможные дубликаты с сохранением порядка
         seen: Set[UUID] = set()
         unique_watchers: List[UUID] = []
@@ -140,6 +181,15 @@ class CompetitorNotificationService:
             if watcher_id not in seen:
                 unique_watchers.append(watcher_id)
                 seen.add(watcher_id)
+        
+        logger.info(
+            "Found %d watchers for company %s (owner: %s, subscribers: %d)",
+            len(unique_watchers),
+            company_id,
+            company.user_id if company.user_id else "global",
+            len(unique_watchers) - (1 if company.user_id else 0)
+        )
+        
         return unique_watchers
 
     async def _load_settings(

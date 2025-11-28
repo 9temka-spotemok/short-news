@@ -12,8 +12,9 @@ from sqlalchemy import and_, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domains.notifications.repositories import UserPreferencesRepository
-from app.models import Company, NewsItem, UserPreferences
+from app.models import Company, NewsItem, User, UserPreferences
 from app.models.preferences import DigestFormat
+from app.core.access_control import get_user_company_ids
 
 
 class DigestService:
@@ -140,21 +141,84 @@ class DigestService:
         date_to: datetime,
         tracked_only: bool,
     ) -> List[NewsItem]:
+        # ВСЕГДА получаем компании пользователя (user_id)
+        # КРИТИЧЕСКИ ВАЖНО: Конвертируем user_id в стандартный UUID
+        # чтобы избежать проблем с asyncpg.pgproto.UUID
+        # asyncpg UUID не является экземпляром стандартного UUID, поэтому всегда конвертируем через str()
+        try:
+            user_id_uuid = UUID(str(user_prefs.user_id))
+        except (ValueError, TypeError) as e:
+            logger.warning(f"Invalid user_id type: {type(user_prefs.user_id)}, value: {user_prefs.user_id}, error: {e}")
+            return []
+        
+        user = await self._session.get(User, user_id_uuid)
+        if not user:
+            logger.warning("User not found for user_id=%s", user_id_uuid)
+            return []
+        
+        user_company_ids = await get_user_company_ids(user, self._session)
+        
+        if not user_company_ids:
+            logger.info("User has no companies, returning empty digest for user_id=%s", user_id_uuid)
+            return []
+        
         logger.info(
-            "Fetching news tracked_only=%s subscribed=%s",
+            "Fetching news tracked_only=%s user_companies=%d subscribed=%s",
             tracked_only,
-            user_prefs.subscribed_companies,
+            len(user_company_ids),
+            len(user_prefs.subscribed_companies) if user_prefs.subscribed_companies else 0,
         )
 
-        query = select(NewsItem).where(
-            and_(
-                NewsItem.published_at >= date_from,
-                NewsItem.published_at <= date_to,
+        # ОПТИМИЗИРОВАНО: Используем JOIN вместо IN для фильтрации по user_id
+        # Это значительно быстрее при большом количестве компаний у пользователя
+        # КРИТИЧЕСКИ ВАЖНО: Персонализация - только компании пользователя, БЕЗ глобальных
+        from app.models.company import Company
+        
+        # Базовый запрос с JOIN для фильтрации по user_id (только компании пользователя, БЕЗ глобальных)
+        query = (
+            select(NewsItem)
+            .join(Company, NewsItem.company_id == Company.id)
+            .where(
+                and_(
+                    NewsItem.published_at >= date_from,
+                    NewsItem.published_at <= date_to,
+                    Company.user_id == user_id_uuid  # Только компании пользователя, БЕЗ глобальных
+                )
             )
         )
 
+        # Дополнительно фильтруем по subscribed_companies если tracked_only=True
         if tracked_only and user_prefs.subscribed_companies:
-            query = query.where(NewsItem.company_id.in_(user_prefs.subscribed_companies))
+            # КРИТИЧЕСКИ ВАЖНО: Конвертируем subscribed_companies в UUID для правильного сравнения
+            subscribed_ids_set = set()
+            for sub_id in user_prefs.subscribed_companies:
+                try:
+                    # КРИТИЧЕСКИ ВАЖНО: Всегда конвертируем через str(), так как asyncpg UUID
+                    # не является экземпляром стандартного UUID
+                    uuid_id = UUID(str(sub_id))
+                    subscribed_ids_set.add(uuid_id)
+                except (ValueError, TypeError) as e:
+                    logger.warning(f"Invalid subscribed_company ID: {sub_id}, error: {e}, skipping")
+                    continue
+            
+            # Пересечение: только компании, которые и в user_id, и в subscribed_companies
+            filtered_ids = [cid for cid in user_company_ids if cid in subscribed_ids_set]
+            
+            logger.info(
+                "Tracked filter: user_companies=%d, subscribed=%d, intersection=%d",
+                len(user_company_ids),
+                len(subscribed_ids_set),
+                len(filtered_ids)
+            )
+            
+            if filtered_ids:
+                # Используем IN для дополнительной фильтрации по subscribed_companies
+                # Это нормально, так как список обычно небольшой
+                query = query.where(NewsItem.company_id.in_(filtered_ids))
+            else:
+                # Если нет пересечения, возвращаем пустой список
+                logger.info("No intersection between user companies and subscribed_companies, returning empty digest")
+                return []
 
         if tracked_only and user_prefs.interested_categories:
             query = query.where(NewsItem.category.in_(user_prefs.interested_categories))
@@ -162,7 +226,7 @@ class DigestService:
         query = query.order_by(desc(NewsItem.published_at))
         result = await self._session.execute(query)
         news_items = list(result.scalars().all())
-        logger.info("Fetched %s news items", len(news_items))
+        logger.info("Fetched %s news items for user_id=%s", len(news_items), user_id_uuid)
         return news_items
 
     def _filter_news_by_preferences(
@@ -171,9 +235,12 @@ class DigestService:
         news_items: List[NewsItem],
         tracked_only: bool,
     ) -> List[NewsItem]:
+        # Если нет ключевых слов, возвращаем все новости
+        # (они уже отфильтрованы по user_id компаний в _fetch_news)
         if not user_prefs.keywords:
             return news_items
 
+        # Фильтруем по ключевым словам
         filtered: List[NewsItem] = []
         for news in news_items:
             has_keyword = any(
@@ -181,9 +248,25 @@ class DigestService:
                 or keyword.lower() in (news.content or "").lower()
                 for keyword in user_prefs.keywords
             )
+            
+            # Если tracked_only=True и есть subscribed_companies, дополнительно проверяем
             if not has_keyword and tracked_only and user_prefs.subscribed_companies:
-                if news.company_id not in user_prefs.subscribed_companies:
-                    continue
+                # КРИТИЧЕСКИ ВАЖНО: Правильная конвертация типов для сравнения
+                subscribed_set = set()
+                for sub_id in user_prefs.subscribed_companies:
+                    try:
+                        # КРИТИЧЕСКИ ВАЖНО: Всегда конвертируем через str()
+                        uuid_id = UUID(str(sub_id))
+                        subscribed_set.add(uuid_id)
+                    except (ValueError, TypeError):
+                        continue
+                
+                if news.company_id:
+                    # КРИТИЧЕСКИ ВАЖНО: Всегда конвертируем через str()
+                    news_company_uuid = UUID(str(news.company_id))
+                    if news_company_uuid not in subscribed_set:
+                        continue
+            
             filtered.append(news)
         return filtered
 
@@ -192,12 +275,42 @@ class DigestService:
         news_items: List[NewsItem],
         user_prefs: UserPreferences,
     ) -> List[NewsItem]:
+        """
+        Rank news items by relevance.
+        
+        ВАЖНО: Все новости уже отфильтрованы по user_id компаний в _fetch_news().
+        Если tracked_only=True, то новости дополнительно отфильтрованы по subscribed_companies.
+        
+        Поэтому:
+        - Проверка subscribed_companies используется для дополнительного бонуса ранжирования
+        - Все новости гарантированно принадлежат компаниям пользователя
+        """
         def calculate_score(news: NewsItem) -> float:
             score = news.priority_score or 0.5
-            if user_prefs.subscribed_companies and news.company_id in user_prefs.subscribed_companies:
-                score += 0.3
+            
+            # Бонус для компаний в subscribed_companies (даже если tracked_only=False,
+            # это показывает, что пользователь активно отслеживает эти компании)
+            # Проверка subscribed_companies с правильной конвертацией типов
+            if user_prefs.subscribed_companies and news.company_id:
+                subscribed_set = set()
+                for sub_id in user_prefs.subscribed_companies:
+                    try:
+                        # КРИТИЧЕСКИ ВАЖНО: Всегда конвертируем через str()
+                        uuid_id = UUID(str(sub_id))
+                        subscribed_set.add(uuid_id)
+                    except (ValueError, TypeError):
+                        continue
+                
+                # КРИТИЧЕСКИ ВАЖНО: Всегда конвертируем через str()
+                news_company_uuid = UUID(str(news.company_id))
+                if news_company_uuid in subscribed_set:
+                    score += 0.3
+            
+            # Бонус для интересных категорий
             if user_prefs.interested_categories and news.category in user_prefs.interested_categories:
                 score += 0.2
+            
+            # Бонус за совпадение ключевых слов
             if user_prefs.keywords:
                 keyword_matches = sum(
                     1
@@ -207,6 +320,7 @@ class DigestService:
                 )
                 score += keyword_matches * 0.1
 
+            # Бонус за свежесть (новости младше 24 часов)
             now = datetime.now(timezone.utc)
             published = news.published_at
             if published.tzinfo is None:
@@ -410,12 +524,21 @@ class DigestService:
             if not item.company_id:
                 continue
 
-            company_id_str = str(item.company_id)
+            # КРИТИЧЕСКИ ВАЖНО: Конвертируем company_id в стандартный UUID
+            # чтобы избежать проблем с asyncpg.pgproto.UUID
+            # asyncpg UUID не является экземпляром стандартного UUID, поэтому всегда конвертируем через str()
+            try:
+                company_id_uuid = UUID(str(item.company_id))
+            except (ValueError, TypeError) as e:
+                logger.warning(f"Invalid company_id in news item: {type(item.company_id)}, value: {item.company_id}, error: {e}")
+                continue
+
+            company_id_str = str(company_id_uuid)
             if company_id_str not in by_company:
-                company = await self._get_company(item.company_id)
+                company = await self._get_company(company_id_uuid)
                 by_company[company_id_str] = {
                     "company": {
-                        "id": str(item.company_id),
+                        "id": company_id_str,  # Используем уже конвертированный company_id_str
                         "name": company.name if company else "Unknown Company",
                         "logo_url": company.logo_url if company else None,
                     },
@@ -457,8 +580,19 @@ class DigestService:
 
         impact_value = getattr(news_item, "impact_score", None)
 
+        # КРИТИЧЕСКИ ВАЖНО: Конвертируем news_item.id в строку безопасно
+        # чтобы избежать проблем с asyncpg.pgproto.UUID
+        try:
+            if hasattr(news_item.id, '__str__'):
+                news_id_str = str(news_item.id)
+            else:
+                news_id_str = str(news_item.id)
+        except Exception:
+            logger.warning(f"Failed to convert news_item.id to string: {type(news_item.id)}")
+            news_id_str = "unknown"
+
         base_data = {
-            "id": str(news_item.id),
+            "id": news_id_str,
             "title": news_item.title,
             "summary": news_item.summary,
             "category": news_item.category,
@@ -467,7 +601,7 @@ class DigestService:
             "source_url": news_item.source_url,
             "priority_score": news_item.priority_score,
             "impact_score": impact_value,
-            "company_id": str(news_item.company_id) if news_item.company_id else None,
+            "company_id": str(news_item.company_id) if news_item.company_id else None,  # Конвертация в строку безопасна
         }
 
         if digest_format == DigestFormat.DETAILED.value:
@@ -482,8 +616,17 @@ class DigestService:
         return base_data
 
     async def _get_company(self, company_id: UUID) -> Optional[Company]:
+        # КРИТИЧЕСКИ ВАЖНО: Конвертируем company_id в стандартный UUID
+        # чтобы избежать проблем с asyncpg.pgproto.UUID
+        # asyncpg UUID не является экземпляром стандартного UUID, поэтому всегда конвертируем через str()
+        try:
+            uuid_id = UUID(str(company_id))
+        except (ValueError, TypeError) as e:
+            logger.warning(f"Invalid company_id type: {type(company_id)}, value: {company_id}, error: {e}")
+            return None
+        
         result = await self._session.execute(
-            select(Company).where(Company.id == company_id)
+            select(Company).where(Company.id == uuid_id)
         )
         return result.scalar_one_or_none()
 

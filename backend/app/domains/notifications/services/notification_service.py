@@ -25,6 +25,7 @@ from app.models import (
     NotificationType,
     UserPreferences,
 )
+from app.core.access_control import check_company_access
 
 
 class NotificationService:
@@ -98,7 +99,7 @@ class NotificationService:
             if not user_prefs:
                 continue
 
-            notification_type, priority, should_notify = self._evaluate_news_match(
+            notification_type, priority, should_notify = await self._evaluate_news_match(
                 news_item=news_item,
                 settings=settings,
                 preferences=user_prefs,
@@ -316,18 +317,40 @@ class NotificationService:
             return config.get("enabled", True)
         return True
 
-    def _evaluate_news_match(
+    async def _evaluate_news_match(
         self,
         *,
         news_item: NewsItem,
         settings: NotificationSettings,
         preferences: UserPreferences,
     ) -> tuple[NotificationType, NotificationPriority, bool]:
+        """
+        Evaluate if news item should trigger notification.
+        Проверяет, должна ли новость вызвать уведомление.
+        
+        ВАЖНО: Сначала проверяет, что компания принадлежит пользователю (user_id),
+        затем проверяет subscribed_companies.
+        """
         should_notify = False
         notification_type = NotificationType.NEW_NEWS
         priority = NotificationPriority.MEDIUM
 
-        # Company-based alerts
+        # СНАЧАЛА проверяем, что компания принадлежит пользователю (user_id)
+        if news_item.company_id:
+            from app.models import User
+            user = await self._session.get(User, preferences.user_id)
+            if user:
+                company = await check_company_access(news_item.company_id, user, self._session)
+                if not company:
+                    # Компания не принадлежит пользователю - не отправляем уведомление
+                    logger.debug(
+                        "Company %s does not belong to user %s, skipping notification",
+                        news_item.company_id,
+                        preferences.user_id
+                    )
+                    return notification_type, priority, False
+
+        # Company-based alerts (только для subscribed_companies, которые принадлежат пользователю)
         if settings.company_alerts and preferences.subscribed_companies:
             if news_item.company_id in preferences.subscribed_companies:
                 should_notify = True
@@ -342,7 +365,7 @@ class NotificationService:
                     notification_type = NotificationType.PRODUCT_LAUNCH
                     priority = NotificationPriority.MEDIUM
 
-        # Keyword-based alerts
+        # Keyword-based alerts (тоже только для компаний пользователя)
         if settings.keyword_alerts and preferences.keywords:
             title = (news_item.title or "").lower()
             content = (news_item.content or "").lower()
