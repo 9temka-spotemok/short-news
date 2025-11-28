@@ -16,6 +16,7 @@ from app.domains.competitors import CompetitorFacade
 from app.domains.analytics import AnalyticsFacade
 from app.domains.notifications import NotificationsFacade
 from app.models import User
+from app.core.personalization import PersonalizationService
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
@@ -177,4 +178,13 @@ def get_notifications_facade(
     Provide NotificationsFacade instance for request-scoped operations.
     """
     return NotificationsFacade(db)
+
+
+def get_personalization_service(
+    db: AsyncSession = Depends(get_db),
+) -> PersonalizationService:
+    """
+    Provide PersonalizationService instance for request-scoped operations.
+    """
+    return PersonalizationService(db)
 
