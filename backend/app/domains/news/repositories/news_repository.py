@@ -239,9 +239,35 @@ class NewsRepository:
         stmt = stmt.where(user_filter)
         count_stmt = count_stmt.where(user_filter)
         
-        # Apply additional filters (excluding company_id/company_ids as we filter by user_id)
-        # Create a copy of filters without company filters
+        # Apply additional filters
+        # Если передан company_id/company_ids - используем как дополнительный фильтр (пересечение)
         other_criteria = []
+        
+        # Дополнительная фильтрация по company_id/company_ids (пересечение с user_id)
+        if filters.company_ids:
+            # Валидация: проверяем что список не пустой
+            if filters.company_ids:
+                # КРИТИЧЕСКИ ВАЖНО: Конвертируем строки в UUID для правильного сравнения
+                uuid_ids = []
+                for cid in filters.company_ids:
+                    if not cid:  # Пропускаем пустые строки
+                        continue
+                    try:
+                        uuid_ids.append(UUID(cid) if isinstance(cid, str) else cid)
+                    except (ValueError, TypeError):
+                        # Пропускаем невалидные UUID
+                        continue
+                if uuid_ids:
+                    # Дополнительная фильтрация: только компании из списка (пересечение)
+                    other_criteria.append(NewsItem.company_id.in_(uuid_ids))
+        elif filters.company_id:
+            # Конвертируем строку в UUID если нужно
+            try:
+                company_id_uuid = UUID(filters.company_id) if isinstance(filters.company_id, str) else filters.company_id
+                other_criteria.append(NewsItem.company_id == company_id_uuid)
+            except (ValueError, TypeError):
+                # Невалидный UUID - не добавляем фильтр
+                pass
         
         bind = getattr(self._session, "bind", None)
         dialect_name = getattr(getattr(bind, "dialect", None), "name", None)

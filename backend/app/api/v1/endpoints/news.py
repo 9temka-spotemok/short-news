@@ -326,59 +326,44 @@ async def get_news(
                 }
             }
         
-        # ОПТИМИЗАЦИЯ: Если filter_company_ids получен из personalization (не явно указан),
-        # используем user_id для оптимизированного JOIN запроса
-        # Если пользователь явно указал company_ids, используем IN для конкретных компаний
-        use_user_id_filter = (
-            current_user is not None 
-            and parsed_company_ids is None  # Пользователь не указал явно company_ids
-            and filter_company_ids is not None  # Есть компании для фильтрации
-        )
-        
+        # УПРОЩЕННАЯ ЛОГИКА: Всегда используем user_id для базовой персонализации
+        # company_ids используется как дополнительный фильтр (пересечение)
         final_company_id = None
         final_company_ids = None
         final_user_id = None
         
-        if use_user_id_filter:
-            # Используем оптимизированный JOIN через user_id
+        if current_user:
+            # Аутентифицированный пользователь - всегда используем user_id для оптимизированного JOIN
             final_user_id = str(current_user.id)
-            logger.info(f"Using optimized JOIN query for user_id={final_user_id}")
-        elif filter_company_ids is None:
-            # Анонимный пользователь - показываем только глобальные компании
-            # Для этого используем специальный user_id=None в фильтре
-            if current_user is None:
-                logger.info("Anonymous user - showing only global companies")
-                # Для анонимных пользователей используем user_id=None, что означает только глобальные компании
-                # Это обрабатывается в list_news_by_user_id с include_global=False
-                # Но нам нужно показать только глобальные, поэтому не передаем user_id
-                # и используем стандартный запрос без фильтрации по user_id
-                pass
-            else:
-                # Пользователь явно указал company_ids через query params - используем их
-                pass
-        elif not filter_company_ids:
-            # Пустой список - уже обработано выше через should_return_empty
-            logger.warning(f"Empty company_ids list for user {current_user.id if current_user else 'anonymous'}")
-        else:
-            # Пользователь явно указал company_ids - используем IN для конкретных компаний
-            # Валидация: проверяем что все ID валидные
-            valid_ids = [cid for cid in filter_company_ids if isinstance(cid, UUID)]
-            if len(valid_ids) != len(filter_company_ids):
-                logger.warning(
-                    f"Some company IDs are invalid. Valid: {len(valid_ids)}, Total: {len(filter_company_ids)}"
-                )
             
-            if normalised_company_id and len(valid_ids) == 1:
-                # Single company ID case
-                final_company_id = str(normalised_company_id)
-                final_company_ids = None
-            elif len(valid_ids) == 1:
-                # Single ID from personalization
-                final_company_id = str(valid_ids[0])
-                final_company_ids = None
+            # Если передан company_ids - используем как дополнительный фильтр (пересечение)
+            if filter_company_ids:
+                # Валидация: проверяем что все ID валидные UUID
+                valid_ids = [cid for cid in filter_company_ids if isinstance(cid, UUID)]
+                if len(valid_ids) != len(filter_company_ids):
+                    logger.warning(
+                        f"Some company IDs are invalid. Valid: {len(valid_ids)}, Total: {len(filter_company_ids)}"
+                    )
+                
+                if len(valid_ids) == 1:
+                    # Single company ID case
+                    final_company_id = str(valid_ids[0])
+                    final_company_ids = None
+                    logger.info(f"Using user_id={final_user_id} + company_id={final_company_id} filter")
+                elif len(valid_ids) > 1:
+                    # Multiple IDs - конвертируем UUID в строки
+                    final_company_ids = [str(cid) for cid in valid_ids]
+                    logger.info(f"Using user_id={final_user_id} + company_ids={len(final_company_ids)} companies filter")
+                else:
+                    # Пустой список после валидации - уже обработано выше
+                    logger.warning(f"No valid company IDs after validation for user {current_user.id}")
             else:
-                # Multiple IDs - конвертируем UUID в строки
-                final_company_ids = [str(cid) for cid in valid_ids]
+                # Нет company_ids - показываем все компании пользователя
+                logger.info(f"Using user_id={final_user_id} filter (all user companies)")
+        else:
+            # Анонимный пользователь - показываем только глобальные компании
+            logger.info("Anonymous user - showing only global companies")
+            # Не передаем user_id, будет использован стандартный запрос без фильтрации по user_id
         
         news_items, total_count = await facade.list_news(
             category=category,
@@ -663,30 +648,57 @@ async def search_news(
                 }
             }
         
-        # Create search parameters
-        # Use normalised_company_id if single ID, otherwise pass None (filtering will be done after)
-        search_params = NewsSearchSchema(
-            query=q,
+        # УПРОЩЕННАЯ ЛОГИКА: Используем list_news с user_id и search_query для SQL-фильтрации
+        # Это эффективнее чем in-memory фильтрация
+        final_company_id = None
+        final_company_ids = None
+        final_user_id = None
+        
+        if current_user:
+            # Аутентифицированный пользователь - всегда используем user_id для оптимизированного JOIN
+            final_user_id = str(current_user.id)
+            
+            # Если передан company_ids - используем как дополнительный фильтр (пересечение)
+            if filter_company_ids:
+                # Валидация: проверяем что все ID валидные UUID
+                valid_ids = [cid for cid in filter_company_ids if isinstance(cid, UUID)]
+                if len(valid_ids) != len(filter_company_ids):
+                    logger.warning(
+                        f"Some company IDs are invalid. Valid: {len(valid_ids)}, Total: {len(filter_company_ids)}"
+                    )
+                
+                if len(valid_ids) == 1:
+                    # Single company ID case
+                    final_company_id = str(valid_ids[0])
+                    final_company_ids = None
+                    logger.info(f"Search with user_id={final_user_id} + company_id={final_company_id}")
+                elif len(valid_ids) > 1:
+                    # Multiple IDs - конвертируем UUID в строки
+                    final_company_ids = [str(cid) for cid in valid_ids]
+                    logger.info(f"Search with user_id={final_user_id} + company_ids={len(final_company_ids)} companies")
+                else:
+                    # Пустой список после валидации - уже обработано выше
+                    logger.warning(f"No valid company IDs after validation for user {current_user.id}")
+            else:
+                # Нет company_ids - показываем все компании пользователя
+                logger.info(f"Search with user_id={final_user_id} (all user companies)")
+        else:
+            # Анонимный пользователь - показываем только глобальные компании
+            logger.info("Anonymous user search - showing only global companies")
+        
+        # Используем list_news с search_query для SQL-фильтрации (не in-memory!)
+        news_items, total_count = await facade.list_news(
             category=category,
+            company_id=final_company_id,
+            company_ids=final_company_ids,
+            user_id=final_user_id,  # Передаем user_id для оптимизированного JOIN
+            include_global_companies=False,  # КРИТИЧЕСКИ ВАЖНО: Персонализация - только компании пользователя, БЕЗ глобальных
             source_type=source_type,
-            company_id=str(normalised_company_id) if normalised_company_id else None,
+            search_query=q,  # Поиск на уровне SQL
+            min_priority=None,
             limit=limit,
             offset=offset
         )
-        
-        # Perform search
-        news_items, total_count = await facade.search_news(search_params)
-        
-        # Apply company filtering if needed (since NewsSearchSchema doesn't support company_ids)
-        # This happens when user has multiple companies or personalization was applied
-        if filter_company_ids is not None and filter_company_ids:
-            # Filter to only include news from user's companies
-            filtered_items = [
-                item for item in news_items
-                if item.company_id and item.company_id in filter_company_ids
-            ]
-            news_items = filtered_items
-            total_count = len(filtered_items)
 
         # Convert to response format
         items = [
@@ -900,44 +912,51 @@ async def get_news_by_category(
                 }
             }
         
-        # Get news items
-        # Use normalised_company_id if single ID, otherwise use filter_company_ids list
-        # КРИТИЧЕСКИ ВАЖНО: facade ожидает строки, а не UUID объекты
+        # УПРОЩЕННАЯ ЛОГИКА: Всегда используем user_id для базовой персонализации
+        # company_ids используется как дополнительный фильтр (пересечение)
         final_company_id = None
         final_company_ids = None
+        final_user_id = None
         
-        # Валидация: проверяем что filter_company_ids не пустой перед запросом
-        if filter_company_ids is None:
-            # Анонимный пользователь или явно указанные ID - фильтрация не нужна
-            pass
-        elif not filter_company_ids:
-            # Пустой список - уже обработано выше через should_return_empty
-            logger.warning(f"Empty company_ids list for category request, user {current_user.id if current_user else 'anonymous'}")
-        else:
-            # Валидация: проверяем что все ID валидные
-            valid_ids = [cid for cid in filter_company_ids if isinstance(cid, UUID)]
-            if len(valid_ids) != len(filter_company_ids):
-                logger.warning(
-                    f"Some company IDs are invalid for category request. "
-                    f"Valid: {len(valid_ids)}, Total: {len(filter_company_ids)}"
-                )
+        if current_user:
+            # Аутентифицированный пользователь - всегда используем user_id для оптимизированного JOIN
+            final_user_id = str(current_user.id)
             
-            if normalised_company_id and len(valid_ids) == 1:
-                # Single company ID case
-                final_company_id = str(normalised_company_id)
-                final_company_ids = None
-            elif len(valid_ids) == 1:
-                # Single ID from personalization
-                final_company_id = str(valid_ids[0])
-                final_company_ids = None
+            # Если передан company_ids - используем как дополнительный фильтр (пересечение)
+            if filter_company_ids:
+                # Валидация: проверяем что все ID валидные UUID
+                valid_ids = [cid for cid in filter_company_ids if isinstance(cid, UUID)]
+                if len(valid_ids) != len(filter_company_ids):
+                    logger.warning(
+                        f"Some company IDs are invalid. Valid: {len(valid_ids)}, Total: {len(filter_company_ids)}"
+                    )
+                
+                if len(valid_ids) == 1:
+                    # Single company ID case
+                    final_company_id = str(valid_ids[0])
+                    final_company_ids = None
+                    logger.info(f"Category news with user_id={final_user_id} + company_id={final_company_id} filter")
+                elif len(valid_ids) > 1:
+                    # Multiple IDs - конвертируем UUID в строки
+                    final_company_ids = [str(cid) for cid in valid_ids]
+                    logger.info(f"Category news with user_id={final_user_id} + company_ids={len(final_company_ids)} companies filter")
+                else:
+                    # Пустой список после валидации - уже обработано выше
+                    logger.warning(f"No valid company IDs after validation for user {current_user.id}")
             else:
-                # Multiple IDs - конвертируем UUID в строки
-                final_company_ids = [str(cid) for cid in valid_ids]
+                # Нет company_ids - показываем все компании пользователя
+                logger.info(f"Category news with user_id={final_user_id} filter (all user companies)")
+        else:
+            # Анонимный пользователь - показываем только глобальные компании
+            logger.info("Anonymous user category news - showing only global companies")
+            # Не передаем user_id, будет использован стандартный запрос без фильтрации по user_id
         
         news_items, total_count = await facade.list_news(
             category=category_enum,
             company_id=final_company_id,
             company_ids=final_company_ids,
+            user_id=final_user_id,  # Передаем user_id для оптимизированного JOIN
+            include_global_companies=False,  # КРИТИЧЕСКИ ВАЖНО: Персонализация - только компании пользователя, БЕЗ глобальных
             source_type=source_type,
             limit=limit,
             offset=offset

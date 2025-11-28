@@ -35,7 +35,7 @@ class PersonalizationService:
         Get company IDs for filtering.
         
         Logic:
-        1. If provided_ids is given, use it (user explicitly specified)
+        1. If provided_ids is given, return intersection with user's companies (security)
         2. If user is authenticated, get their companies
         3. If user has no companies, return empty list
         4. If user is anonymous, return None (no filtering)
@@ -45,48 +45,55 @@ class PersonalizationService:
             provided_ids: Explicitly provided company IDs (from query params)
             
         Returns:
-            List[UUID] - company IDs to filter by
-            [] - user has no companies (return empty results)
-            None - no filtering needed (anonymous user or explicit IDs provided)
+            List[UUID] - company IDs to filter by (intersection of user companies and provided_ids)
+            [] - user has no companies or no intersection (return empty results)
+            None - no filtering needed (anonymous user)
         """
-        # If user explicitly provided company IDs, validate and use them
-        if provided_ids is not None:
-            # Валидация: проверяем что все ID валидные UUID
-            valid_ids = []
-            for cid in provided_ids:
-                if isinstance(cid, UUID):
-                    valid_ids.append(cid)
-                else:
-                    # Попытка конвертировать в UUID
-                    try:
-                        valid_ids.append(UUID(str(cid)))
-                    except (ValueError, TypeError):
-                        # Пропускаем невалидные UUID
-                        continue
-            return valid_ids if valid_ids else []
-        
         # If user is anonymous, no filtering
         if not user:
             return None
         
-        # Get user's companies
+        # Get user's companies first
         try:
             user_company_ids = await get_user_company_ids(user, self._db)
             # Валидация: проверяем что все ID валидные UUID
-            if user_company_ids:
-                valid_ids = []
-                for cid in user_company_ids:
+            valid_user_ids = []
+            for cid in user_company_ids:
+                if isinstance(cid, UUID):
+                    valid_user_ids.append(cid)
+                else:
+                    try:
+                        valid_user_ids.append(UUID(str(cid)))
+                    except (ValueError, TypeError):
+                        continue
+            
+            if not valid_user_ids:
+                # КРИТИЧЕСКИ ВАЖНО: если у пользователя нет компаний, 
+                # возвращаем пустой список для возврата пустого результата
+                return []
+            
+            # If user explicitly provided company IDs, return intersection (security)
+            if provided_ids is not None:
+                # Валидация: проверяем что все ID валидные UUID
+                valid_provided_ids = []
+                for cid in provided_ids:
                     if isinstance(cid, UUID):
-                        valid_ids.append(cid)
+                        valid_provided_ids.append(cid)
                     else:
+                        # Попытка конвертировать в UUID
                         try:
-                            valid_ids.append(UUID(str(cid)))
+                            valid_provided_ids.append(UUID(str(cid)))
                         except (ValueError, TypeError):
+                            # Пропускаем невалидные UUID
                             continue
-                return valid_ids if valid_ids else []
-            # КРИТИЧЕСКИ ВАЖНО: если у пользователя нет компаний, 
-            # возвращаем пустой список для возврата пустого результата
-            return []
+                
+                # БЕЗОПАСНОСТЬ: возвращаем пересечение (только свои компании из списка)
+                intersection = [cid for cid in valid_provided_ids if cid in valid_user_ids]
+                return intersection if intersection else []
+            
+            # No provided_ids - return all user's companies
+            return valid_user_ids
+            
         except Exception:
             # On error, return empty list to prevent showing all news
             return []
