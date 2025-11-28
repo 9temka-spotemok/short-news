@@ -285,25 +285,26 @@ async def get_companies(
 ):
     """
     Get list of companies with optional search.
-    Returns only user's own companies and global companies (user_id is None).
+    
+    For authenticated users: Returns only companies from subscribed_companies (data isolation).
+    For anonymous users: Returns only global companies (user_id is None).
     """
     logger.info(f"Companies request: search={search}, limit={limit}, offset={offset}, user={current_user.id if current_user else 'anonymous'}")
     
     try:
         from sqlalchemy import or_
+        from app.models.preferences import UserPreferences
         
-        # Build query with user isolation: only show user's companies or global companies
+        # For authenticated users, show ONLY their own companies (user_id == current_user.id)
+        # This is for "My Competitors" - companies that belong to the user
+        # subscribed_companies is separate - it's for news filtering only
         if current_user:
-            # Authenticated user: show their companies and global companies
-            user_filter = or_(
-                Company.user_id == current_user.id,
-                Company.user_id.is_(None)
-            )
+            # Show only companies that belong to this user (data isolation)
+            query = select(Company).where(Company.user_id == current_user.id).order_by(Company.name)
+            logger.info(f"Filtering companies by user_id={current_user.id} for user {current_user.id}")
         else:
             # Anonymous user: only show global companies
-            user_filter = Company.user_id.is_(None)
-        
-        query = select(Company).where(user_filter).order_by(Company.name)
+            query = select(Company).where(Company.user_id.is_(None)).order_by(Company.name)
         
         # Apply search filter
         if search:
@@ -317,7 +318,11 @@ async def get_companies(
         companies = result.scalars().all()
         
         # Get total count with same filters
-        count_query = select(func.count(Company.id)).where(user_filter)
+        if current_user:
+            count_query = select(func.count(Company.id)).where(Company.user_id == current_user.id)
+        else:
+            count_query = select(func.count(Company.id)).where(Company.user_id.is_(None))
+        
         if search:
             count_query = count_query.where(Company.name.ilike(f"%{search}%"))
         

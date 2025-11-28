@@ -135,13 +135,12 @@ async def analyze_company(
             from app.services.gpt_service import GPTService
             gpt_service = GPTService()
             
-            # Generate AI description
+            # Generate AI description (always in English)
             ai_description = await gpt_service.generate_company_description(company_info)
             if ai_description:
                 company_info['ai_description'] = ai_description
-                # Also update description if it's better than meta_description
-                if not company_info.get('description') or len(ai_description) > len(company_info.get('description', '')):
-                    company_info['description'] = ai_description
+                # Always use AI-generated description (in English) instead of meta_description
+                company_info['description'] = ai_description
             
             # Generate industry signals
             industry_signals = await gpt_service.suggest_industry_signals(company_info)
@@ -205,182 +204,49 @@ async def suggest_competitors(
     company_website = company_data.get('website')
     
     try:
-        # Try to find the company in database first (only for current user or global)
-        company = None
-        if company_website:
-            # Normalize URL
-            from urllib.parse import urlparse
-            parsed = urlparse(company_website)
-            normalized_url = f"{parsed.scheme}://{parsed.netloc}".lower().replace('www.', '')
-            
-            # Filter by user_id: only show companies for current user or global (user_id is None)
-            if session.user_id:
-                user_filter = Company.user_id == session.user_id
-            else:
-                # Anonymous user - only show global companies
-                user_filter = Company.user_id.is_(None)
-            
-            company_result = await db.execute(
-                select(Company).where(
-                    and_(
-                        or_(
-                            func.lower(func.replace(Company.website, 'www.', '')) == normalized_url,
-                            Company.name.ilike(f"%{company_name}%")
-                        ),
-                        user_filter
-                    )
-                ).limit(1)
-            )
-            company = company_result.scalar_one_or_none()
+        # For onboarding, always use GPT to generate competitors
+        # Onboarding is for new users who don't have companies in the database yet
+        from app.services.gpt_service import GPTService
+        gpt_service = GPTService()
+        
+        logger.info(f"Using GPT to generate competitors for onboarding: {company_name}")
         
         competitors = []
         
-        if company:
-            # Use CompetitorAnalysisService if company exists in DB
-            competitor_service = CompetitorAnalysisService(db)
-            date_from = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=30)
-            date_to = datetime.now(timezone.utc).replace(tzinfo=None)
-            
-            suggestions = await competitor_service.suggest_competitors(
-                company.id,
-                limit=limit,
-                date_from=date_from,
-                date_to=date_to
-            )
-            
-            # Generate AI descriptions for competitors
-            from app.services.gpt_service import GPTService
-            gpt_service = GPTService()
-            
-            competitors = []
-            for s in suggestions:
-                if not s or not isinstance(s, dict) or not s.get("company"):
-                    continue
+        # Generate competitors list using GPT
+        gpt_competitors = await gpt_service.suggest_competitors_list(company_data, limit=limit)
+        
+        if gpt_competitors and len(gpt_competitors) > 0:
+            # Convert GPT suggestions to competitor format
+            # Note: GPT already provides descriptions, so we don't need to generate additional AI descriptions
+            # This saves time and API calls
+            for gpt_comp in gpt_competitors:
+                # Generate temporary UUID for new competitors (not in DB yet)
+                # This will be used to track competitors during onboarding
+                temp_id = str(uuid4())
                 
                 competitor_dict = {
                     "company": {
-                        "id": str(s.get("company", {}).get("id", "")),
-                        "name": s.get("company", {}).get("name", ""),
-                        "website": s.get("company", {}).get("website", ""),
-                        "description": s.get("company", {}).get("description", ""),
-                        "logo_url": s.get("company", {}).get("logo_url"),
-                        "category": s.get("company", {}).get("category")
+                        "id": temp_id,  # Temporary ID for tracking during onboarding
+                        "name": gpt_comp.get("name", ""),
+                        "website": gpt_comp.get("website", ""),
+                        "description": gpt_comp.get("description", ""),  # Already in English from GPT
+                        "logo_url": None,
+                        "category": company_category,
+                        "ai_description": gpt_comp.get("description", "")  # Use GPT description as ai_description
                     },
-                    "similarity_score": s.get("similarity_score", 0.0),
-                    "common_categories": s.get("common_categories", []),
-                    "reason": s.get("reason", "Similar company")
+                    "similarity_score": 0.8,  # High score for GPT-generated competitors
+                    "common_categories": [company_category] if company_category else [],
+                    "reason": gpt_comp.get("reason", "AI-generated competitor")
                 }
                 
-                # Generate AI description for competitor
-                try:
-                    competitor_data = competitor_dict["company"]
-                    ai_description = await gpt_service.generate_competitor_description(
-                        competitor_data,
-                        company_name
-                    )
-                    if ai_description:
-                        competitor_dict["company"]["ai_description"] = ai_description
-                except Exception as gpt_error:
-                    logger.warning(f"Failed to generate AI description for competitor {competitor_data.get('name')}: {gpt_error}")
-                
                 competitors.append(competitor_dict)
+            
+            logger.info(f"GPT generated {len(competitors)} competitors for {company_name}")
         else:
-            # If company not in DB, use GPT to generate competitor suggestions
-            from app.services.gpt_service import GPTService
-            gpt_service = GPTService()
-            
-            logger.info(f"Company {company_name} not found in DB, using GPT to generate competitors")
-            
-            # Generate competitors list using GPT
-            gpt_competitors = await gpt_service.suggest_competitors_list(company_data, limit=limit)
-            
-            if gpt_competitors and len(gpt_competitors) > 0:
-                # Convert GPT suggestions to competitor format
-                for gpt_comp in gpt_competitors:
-                    competitor_dict = {
-                        "company": {
-                            "id": None,  # New competitor, not in DB yet
-                            "name": gpt_comp.get("name", ""),
-                            "website": gpt_comp.get("website", ""),
-                            "description": gpt_comp.get("description", ""),
-                            "logo_url": None,
-                            "category": company_category
-                        },
-                        "similarity_score": 0.8,  # High score for GPT-generated competitors
-                        "common_categories": [company_category] if company_category else [],
-                        "reason": gpt_comp.get("reason", "AI-generated competitor")
-                    }
-                    
-                    # Generate AI description for competitor (enhancement)
-                    try:
-                        competitor_data = competitor_dict["company"]
-                        ai_description = await gpt_service.generate_competitor_description(
-                            competitor_data,
-                            company_name
-                        )
-                        if ai_description:
-                            competitor_dict["company"]["ai_description"] = ai_description
-                            # Update description if AI description is better
-                            if not competitor_dict["company"]["description"] or len(ai_description) > len(competitor_dict["company"]["description"]):
-                                competitor_dict["company"]["description"] = ai_description
-                    except Exception as gpt_error:
-                        logger.warning(f"Failed to generate AI description for competitor {gpt_comp.get('name')}: {gpt_error}")
-                    
-                    competitors.append(competitor_dict)
-                
-                logger.info(f"GPT generated {len(competitors)} competitors for {company_name}")
-            else:
-                # Fallback: if GPT fails, try to find companies by category (only for current user)
-                logger.warning(f"GPT failed to generate competitors, trying fallback by category")
-                
-                if company_category:
-                    from sqlalchemy import and_
-                    # For anonymous users (no user_id in session), don't show other users' companies
-                    # Only show companies that belong to no user (global) or to the session user
-                    if session.user_id:
-                        user_id_filter = Company.user_id == session.user_id
-                    else:
-                        # Anonymous user - only show global companies (user_id is None)
-                        user_id_filter = Company.user_id.is_(None)
-                    
-                    category_companies = await db.execute(
-                        select(Company).where(
-                            and_(
-                                Company.category == company_category,
-                                user_id_filter
-                            )
-                        ).limit(limit)
-                    )
-                    category_companies_list = category_companies.scalars().all()
-                    
-                    for comp in category_companies_list:
-                        competitor_dict = {
-                            "company": {
-                                "id": str(comp.id),
-                                "name": comp.name,
-                                "website": comp.website or "",
-                                "description": comp.description or "",
-                                "logo_url": comp.logo_url,
-                                "category": comp.category
-                            },
-                            "similarity_score": 0.7,
-                            "common_categories": [company_category] if company_category else [],
-                            "reason": f"Same category: {company_category}"
-                        }
-                        
-                        # Generate AI description
-                        try:
-                            competitor_data = competitor_dict["company"]
-                            ai_description = await gpt_service.generate_competitor_description(
-                                competitor_data,
-                                company_name
-                            )
-                            if ai_description:
-                                competitor_dict["company"]["ai_description"] = ai_description
-                        except Exception as gpt_error:
-                            logger.warning(f"Failed to generate AI description for competitor {comp.name}: {gpt_error}")
-                        
-                        competitors.append(competitor_dict)
+            # If GPT fails, return empty list (don't use database fallback for onboarding)
+            logger.warning(f"GPT failed to generate competitors for {company_name}. Returning empty list.")
+            competitors = []
         
         logger.info(f"Suggested {len(competitors)} competitors for onboarding session {session_token[:8]}")
         
@@ -497,33 +363,40 @@ async def replace_competitor(
                 try:
                     comp_uuid = UUID(str(comp_id))
                     if comp_uuid not in excluded_ids:
+                        comp_description = s.get("company", {}).get("description", "")
+                        comp_ai_description = s.get("company", {}).get("ai_description", "")
+                        
                         new_competitor = {
                             "company": {
                                 "id": str(comp_id),
                                 "name": s.get("company", {}).get("name", ""),
                                 "website": s.get("company", {}).get("website", ""),
-                                "description": s.get("company", {}).get("description", ""),
+                                "description": comp_description,
                                 "logo_url": s.get("company", {}).get("logo_url"),
-                                "category": s.get("company", {}).get("category")
+                                "category": s.get("company", {}).get("category"),
+                                # Use existing AI description if available, otherwise use description
+                                "ai_description": comp_ai_description or comp_description or ""
                             },
                             "similarity_score": s.get("similarity_score", 0.0),
                             "common_categories": s.get("common_categories", []),
                             "reason": s.get("reason", "Similar company")
                         }
                         
-                        # Generate AI description for replacement competitor
-                        try:
-                            from app.services.gpt_service import GPTService
-                            gpt_service = GPTService()
-                            competitor_data = new_competitor["company"]
-                            ai_description = await gpt_service.generate_competitor_description(
-                                competitor_data,
-                                company_name or "Company"
-                            )
-                            if ai_description:
-                                new_competitor["company"]["ai_description"] = ai_description
-                        except Exception as gpt_error:
-                            logger.warning(f"Failed to generate AI description for replacement competitor: {gpt_error}")
+                        # Only generate AI description if we don't have one
+                        if not comp_ai_description and not comp_description:
+                            try:
+                                from app.services.gpt_service import GPTService
+                                gpt_service = GPTService()
+                                competitor_data = new_competitor["company"]
+                                ai_description = await gpt_service.generate_competitor_description(
+                                    competitor_data,
+                                    company_name or "Company"
+                                )
+                                if ai_description:
+                                    new_competitor["company"]["ai_description"] = ai_description
+                                    new_competitor["company"]["description"] = ai_description
+                            except Exception as gpt_error:
+                                logger.warning(f"Failed to generate AI description for replacement competitor: {gpt_error}")
                         
                         break
                 except ValueError:
@@ -551,33 +424,39 @@ async def replace_competitor(
             
             for comp in category_companies_list:
                 if comp.id not in excluded_ids:
+                    comp_description = comp.description or ""
+                    
                     new_competitor = {
                         "company": {
                             "id": str(comp.id),
                             "name": comp.name,
                             "website": comp.website or "",
-                            "description": comp.description or "",
+                            "description": comp_description,
                             "logo_url": comp.logo_url,
-                            "category": comp.category
+                            "category": comp.category,
+                            # Use existing description as ai_description if available
+                            "ai_description": comp_description or ""
                         },
                         "similarity_score": 0.7,
                         "common_categories": [company_category] if company_category else [],
                         "reason": f"Same category: {company_category}"
                     }
                     
-                    # Generate AI description
-                    try:
-                        from app.services.gpt_service import GPTService
-                        gpt_service = GPTService()
-                        competitor_data = new_competitor["company"]
-                        ai_description = await gpt_service.generate_competitor_description(
-                            competitor_data,
-                            company_name or "Company"
-                        )
-                        if ai_description:
-                            new_competitor["company"]["ai_description"] = ai_description
-                    except Exception as gpt_error:
-                        logger.warning(f"Failed to generate AI description for replacement competitor: {gpt_error}")
+                    # Only generate AI description if we don't have one
+                    if not comp_description:
+                        try:
+                            from app.services.gpt_service import GPTService
+                            gpt_service = GPTService()
+                            competitor_data = new_competitor["company"]
+                            ai_description = await gpt_service.generate_competitor_description(
+                                competitor_data,
+                                company_name or "Company"
+                            )
+                            if ai_description:
+                                new_competitor["company"]["ai_description"] = ai_description
+                                new_competitor["company"]["description"] = ai_description
+                        except Exception as gpt_error:
+                            logger.warning(f"Failed to generate AI description for replacement competitor: {gpt_error}")
                     
                     break
         
@@ -602,33 +481,39 @@ async def replace_competitor(
             
             for comp in any_companies_list:
                 if comp.id not in excluded_ids:
+                    comp_description = comp.description or ""
+                    
                     new_competitor = {
                         "company": {
                             "id": str(comp.id),
                             "name": comp.name,
                             "website": comp.website or "",
-                            "description": comp.description or "",
+                            "description": comp_description,
                             "logo_url": comp.logo_url,
-                            "category": comp.category
+                            "category": comp.category,
+                            # Use existing description as ai_description if available
+                            "ai_description": comp_description or ""
                         },
                         "similarity_score": 0.5,
                         "common_categories": [],
                         "reason": "Available company"
                     }
                     
-                    # Generate AI description
-                    try:
-                        from app.services.gpt_service import GPTService
-                        gpt_service = GPTService()
-                        competitor_data = new_competitor["company"]
-                        ai_description = await gpt_service.generate_competitor_description(
-                            competitor_data,
-                            company_name or "Company"
-                        )
-                        if ai_description:
-                            new_competitor["company"]["ai_description"] = ai_description
-                    except Exception as gpt_error:
-                        logger.warning(f"Failed to generate AI description for replacement competitor: {gpt_error}")
+                    # Only generate AI description if we don't have one
+                    if not comp_description:
+                        try:
+                            from app.services.gpt_service import GPTService
+                            gpt_service = GPTService()
+                            competitor_data = new_competitor["company"]
+                            ai_description = await gpt_service.generate_competitor_description(
+                                competitor_data,
+                                company_name or "Company"
+                            )
+                            if ai_description:
+                                new_competitor["company"]["ai_description"] = ai_description
+                                new_competitor["company"]["description"] = ai_description
+                        except Exception as gpt_error:
+                            logger.warning(f"Failed to generate AI description for replacement competitor: {gpt_error}")
                     
                     break
         
@@ -683,34 +568,64 @@ async def select_competitors(
         # Prepare list to store selected competitors data
         selected_competitors_list = []
         
-        # If competitor_data is provided, use it (more efficient)
+        # Build map of competitor data by ID (from frontend or from previous suggestions)
+        competitor_data_map = {}
         if competitor_data and len(competitor_data) > 0:
             # Map competitor_data by ID for quick lookup
-            competitor_data_map = {comp.get("id"): comp for comp in competitor_data if comp.get("id")}
+            for comp in competitor_data:
+                comp_id = comp.get("id")
+                if comp_id:
+                    competitor_data_map[comp_id] = comp
+        
+        # Also check previously suggested competitors in session (if any)
+        # This helps with temporary IDs from GPT-generated competitors
+        if hasattr(session, 'selected_competitors') and session.selected_competitors:
+            for comp in session.selected_competitors:
+                comp_id = comp.get("id")
+                if comp_id and comp_id not in competitor_data_map:
+                    competitor_data_map[comp_id] = comp
+        
+        # Process selected competitor IDs
+        for competitor_id in selected_competitor_ids:
+            # First, try to find in competitor_data_map (includes temporary IDs)
+            if competitor_id in competitor_data_map:
+                comp_data = competitor_data_map[competitor_id]
+                # Ensure all required fields are present
+                selected_competitors_list.append({
+                    "id": comp_data.get("id", competitor_id),  # Keep original ID (temp or real)
+                    "name": comp_data.get("name", ""),
+                    "website": comp_data.get("website", ""),
+                    "description": comp_data.get("description") or comp_data.get("ai_description", ""),
+                    "logo_url": comp_data.get("logo_url"),
+                    "category": comp_data.get("category"),
+                    "ai_description": comp_data.get("ai_description") or comp_data.get("description", "")
+                })
+                continue
             
-            for competitor_id in selected_competitor_ids:
-                if competitor_id in competitor_data_map:
-                    selected_competitors_list.append(competitor_data_map[competitor_id])
-                else:
-                    # Fallback: fetch from DB if not in competitor_data
-                    try:
-                        competitor_uuid = UUID(competitor_id)
-                        comp_result = await db.execute(
-                            select(Company).where(Company.id == competitor_uuid)
-                        )
-                        comp = comp_result.scalar_one_or_none()
-                        if comp:
-                            selected_competitors_list.append({
-                                "id": str(comp.id),
-                                "name": comp.name,
-                                "website": comp.website or "",
-                                "description": comp.description or "",
-                                "logo_url": comp.logo_url,
-                                "category": comp.category
-                            })
-                    except (ValueError, Exception) as e:
-                        logger.warning(f"Failed to fetch competitor {competitor_id}: {e}")
-                        continue
+            # Fallback: try to fetch from DB (for existing companies)
+            try:
+                competitor_uuid = UUID(competitor_id)
+                comp_result = await db.execute(
+                    select(Company).where(Company.id == competitor_uuid)
+                )
+                comp = comp_result.scalar_one_or_none()
+                if comp:
+                    selected_competitors_list.append({
+                        "id": str(comp.id),
+                        "name": comp.name,
+                        "website": comp.website or "",
+                        "description": comp.description or "",
+                        "logo_url": comp.logo_url,
+                        "category": comp.category,
+                        "ai_description": comp.description or ""  # Use description as ai_description if available
+                    })
+                    continue
+            except ValueError:
+                # Not a valid UUID - might be a temporary ID, try to find in previous suggestions
+                pass
+            
+            # If still not found, log warning but continue (don't fail completely)
+            logger.warning(f"Competitor {competitor_id} not found in competitor_data or database")
         else:
             # Fetch competitors from database
             for competitor_id in selected_competitor_ids:
@@ -1030,7 +945,10 @@ async def complete_onboarding(
                     Company.name.ilike(f"%{company_data.get('name', '')}%")
                 ),
                 user_filter
-            )
+            ).order_by(
+                # Prefer user's own companies first, then global companies
+                Company.user_id.nulls_last() if final_user_id else Company.user_id.nulls_first()
+            ).limit(1)
         )
         parent_company = parent_result.scalar_one_or_none()
         
@@ -1041,8 +959,21 @@ async def complete_onboarding(
                 # Company belongs to another user, create new one instead
                 logger.info(f"Parent company belongs to another user, creating new one")
                 parent_company = None
+            elif parent_company.user_id is None:
+                # Global company found, create a copy for this user so it appears in "My Competitors"
+                logger.info(f"Global parent company found, creating user copy: {parent_company.name}")
+                parent_company = Company(
+                    name=parent_company.name,
+                    website=parent_company.website,
+                    description=company_data.get("description") or parent_company.description,
+                    logo_url=company_data.get("logo_url") or parent_company.logo_url,
+                    category=company_data.get("category") or parent_company.category,
+                    user_id=final_user_id  # Create as user's company
+                )
+                db.add(parent_company)
+                await db.flush()
             else:
-                # Update if needed
+                # Company already belongs to user, update if needed
                 if not parent_company.description and company_data.get("description"):
                     parent_company.description = company_data["description"]
                 if not parent_company.logo_url and company_data.get("logo_url"):
@@ -1102,27 +1033,61 @@ async def complete_onboarding(
                 normalized_comp_url = normalize_url(competitor_website)
                 
                 # Check if competitor company exists by URL
+                # For competitors, prefer global companies (user_id is None) or user's own companies
+                # This prevents "Multiple rows were found" error
                 comp_result = await db.execute(
                     select(Company).where(
-                        func.lower(func.replace(Company.website, 'www.', '')) == normalized_comp_url.lower()
-                    )
+                        and_(
+                            func.lower(func.replace(Company.website, 'www.', '')) == normalized_comp_url.lower(),
+                            or_(
+                                Company.user_id.is_(None),  # Global companies first
+                                Company.user_id == final_user_id  # Or user's own companies
+                            )
+                        )
+                    ).order_by(
+                        # Prefer global companies (user_id is None)
+                        Company.user_id.nulls_first()
+                    ).limit(1)
                 )
                 comp = comp_result.scalar_one_or_none()
                 
                 if comp:
+                    # If company is global (user_id is None), create a copy for this user
+                    # so it appears in "My Competitors"
+                    if comp.user_id is None:
+                        logger.info(f"Global company found, creating user copy: {competitor_name}")
+                        # Use ai_description if available, otherwise use description
+                        comp_description = competitor_data.get("ai_description") or competitor_data.get("description") or ""
+                        # Create a copy for this user
+                        comp = Company(
+                            name=comp.name,
+                            website=comp.website,
+                            description=comp.description or comp_description,
+                            logo_url=comp.logo_url,
+                            category=comp.category or company_category,
+                            user_id=final_user_id  # Create as user's company
+                        )
+                        db.add(comp)
+                        await db.flush()
+                    else:
+                        # Company already belongs to user, use it
+                        logger.info(f"Using existing user company: {competitor_name}")
+                    
                     competitor_companies.append(comp)
                     company_ids_to_subscribe.append(comp.id)
                     continue
             
             # Create new competitor company
             logger.info(f"Creating new competitor company: {competitor_name}")
+            # Use ai_description if available, otherwise use description
+            comp_description = competitor_data.get("ai_description") or competitor_data.get("description") or ""
             comp = Company(
                 name=competitor_name,
                 website=competitor_website or "",
-                description=competitor_data.get("description"),
+                description=comp_description,
                 logo_url=competitor_data.get("logo_url"),
                 category=competitor_data.get("category"),
-                user_id=None  # Competitors are global, not user-specific
+                user_id=final_user_id  # Create as user's company so it appears in "My Competitors"
             )
             db.add(comp)
             await db.flush()

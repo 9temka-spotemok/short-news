@@ -7,8 +7,10 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, HTTPException, status, Response
 from loguru import logger
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.dependencies import get_news_facade
+from app.api.dependencies import get_news_facade, get_current_user_optional
 from app.domains.news import NewsFacade
 from app.models.news import (
     NewsCategory,
@@ -19,6 +21,9 @@ from app.models.news import (
     NewsCreateSchema,
     NewsUpdateSchema,
 )
+from app.models.preferences import UserPreferences
+from app.models import User
+from app.core.database import get_db
 from app.core.exceptions import ValidationError
 
 router = APIRouter(prefix="/news", tags=["news"])
@@ -220,6 +225,8 @@ async def get_news(
     limit: int = Query(20, ge=1, le=100, description="Number of news items to return"),
     offset: int = Query(0, ge=0, description="Number of news items to skip"),
     facade: NewsFacade = Depends(get_news_facade),
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Get news items with enhanced filtering and search capabilities
@@ -252,6 +259,27 @@ async def get_news(
                 normalised_company_id = UUID(company_id)
             except (ValueError, TypeError):
                 normalised_company_id = company_id
+        
+        # Automatic isolation: if user is authenticated and didn't specify company_ids,
+        # filter by subscribed_companies from UserPreferences
+        if current_user and not parsed_company_ids:
+            try:
+                prefs_result = await db.execute(
+                    select(UserPreferences).where(UserPreferences.user_id == current_user.id)
+                )
+                user_prefs = prefs_result.scalar_one_or_none()
+                
+                if user_prefs and user_prefs.subscribed_companies:
+                    # Automatically filter by subscribed companies for data isolation
+                    parsed_company_ids = user_prefs.subscribed_companies
+                    normalised_company_id = None  # Reset single company_id, use list instead
+                    logger.info(
+                        f"Auto-filtering news by {len(parsed_company_ids)} subscribed companies "
+                        f"for user {current_user.id}"
+                    )
+            except Exception as e:
+                logger.warning(f"Failed to get user preferences for auto-filtering: {e}")
+                # Continue without auto-filtering if there's an error
         
         # Get news items with enhanced filtering
         news_items, total_count = await facade.list_news(
@@ -303,16 +331,44 @@ async def get_news(
 @router.get("/stats", response_model=NewsStatsSchema)
 async def get_news_statistics(
     facade: NewsFacade = Depends(get_news_facade),
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Get comprehensive news statistics
     
+    For authenticated users, automatically filters by subscribed_companies.
+    For anonymous users, returns statistics for all news.
+    
     Returns statistics about news items including counts by category,
     source type, recent news, and high priority items.
     """
-    logger.info("News statistics request")
+    logger.info(f"News statistics request - user: {current_user.id if current_user else 'anonymous'}")
     
     try:
+        # Automatic isolation: if user is authenticated, filter by subscribed_companies
+        if current_user:
+            try:
+                prefs_result = await db.execute(
+                    select(UserPreferences).where(UserPreferences.user_id == current_user.id)
+                )
+                user_prefs = prefs_result.scalar_one_or_none()
+                
+                if user_prefs and user_prefs.subscribed_companies:
+                    # Filter statistics by subscribed companies for data isolation
+                    stats = await facade.get_statistics_for_companies(
+                        [str(cid) for cid in user_prefs.subscribed_companies]
+                    )
+                    logger.info(
+                        f"Filtered statistics by {len(user_prefs.subscribed_companies)} "
+                        f"subscribed companies for user {current_user.id}"
+                    )
+                    return stats
+            except Exception as e:
+                logger.warning(f"Failed to get user preferences for stats filtering: {e}")
+                # Fall through to general statistics if there's an error
+        
+        # For anonymous users or if no subscribed companies, return general statistics
         stats = await facade.get_statistics()
         return stats
         
@@ -328,14 +384,17 @@ async def get_news_statistics(
 async def get_news_statistics_by_companies(
     company_ids: str = Query(..., description="Comma-separated company IDs"),
     facade: NewsFacade = Depends(get_news_facade),
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Get comprehensive news statistics filtered by company IDs
     
+    For authenticated users, validates that all requested companies are in subscribed_companies.
     Returns statistics about news items for specific companies including counts by category,
     source type, recent news, and high priority items.
     """
-    logger.info(f"News statistics by companies request: {company_ids}")
+    logger.info(f"News statistics by companies request: {company_ids}, user: {current_user.id if current_user else 'anonymous'}")
     
     try:
         # Parse company IDs
@@ -346,6 +405,41 @@ async def get_news_statistics_by_companies(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="At least one company ID is required"
             )
+        
+        # For authenticated users, validate that all requested companies are in subscribed_companies
+        if current_user:
+            try:
+                prefs_result = await db.execute(
+                    select(UserPreferences).where(UserPreferences.user_id == current_user.id)
+                )
+                user_prefs = prefs_result.scalar_one_or_none()
+                
+                if user_prefs and user_prefs.subscribed_companies:
+                    # Convert to sets for comparison
+                    requested_ids = set()
+                    for cid in parsed_company_ids:
+                        if cid:
+                            try:
+                                requested_ids.add(UUID(cid))
+                            except (ValueError, TypeError):
+                                # Skip invalid UUIDs
+                                continue
+                    
+                    subscribed_ids = set(user_prefs.subscribed_companies)
+                    
+                    # Check if all requested companies are in subscribed list
+                    if requested_ids and not requested_ids.issubset(subscribed_ids):
+                        unauthorized_ids = requested_ids - subscribed_ids
+                        raise HTTPException(
+                            status_code=status.HTTP_403_FORBIDDEN,
+                            detail=f"Access denied: You are not subscribed to some of the requested companies. "
+                                   f"Unauthorized company IDs: {[str(uid) for uid in unauthorized_ids]}"
+                        )
+            except HTTPException:
+                raise
+            except Exception as e:
+                logger.warning(f"Failed to validate company access for stats: {e}")
+                # Continue without validation if there's an error (for backward compatibility)
         
         stats = await facade.get_statistics_for_companies(parsed_company_ids)
         return stats

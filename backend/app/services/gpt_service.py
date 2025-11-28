@@ -53,14 +53,14 @@ class GPTService:
                 meta_description = company_data.get("meta_description", "")
                 
                 # Build prompt
-                prompt_parts = [f"Создай краткое описание компании (2-3 предложения) на основе данных:"]
-                prompt_parts.append(f"Название: {company_name}")
+                prompt_parts = [f"Create a brief company description (2-3 sentences) based on the following data:"]
+                prompt_parts.append(f"Name: {company_name}")
                 if website:
-                    prompt_parts.append(f"Сайт: {website}")
+                    prompt_parts.append(f"Website: {website}")
                 if category:
-                    prompt_parts.append(f"Категория: {category}")
+                    prompt_parts.append(f"Category: {category}")
                 if meta_description:
-                    prompt_parts.append(f"Описание: {meta_description}")
+                    prompt_parts.append(f"Description: {meta_description}")
                 
                 prompt = "\n".join(prompt_parts)
                 
@@ -69,7 +69,7 @@ class GPTService:
                     messages=[
                         {
                             "role": "system",
-                            "content": "Ты помощник, который создает краткие и информативные описания компаний на русском языке."
+                            "content": "You are an assistant that creates brief and informative company descriptions in English. Always respond in English."
                         },
                         {
                             "role": "user",
@@ -119,16 +119,16 @@ class GPTService:
                 
                 # Build prompt
                 prompt_parts = [
-                    f"Опиши компанию {competitor_name} как конкурента для {parent_company}."
+                    f"Describe {competitor_name} as a competitor for {parent_company}."
                 ]
-                prompt_parts.append("Кратко (1-2 предложения).")
+                prompt_parts.append("Briefly (1-2 sentences).")
                 
                 if website:
-                    prompt_parts.append(f"Сайт: {website}")
+                    prompt_parts.append(f"Website: {website}")
                 if category:
-                    prompt_parts.append(f"Категория: {category}")
+                    prompt_parts.append(f"Category: {category}")
                 if description:
-                    prompt_parts.append(f"Описание: {description}")
+                    prompt_parts.append(f"Description: {description}")
                 
                 prompt = "\n".join(prompt_parts)
                 
@@ -137,7 +137,7 @@ class GPTService:
                     messages=[
                         {
                             "role": "system",
-                            "content": "Ты помощник, который создает краткие описания компаний-конкурентов на русском языке."
+                            "content": "You are an assistant that creates brief competitor company descriptions in English. Always respond in English."
                         },
                         {
                             "role": "user",
@@ -180,14 +180,14 @@ class GPTService:
                 
                 # Build prompt
                 prompt_parts = [
-                    f"Определи основные характеристики компании: {company_name}"
+                    f"Identify the main characteristics of the company: {company_name}"
                 ]
                 if website:
-                    prompt_parts.append(f"Сайт: {website}")
+                    prompt_parts.append(f"Website: {website}")
                 if category:
-                    prompt_parts.append(f"Категория: {category}")
+                    prompt_parts.append(f"Category: {category}")
                 
-                prompt_parts.append("Верни список из 3-5 ключевых слов, каждое на новой строке.")
+                prompt_parts.append("Return a list of 3-5 keywords, each on a new line, in English.")
                 prompt = "\n".join(prompt_parts)
                 
                 response = await self.client.chat.completions.create(
@@ -195,7 +195,7 @@ class GPTService:
                     messages=[
                         {
                             "role": "system",
-                            "content": "Ты помощник, который определяет ключевые характеристики компаний. Возвращай только список ключевых слов, каждое на новой строке, без дополнительных комментариев."
+                            "content": "You are an assistant that identifies key company characteristics. Return only a list of keywords in English, each on a new line, without additional comments."
                         },
                         {
                             "role": "user",
@@ -334,26 +334,26 @@ class GPTService:
                 
                 # Build prompt
                 prompt_parts = [
-                    f"Предложи список из {limit} компаний-конкурентов для компании: {company_name}"
+                    f"Suggest a list of {limit} competitor companies for: {company_name}"
                 ]
                 
                 if description:
-                    prompt_parts.append(f"Описание компании: {description}")
+                    prompt_parts.append(f"Company description: {description}")
                 if website:
-                    prompt_parts.append(f"Сайт: {website}")
+                    prompt_parts.append(f"Website: {website}")
                 if category:
-                    prompt_parts.append(f"Категория: {category}")
+                    prompt_parts.append(f"Category: {category}")
                 if industry_signals:
                     signals_str = ", ".join(industry_signals)
-                    prompt_parts.append(f"Характеристики: {signals_str}")
+                    prompt_parts.append(f"Characteristics: {signals_str}")
                 
-                prompt_parts.append("\nВерни список в формате JSON массив, каждый элемент должен содержать:")
-                prompt_parts.append("- name: название компании")
-                prompt_parts.append("- website: сайт компании (если известен)")
-                prompt_parts.append("- description: краткое описание (1 предложение)")
-                prompt_parts.append("- reason: почему это конкурент")
-                prompt_parts.append("\nПример формата:")
-                prompt_parts.append('[{"name": "Компания 1", "website": "https://example.com", "description": "Описание", "reason": "Причина"}]')
+                prompt_parts.append("\nReturn a list in JSON array format, each element should contain:")
+                prompt_parts.append("- name: company name")
+                prompt_parts.append("- website: company website (if known)")
+                prompt_parts.append("- description: brief description in English (1 sentence)")
+                prompt_parts.append("- reason: why this is a competitor (in English)")
+                prompt_parts.append("\nExample format:")
+                prompt_parts.append('[{"name": "Company 1", "website": "https://example.com", "description": "Description in English", "reason": "Reason in English"}]')
                 
                 prompt = "\n".join(prompt_parts)
                 
@@ -362,7 +362,7 @@ class GPTService:
                     messages=[
                         {
                             "role": "system",
-                            "content": "Ты помощник, который предлагает список компаний-конкурентов. Возвращай только валидный JSON массив, без дополнительных комментариев или форматирования. Формат: [{\"name\": \"...\", \"website\": \"...\", \"description\": \"...\", \"reason\": \"...\"}]"
+                            "content": "You are an assistant that suggests competitor companies. Return only a valid JSON array, without additional comments or formatting. All text must be in English. Format: [{\"name\": \"...\", \"website\": \"...\", \"description\": \"...\", \"reason\": \"...\"}]"
                         },
                         {
                             "role": "user",
@@ -410,11 +410,25 @@ class GPTService:
                             if len(result) > 0:
                                 logger.info(f"GPT generated {len(result)} competitors for {company_name}")
                                 return result
-                        except (json.JSONDecodeError, ValueError) as e:
-                            logger.warning(f"Failed to parse GPT response as JSON: {e}")
-                            logger.debug(f"Response content: {content[:500]}")
+                        except json.JSONDecodeError as e:
+                            logger.error(
+                                f"Failed to parse GPT response as JSON for {company_name}: {e}. "
+                                f"Response content (first 1000 chars): {content[:1000]}"
+                            )
+                            logger.debug(f"Full response content: {content}")
+                        except ValueError as e:
+                            logger.error(
+                                f"Value error while parsing GPT response for {company_name}: {e}. "
+                                f"Response content (first 1000 chars): {content[:1000]}"
+                            )
+                        except Exception as e:
+                            logger.error(
+                                f"Unexpected error while parsing GPT response for {company_name}: {e}. "
+                                f"Response content (first 1000 chars): {content[:1000]}",
+                                exc_info=True
+                            )
                 
-                logger.warning("GPT response invalid, using fallback")
+                logger.warning(f"GPT response invalid for {company_name}, using fallback")
                 
             except Exception as e:
                 logger.error(f"Failed to suggest competitors with GPT: {e}", exc_info=True)
