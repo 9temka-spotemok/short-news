@@ -132,6 +132,23 @@ _BASE_BEAT_SCHEDULE = {
         "task": "app.tasks.scraping.cleanup_old_data",
         "schedule": 24 * 60 * 60,  # Daily
     },
+    # Observation monitoring periodic tasks
+    "periodic-compare-website-structures": {
+        "task": "app.tasks.observation.periodic_compare_website_structures",
+        "schedule": 24 * 60 * 60,  # Daily
+    },
+    "periodic-detect-marketing-changes": {
+        "task": "app.tasks.observation.periodic_detect_marketing_changes",
+        "schedule": 24 * 60 * 60,  # Daily
+    },
+    "periodic-compare-seo-signals": {
+        "task": "app.tasks.observation.periodic_compare_seo_signals",
+        "schedule": 7 * 24 * 60 * 60,  # Weekly
+    },
+    "periodic-scrape-press-releases": {
+        "task": "app.tasks.observation.periodic_scrape_press_releases",
+        "schedule": 24 * 60 * 60,  # Daily
+    },
 }
 
 

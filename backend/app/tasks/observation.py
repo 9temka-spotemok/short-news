@@ -1205,3 +1205,223 @@ async def _compare_seo_signals_async(company_id: str) -> Dict[str, Any]:
     finally:
         await collector.close()
 
+
+# ============================================================================
+# Периодические задачи-оркестраторы для автоматического мониторинга
+# ============================================================================
+
+@celery_app.task
+def periodic_compare_website_structures():
+    """
+    Периодическая задача для сравнения структуры сайтов всех компаний.
+    
+    Запускается через Celery Beat и обрабатывает все компании с активным мониторингом.
+    """
+    return run_async_task(_periodic_compare_website_structures_async())
+
+
+async def _periodic_compare_website_structures_async() -> Dict[str, Any]:
+    """
+    Async функция для периодического сравнения структуры сайтов.
+    
+    Получает все компании с CompetitorMonitoringMatrix и запускает сравнение для каждой.
+    """
+    try:
+        async with CelerySessionLocal() as db:
+            # Получить все компании с матрицей мониторинга
+            result = await db.execute(
+                select(CompetitorMonitoringMatrix.company_id)
+            )
+            company_ids = [str(row[0]) for row in result.all()]
+            
+            if not company_ids:
+                logger.info("No companies with monitoring matrix found")
+                return {"status": "skipped", "reason": "No companies found", "count": 0}
+            
+            # Запустить задачу сравнения для каждой компании
+            tasks_created = 0
+            for company_id in company_ids:
+                try:
+                    compare_website_structures.delay(company_id)
+                    tasks_created += 1
+                except Exception as e:
+                    logger.error(f"Error scheduling compare_website_structures for company {company_id}: {e}")
+                    continue
+            
+            logger.info(f"Scheduled {tasks_created} website structure comparison tasks")
+            return {
+                "status": "completed",
+                "companies_processed": tasks_created,
+                "total_companies": len(company_ids),
+            }
+            
+    except Exception as e:
+        logger.error(f"Error in periodic_compare_website_structures: {e}")
+        return {"status": "error", "error": str(e)}
+
+
+@celery_app.task
+def periodic_detect_marketing_changes():
+    """
+    Периодическая задача для детекции маркетинговых изменений всех компаний.
+    
+    Запускается через Celery Beat и обрабатывает все компании с активным мониторингом.
+    """
+    return run_async_task(_periodic_detect_marketing_changes_async())
+
+
+async def _periodic_detect_marketing_changes_async() -> Dict[str, Any]:
+    """
+    Async функция для периодической детекции маркетинговых изменений.
+    
+    Получает все компании с CompetitorMonitoringMatrix и запускает детекцию для каждой.
+    """
+    try:
+        async with CelerySessionLocal() as db:
+            # Получить все компании с матрицей мониторинга
+            result = await db.execute(
+                select(CompetitorMonitoringMatrix.company_id)
+            )
+            company_ids = [str(row[0]) for row in result.all()]
+            
+            if not company_ids:
+                logger.info("No companies with monitoring matrix found")
+                return {"status": "skipped", "reason": "No companies found", "count": 0}
+            
+            # Запустить задачу детекции для каждой компании
+            tasks_created = 0
+            for company_id in company_ids:
+                try:
+                    # Использовать существующую async функцию
+                    company_result = await db.execute(
+                        select(Company).where(Company.id == UUID(company_id))
+                    )
+                    company = company_result.scalar_one_or_none()
+                    
+                    if company:
+                        await detect_marketing_changes_async(db, company_id, company)
+                        tasks_created += 1
+                except Exception as e:
+                    logger.error(f"Error detecting marketing changes for company {company_id}: {e}")
+                    continue
+            
+            await db.commit()
+            logger.info(f"Processed {tasks_created} companies for marketing changes detection")
+            return {
+                "status": "completed",
+                "companies_processed": tasks_created,
+                "total_companies": len(company_ids),
+            }
+            
+    except Exception as e:
+        logger.error(f"Error in periodic_detect_marketing_changes: {e}")
+        return {"status": "error", "error": str(e)}
+
+
+@celery_app.task
+def periodic_compare_seo_signals():
+    """
+    Периодическая задача для сравнения SEO сигналов всех компаний.
+    
+    Запускается через Celery Beat и обрабатывает все компании с активным мониторингом.
+    """
+    return run_async_task(_periodic_compare_seo_signals_async())
+
+
+async def _periodic_compare_seo_signals_async() -> Dict[str, Any]:
+    """
+    Async функция для периодического сравнения SEO сигналов.
+    
+    Получает все компании с CompetitorMonitoringMatrix и запускает сравнение для каждой.
+    """
+    try:
+        async with CelerySessionLocal() as db:
+            # Получить все компании с матрицей мониторинга
+            result = await db.execute(
+                select(CompetitorMonitoringMatrix.company_id)
+            )
+            company_ids = [str(row[0]) for row in result.all()]
+            
+            if not company_ids:
+                logger.info("No companies with monitoring matrix found")
+                return {"status": "skipped", "reason": "No companies found", "count": 0}
+            
+            # Запустить задачу сравнения для каждой компании
+            tasks_created = 0
+            for company_id in company_ids:
+                try:
+                    compare_seo_signals.delay(company_id)
+                    tasks_created += 1
+                except Exception as e:
+                    logger.error(f"Error scheduling compare_seo_signals for company {company_id}: {e}")
+                    continue
+            
+            logger.info(f"Scheduled {tasks_created} SEO signals comparison tasks")
+            return {
+                "status": "completed",
+                "companies_processed": tasks_created,
+                "total_companies": len(company_ids),
+            }
+            
+    except Exception as e:
+        logger.error(f"Error in periodic_compare_seo_signals: {e}")
+        return {"status": "error", "error": str(e)}
+
+
+@celery_app.task
+def periodic_scrape_press_releases():
+    """
+    Периодическая задача для сбора пресс-релизов всех компаний.
+    
+    Запускается через Celery Beat и обрабатывает все компании с активным мониторингом.
+    """
+    return run_async_task(_periodic_scrape_press_releases_async())
+
+
+async def _periodic_scrape_press_releases_async() -> Dict[str, Any]:
+    """
+    Async функция для периодического сбора пресс-релизов.
+    
+    Получает все компании с CompetitorMonitoringMatrix и запускает сбор для каждой.
+    """
+    try:
+        async with CelerySessionLocal() as db:
+            # Получить все компании с матрицей мониторинга
+            result = await db.execute(
+                select(CompetitorMonitoringMatrix.company_id)
+            )
+            company_ids = [str(row[0]) for row in result.all()]
+            
+            if not company_ids:
+                logger.info("No companies with monitoring matrix found")
+                return {"status": "skipped", "reason": "No companies found", "count": 0}
+            
+            # Запустить задачу сбора для каждой компании
+            tasks_created = 0
+            for company_id in company_ids:
+                try:
+                    # Использовать существующую async функцию
+                    company_result = await db.execute(
+                        select(Company).where(Company.id == UUID(company_id))
+                    )
+                    company = company_result.scalar_one_or_none()
+                    
+                    if company:
+                        await scrape_press_releases_async(db, company_id, company)
+                        tasks_created += 1
+                except Exception as e:
+                    logger.error(f"Error scraping press releases for company {company_id}: {e}")
+                    continue
+            
+            await db.commit()
+            logger.info(f"Processed {tasks_created} companies for press releases scraping")
+            return {
+                "status": "completed",
+                "companies_processed": tasks_created,
+                "total_companies": len(company_ids),
+            }
+            
+    except Exception as e:
+        logger.error(f"Error in periodic_scrape_press_releases: {e}")
+        return {"status": "error", "error": str(e)}
+
