@@ -30,6 +30,13 @@ class Company(BaseModel):
     twitter_handle = Column(String(100))
     github_org = Column(String(100))
     
+    # Social media URLs
+    facebook_url = Column(String(500))
+    instagram_url = Column(String(500))
+    linkedin_url = Column(String(500))
+    youtube_url = Column(String(500))
+    tiktok_url = Column(String(500))
+    
     # Relationships
     news_items = relationship("NewsItem", back_populates="company")
     

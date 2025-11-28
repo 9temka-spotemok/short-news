@@ -134,6 +134,11 @@ async def _generate_quick_analysis_data(
         "category": company.category,
         "twitter_handle": company.twitter_handle,
         "github_org": company.github_org,
+        "facebook_url": company.facebook_url,
+        "instagram_url": company.instagram_url,
+        "linkedin_url": company.linkedin_url,
+        "youtube_url": company.youtube_url,
+        "tiktok_url": company.tiktok_url,
         "created_at": company.created_at.isoformat() if company.created_at else None,
     }
     
@@ -388,6 +393,11 @@ async def get_company(
             "logo_url": company.logo_url,
             "twitter_handle": company.twitter_handle,
             "github_org": company.github_org,
+            "facebook_url": company.facebook_url,
+            "instagram_url": company.instagram_url,
+            "linkedin_url": company.linkedin_url,
+            "youtube_url": company.youtube_url,
+            "tiktok_url": company.tiktok_url,
             "created_at": company.created_at.isoformat() if company.created_at else None,
             "updated_at": company.updated_at.isoformat() if company.updated_at else None
         }
@@ -597,6 +607,18 @@ async def create_company(
             if not existing_company.category and company_data.get("category"):
                 existing_company.category = company_data["category"]
             
+            # Обновляем поля соцсетей, если они предоставлены
+            if company_data.get("facebook_url") is not None:
+                existing_company.facebook_url = company_data["facebook_url"]
+            if company_data.get("instagram_url") is not None:
+                existing_company.instagram_url = company_data["instagram_url"]
+            if company_data.get("linkedin_url") is not None:
+                existing_company.linkedin_url = company_data["linkedin_url"]
+            if company_data.get("youtube_url") is not None:
+                existing_company.youtube_url = company_data["youtube_url"]
+            if company_data.get("tiktok_url") is not None:
+                existing_company.tiktok_url = company_data["tiktok_url"]
+            
             # Обновляем website если он изменился (нормализованный)
             if normalize_url(existing_company.website or '') != normalized_url:
                 existing_company.website = website_url
@@ -619,6 +641,11 @@ async def create_company(
                 category=company_data.get("category"),
                 twitter_handle=company_data.get("twitter_handle"),
                 github_org=company_data.get("github_org"),
+                facebook_url=company_data.get("facebook_url"),
+                instagram_url=company_data.get("instagram_url"),
+                linkedin_url=company_data.get("linkedin_url"),
+                youtube_url=company_data.get("youtube_url"),
+                tiktok_url=company_data.get("tiktok_url"),
                 user_id=current_user.id  # Assign to current user for data isolation
             )
             db.add(company)

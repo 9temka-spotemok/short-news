@@ -61,6 +61,11 @@ class SourceType(str, enum.Enum):
     REDDIT = "reddit"
     NEWS_SITE = "news_site"
     PRESS_RELEASE = "press_release"
+    FACEBOOK = "facebook"
+    INSTAGRAM = "instagram"
+    LINKEDIN = "linkedin"
+    YOUTUBE = "youtube"
+    TIKTOK = "tiktok"
     
     @classmethod
     def get_descriptions(cls) -> Dict[str, str]:
@@ -72,6 +77,11 @@ class SourceType(str, enum.Enum):
             cls.REDDIT: "Reddit discussions",
             cls.NEWS_SITE: "News websites and articles",
             cls.PRESS_RELEASE: "Official press releases",
+            cls.FACEBOOK: "Facebook posts and pages",
+            cls.INSTAGRAM: "Instagram posts and profiles",
+            cls.LINKEDIN: "LinkedIn company pages and posts",
+            cls.YOUTUBE: "YouTube channels and videos",
+            cls.TIKTOK: "TikTok profiles and videos",
         }
 
 
@@ -126,8 +136,11 @@ class SentimentLabel(str, enum.Enum):
 
 
 # Define PostgreSQL ENUMs that already exist in database
+# Note: PostgreSQL stores enum values in UPPERCASE, but SQLAlchemy ENUM uses lowercase
+# SQLAlchemy automatically converts between Python enum values (lowercase) and PostgreSQL (uppercase)
 source_type_enum = ENUM(
     'blog', 'twitter', 'github', 'reddit', 'news_site', 'press_release',
+    'facebook', 'instagram', 'linkedin', 'youtube', 'tiktok',
     name='sourcetype',
     create_type=False
 )

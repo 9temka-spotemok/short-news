@@ -35,6 +35,12 @@ class CrawlScheduleService:
         SourceType.GITHUB: 30 * 60,
         SourceType.REDDIT: 20 * 60,
         SourceType.PRESS_RELEASE: 60 * 60,
+        # Social media sources - check more frequently due to high activity
+        SourceType.FACEBOOK: 10 * 60,
+        SourceType.INSTAGRAM: 10 * 60,
+        SourceType.LINKEDIN: 15 * 60,
+        SourceType.YOUTUBE: 20 * 60,
+        SourceType.TIKTOK: 10 * 60,
     }
 
     def __init__(self, db: AsyncSession):
