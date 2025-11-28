@@ -45,12 +45,18 @@ def scrape_ai_blogs(self):
 async def _scrape_ai_blogs_plan_async():
     """Async planner implementation for blog scraping."""
     async with AsyncSessionLocal() as db:
+        # Пропускаем глобальные компании (user_id is None) для разгрузки системы
         result = await db.execute(
-            select(Company).where(Company.website.isnot(None)).order_by(Company.created_at.desc())
+            select(Company)
+            .where(
+                Company.website.isnot(None),
+                Company.user_id.isnot(None)  # Только компании пользователей, не глобальные
+            )
+            .order_by(Company.created_at.desc())
         )
         companies = result.scalars().all()
 
-        logger.info(f"Planner found {len(companies)} companies with websites")
+        logger.info(f"Planner found {len(companies)} companies with websites (excluding global companies)")
 
         schedule_service = CrawlScheduleService(db)
         now_utc = datetime.now(timezone.utc)
@@ -152,6 +158,11 @@ async def _scrape_company_news_async(company_id: str, max_articles: int = 5):
         if not company:
             logger.warning(f"Company {company_id} not found")
             return {"status": "error", "message": "Company not found"}
+
+        # Пропускаем глобальные компании (user_id is None) для разгрузки системы
+        if company.user_id is None:
+            logger.info(f"Company {company_id} ({company.name}) is global (user_id is None), skipping news parsing")
+            return {"status": "skipped", "reason": "global_company"}
 
         if not company.website:
             logger.warning(f"Company {company_id} has no website; skipping")
@@ -328,6 +339,16 @@ async def _scan_company_sources_initial_async(company_id: str):
             return {
                 "status": "error",
                 "message": "Company not found",
+                "checked_urls": 0,
+                "disabled_urls": 0,
+            }
+        
+        # Пропускаем глобальные компании (user_id is None) для разгрузки системы
+        if company.user_id is None:
+            logger.info(f"Company {company_id} ({company.name}) is global (user_id is None), skipping source scan")
+            return {
+                "status": "skipped",
+                "message": "Global company - news parsing disabled",
                 "checked_urls": 0,
                 "disabled_urls": 0,
             }
