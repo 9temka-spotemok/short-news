@@ -11,6 +11,11 @@ from app.core.celery_async import run_async_task
 from app.core.celery_database import CelerySessionLocal
 from app.models import OnboardingSession, Company, CompetitorMonitoringMatrix
 from app.services.social_media_extractor import SocialMediaExtractor
+from app.services.website_structure_monitor import WebsiteStructureMonitor
+from app.services.marketing_change_detector import MarketingChangeDetector
+from app.services.seo_signal_collector import SEOSignalCollector
+from app.scrapers.press_release_scraper import PressReleaseScraper
+from app.domains.news.facade import NewsFacade
 from sqlalchemy import select
 from datetime import datetime, timezone
 
@@ -384,13 +389,20 @@ async def capture_website_structure_async(db, company_id_str: str, company: Comp
     Returns:
         Словарь с результатами захвата структуры
     """
+    monitor = WebsiteStructureMonitor()
     try:
         if not company.website:
             logger.warning(f"Company {company.name} has no website URL")
             return {}
         
-        # Базовая реализация - сохраняем информацию о том, что структура захвачена
-        # Полная реализация будет в WebsiteStructureMonitor сервисе
+        # Захватить снимок структуры через WebsiteStructureMonitor
+        snapshot = await monitor.capture_website_snapshot(company.website)
+        
+        if not snapshot:
+            logger.warning(f"Failed to capture snapshot for {company.name}")
+            return {}
+        
+        # Получить или создать матрицу мониторинга
         matrix_result = await db.execute(
             select(CompetitorMonitoringMatrix).where(
                 CompetitorMonitoringMatrix.company_id == company.id
@@ -398,24 +410,55 @@ async def capture_website_structure_async(db, company_id_str: str, company: Comp
         )
         matrix = matrix_result.scalar_one_or_none()
         
-        if matrix:
-            if not matrix.website_sources:
-                matrix.website_sources = {}
-            
-            matrix.website_sources.update({
-                "last_snapshot_at": datetime.now(timezone.utc).isoformat(),
-                "website_url": company.website,
-                "status": "captured"
-            })
-            matrix.last_updated = datetime.now(timezone.utc)
-            await db.commit()
+        if not matrix:
+            matrix = CompetitorMonitoringMatrix(
+                company_id=company.id,
+                monitoring_config={},
+                social_media_sources={},
+                website_sources={},
+                news_sources={},
+                marketing_sources={},
+                seo_signals={},
+                last_updated=datetime.now(timezone.utc)
+            )
+            db.add(matrix)
         
-        logger.info(f"Captured website structure for {company.name}")
-        return {"status": "captured", "website": company.website}
+        # Сохранить снимок в website_sources
+        if not matrix.website_sources:
+            matrix.website_sources = {}
+        
+        # Сохранить текущий снимок
+        snapshots = matrix.website_sources.get("snapshots", [])
+        snapshots.append(snapshot)
+        
+        # Оставить только последние 10 снимков
+        if len(snapshots) > 10:
+            snapshots = snapshots[-10:]
+        
+        matrix.website_sources.update({
+            "snapshots": snapshots,
+            "current_snapshot": snapshot,
+            "last_snapshot_at": snapshot.get("captured_at"),
+            "website_url": company.website,
+            "status": "captured",
+            "key_pages_count": len([p for p in snapshot.get("key_pages", []) if p.get("found")]),
+        })
+        matrix.last_updated = datetime.now(timezone.utc)
+        await db.commit()
+        
+        logger.info(f"Captured website structure for {company.name}: {len(snapshot.get('key_pages', []))} key pages found")
+        return {
+            "status": "captured",
+            "website": company.website,
+            "key_pages_found": len([p for p in snapshot.get("key_pages", []) if p.get("found")]),
+            "navigation_links": len(snapshot.get("navigation", {}).get("links", [])),
+        }
         
     except Exception as e:
         logger.error(f"Error capturing website structure for company {company_id_str}: {e}")
         return {}
+    finally:
+        await monitor.close()
 
 
 async def scrape_press_releases_async(db, company_id_str: str, company: Company) -> Dict[str, Any]:
@@ -430,13 +473,62 @@ async def scrape_press_releases_async(db, company_id_str: str, company: Company)
     Returns:
         Словарь с результатами сбора пресс-релизов
     """
+    scraper = PressReleaseScraper()
     try:
         if not company.website:
             logger.warning(f"Company {company.name} has no website URL")
             return {}
         
-        # Базовая реализация - сохраняем информацию о том, что пресс-релизы собраны
-        # Полная реализация будет в PressReleaseScraper
+        # Найти страницу с пресс-релизами
+        press_release_url = await scraper.find_press_release_page(company.website)
+        
+        if not press_release_url:
+            logger.info(f"No press release page found for {company.name}")
+            return {"status": "not_found", "count": 0}
+        
+        # Парсить пресс-релизы
+        press_releases = await scraper.scrape_press_releases(press_release_url, limit=20)
+        
+        if not press_releases:
+            logger.info(f"No press releases found for {company.name}")
+            return {"status": "no_releases", "count": 0}
+        
+        # Сохранить через NewsIngestionService
+        from app.models.news import SourceType, NewsCategory
+        from app.utils.datetime_utils import parse_iso_datetime, to_naive_utc
+        
+        news_facade = NewsFacade(db)
+        created_count = 0
+        skipped_count = 0
+        
+        for release in press_releases:
+            try:
+                # Подготовить данные для NewsIngestionService
+                news_data = {
+                    "title": release.get("title", ""),
+                    "source_url": release.get("url", ""),
+                    "source_type": SourceType.PRESS_RELEASE.value,
+                    "category": NewsCategory.STRATEGIC_ANNOUNCEMENT.value,
+                    "summary": release.get("summary") or release.get("content", "")[:500],
+                    "content": release.get("content", ""),
+                    "published_at": release.get("published_at"),
+                    "company_id": str(company.id),
+                }
+                
+                # Создать новость
+                news_item = await news_facade.ingestion_service.create_news_item(news_data)
+                
+                if hasattr(news_item, "_was_created") and news_item._was_created:
+                    created_count += 1
+                else:
+                    skipped_count += 1
+                    
+            except Exception as e:
+                logger.warning(f"Error creating news item for press release {release.get('url')}: {e}")
+                skipped_count += 1
+                continue
+        
+        # Обновить матрицу мониторинга
         matrix_result = await db.execute(
             select(CompetitorMonitoringMatrix).where(
                 CompetitorMonitoringMatrix.company_id == company.id
@@ -444,24 +536,44 @@ async def scrape_press_releases_async(db, company_id_str: str, company: Company)
         )
         matrix = matrix_result.scalar_one_or_none()
         
-        if matrix:
-            if not matrix.news_sources:
-                matrix.news_sources = {}
-            
-            matrix.news_sources.update({
-                "last_scraped_at": datetime.now(timezone.utc).isoformat(),
-                "press_release_urls": [],
-                "status": "scraped"
-            })
-            matrix.last_updated = datetime.now(timezone.utc)
-            await db.commit()
+        if not matrix:
+            matrix = CompetitorMonitoringMatrix(
+                company_id=company.id,
+                monitoring_config={},
+                social_media_sources={},
+                website_sources={},
+                news_sources={},
+                marketing_sources={},
+                seo_signals={},
+                last_updated=datetime.now(timezone.utc)
+            )
+            db.add(matrix)
         
-        logger.info(f"Scraped press releases for {company.name}")
-        return {"status": "scraped", "count": 0}
+        if not matrix.news_sources:
+            matrix.news_sources = {}
+        
+        matrix.news_sources.update({
+            "last_scraped_at": datetime.now(timezone.utc).isoformat(),
+            "press_release_url": press_release_url,
+            "press_releases_count": len(press_releases),
+            "status": "scraped"
+        })
+        matrix.last_updated = datetime.now(timezone.utc)
+        await db.commit()
+        
+        logger.info(f"Scraped press releases for {company.name}: {created_count} created, {skipped_count} skipped")
+        return {
+            "status": "completed",
+            "count": len(press_releases),
+            "created": created_count,
+            "skipped": skipped_count,
+        }
         
     except Exception as e:
         logger.error(f"Error scraping press releases for company {company_id_str}: {e}")
         return {}
+    finally:
+        await scraper.close()
 
 
 async def detect_marketing_changes_async(db, company_id_str: str, company: Company) -> Dict[str, Any]:
@@ -476,13 +588,13 @@ async def detect_marketing_changes_async(db, company_id_str: str, company: Compa
     Returns:
         Словарь с результатами отслеживания маркетинга
     """
+    detector = MarketingChangeDetector()
     try:
         if not company.website:
             logger.warning(f"Company {company.name} has no website URL")
             return {}
         
-        # Базовая реализация - сохраняем информацию о том, что маркетинг отслеживается
-        # Полная реализация будет в MarketingChangeDetector
+        # Получить или создать матрицу мониторинга
         matrix_result = await db.execute(
             select(CompetitorMonitoringMatrix).where(
                 CompetitorMonitoringMatrix.company_id == company.id
@@ -490,27 +602,147 @@ async def detect_marketing_changes_async(db, company_id_str: str, company: Compa
         )
         matrix = matrix_result.scalar_one_or_none()
         
-        if matrix:
-            if not matrix.marketing_sources:
-                matrix.marketing_sources = {}
-            
-            matrix.marketing_sources.update({
-                "last_checked_at": datetime.now(timezone.utc).isoformat(),
-                "banners": [],
-                "landing_pages": [],
-                "products": [],
-                "job_postings": [],
-                "status": "monitored"
-            })
-            matrix.last_updated = datetime.now(timezone.utc)
-            await db.commit()
+        if not matrix:
+            matrix = CompetitorMonitoringMatrix(
+                company_id=company.id,
+                monitoring_config={},
+                social_media_sources={},
+                website_sources={},
+                news_sources={},
+                marketing_sources={},
+                seo_signals={},
+                last_updated=datetime.now(timezone.utc)
+            )
+            db.add(matrix)
         
-        logger.info(f"Detected marketing changes for {company.name}")
-        return {"status": "monitored", "changes": 0}
+        if not matrix.marketing_sources:
+            matrix.marketing_sources = {}
+        
+        previous_marketing = matrix.marketing_sources
+        
+        # Найти ключевые страницы из website_sources
+        website_sources = matrix.website_sources or {}
+        current_snapshot = website_sources.get("current_snapshot", {})
+        key_pages = current_snapshot.get("key_pages", [])
+        
+        pricing_url = next((p.get("url") for p in key_pages if p.get("type") == "pricing" and p.get("found")), None)
+        features_url = next((p.get("url") for p in key_pages if p.get("type") == "features" and p.get("found")), None)
+        careers_url = next((p.get("url") for p in key_pages if p.get("type") == "careers" and p.get("found")), None)
+        
+        events_created = 0
+        from app.models import (
+            CompetitorChangeEvent,
+            SourceType,
+            ChangeProcessingStatus,
+            ChangeNotificationStatus,
+        )
+        
+        # Детекция изменений баннеров
+        previous_banners = previous_marketing.get("banners")
+        banner_result = await detector.detect_banner_changes(company.website, previous_banners)
+        if banner_result.get("has_changes"):
+            current_banners = banner_result.get("current_banners", {})
+            matrix.marketing_sources["banners"] = current_banners
+            
+            event = CompetitorChangeEvent(
+                company_id=company.id,
+                source_type=SourceType.BLOG,
+                change_summary=f"Banner changes detected: {len(banner_result.get('changes', {}).get('added_banners', []))} added, {len(banner_result.get('changes', {}).get('removed_banners', []))} removed",
+                changed_fields=[banner_result.get("changes", {})],
+                raw_diff={"type": "banners", "changes": banner_result.get("changes", {})},
+                detected_at=datetime.now(timezone.utc),
+                processing_status=ChangeProcessingStatus.SUCCESS,
+                notification_status=ChangeNotificationStatus.PENDING,
+            )
+            db.add(event)
+            events_created += 1
+        elif banner_result.get("current_banners"):
+            matrix.marketing_sources["banners"] = banner_result.get("current_banners")
+        
+        # Детекция изменений цен
+        if pricing_url:
+            previous_pricing = previous_marketing.get("pricing")
+            pricing_result = await detector.detect_pricing_changes(pricing_url, previous_pricing)
+            if pricing_result.get("has_changes"):
+                current_pricing = pricing_result.get("current_pricing", {})
+                matrix.marketing_sources["pricing"] = current_pricing
+                
+                changes = pricing_result.get("changes", {})
+                event = CompetitorChangeEvent(
+                    company_id=company.id,
+                    source_type=SourceType.BLOG,
+                    change_summary=f"Pricing changes detected: {len(changes.get('price_changes', []))} price updates, {len(changes.get('added_plans', []))} new plans",
+                    changed_fields=[changes],
+                    raw_diff={"type": "pricing", "changes": changes},
+                    detected_at=datetime.now(timezone.utc),
+                    processing_status=ChangeProcessingStatus.SUCCESS,
+                    notification_status=ChangeNotificationStatus.PENDING,
+                )
+                db.add(event)
+                events_created += 1
+            elif pricing_result.get("current_pricing"):
+                matrix.marketing_sources["pricing"] = pricing_result.get("current_pricing")
+        
+        # Детекция новых продуктов
+        if features_url:
+            previous_products = previous_marketing.get("products")
+            products_result = await detector.detect_new_products(features_url, previous_products)
+            if products_result.get("has_changes"):
+                current_products = products_result.get("current_products", {})
+                matrix.marketing_sources["products"] = current_products
+                
+                new_products = products_result.get("new_products", [])
+                event = CompetitorChangeEvent(
+                    company_id=company.id,
+                    source_type=SourceType.BLOG,
+                    change_summary=f"New products detected: {len(new_products)} new products",
+                    changed_fields=[{"new_products": new_products}],
+                    raw_diff={"type": "products", "new_products": new_products},
+                    detected_at=datetime.now(timezone.utc),
+                    processing_status=ChangeProcessingStatus.SUCCESS,
+                    notification_status=ChangeNotificationStatus.PENDING,
+                )
+                db.add(event)
+                events_created += 1
+            elif products_result.get("current_products"):
+                matrix.marketing_sources["products"] = products_result.get("current_products")
+        
+        # Детекция новых вакансий
+        if careers_url:
+            previous_jobs = previous_marketing.get("job_postings")
+            jobs_result = await detector.detect_job_postings(careers_url, previous_jobs)
+            if jobs_result.get("has_changes"):
+                current_jobs = jobs_result.get("current_jobs", {})
+                matrix.marketing_sources["job_postings"] = current_jobs
+                
+                new_jobs = jobs_result.get("new_jobs", [])
+                event = CompetitorChangeEvent(
+                    company_id=company.id,
+                    source_type=SourceType.BLOG,
+                    change_summary=f"New job postings detected: {len(new_jobs)} new positions",
+                    changed_fields=[{"new_jobs": new_jobs}],
+                    raw_diff={"type": "job_postings", "new_jobs": new_jobs},
+                    detected_at=datetime.now(timezone.utc),
+                    processing_status=ChangeProcessingStatus.SUCCESS,
+                    notification_status=ChangeNotificationStatus.PENDING,
+                )
+                db.add(event)
+                events_created += 1
+            elif jobs_result.get("current_jobs"):
+                matrix.marketing_sources["job_postings"] = jobs_result.get("current_jobs")
+        
+        matrix.marketing_sources["last_checked_at"] = datetime.now(timezone.utc).isoformat()
+        matrix.last_updated = datetime.now(timezone.utc)
+        await db.commit()
+        
+        logger.info(f"Detected marketing changes for {company.name}: {events_created} events created")
+        return {"status": "completed", "changes": events_created}
         
     except Exception as e:
         logger.error(f"Error detecting marketing changes for company {company_id_str}: {e}")
         return {}
+    finally:
+        await detector.close()
 
 
 async def collect_seo_signals_async(db, company_id_str: str, company: Company) -> Dict[str, Any]:
@@ -525,13 +757,20 @@ async def collect_seo_signals_async(db, company_id_str: str, company: Company) -
     Returns:
         Словарь с результатами сбора SEO сигналов
     """
+    collector = SEOSignalCollector()
     try:
         if not company.website:
             logger.warning(f"Company {company.name} has no website URL")
             return {}
         
-        # Базовая реализация - сохраняем информацию о том, что SEO сигналы собраны
-        # Полная реализация будет в SEOSignalCollector
+        # Собрать SEO сигналы
+        signals = await collector.collect_seo_signals(company.website)
+        
+        if not signals:
+            logger.warning(f"Failed to collect SEO signals for {company.name}")
+            return {}
+        
+        # Получить или создать матрицу мониторинга
         matrix_result = await db.execute(
             select(CompetitorMonitoringMatrix).where(
                 CompetitorMonitoringMatrix.company_id == company.id
@@ -539,25 +778,58 @@ async def collect_seo_signals_async(db, company_id_str: str, company: Company) -
         )
         matrix = matrix_result.scalar_one_or_none()
         
-        if matrix:
-            if not matrix.seo_signals:
-                matrix.seo_signals = {}
-            
-            matrix.seo_signals.update({
-                "last_collected_at": datetime.now(timezone.utc).isoformat(),
-                "meta_tags": {},
-                "structured_data": {},
-                "status": "collected"
-            })
-            matrix.last_updated = datetime.now(timezone.utc)
-            await db.commit()
+        if not matrix:
+            matrix = CompetitorMonitoringMatrix(
+                company_id=company.id,
+                monitoring_config={},
+                social_media_sources={},
+                website_sources={},
+                news_sources={},
+                marketing_sources={},
+                seo_signals={},
+                last_updated=datetime.now(timezone.utc)
+            )
+            db.add(matrix)
         
-        logger.info(f"Collected SEO signals for {company.name}")
-        return {"status": "collected"}
+        # Сохранить сигналы
+        if not matrix.seo_signals:
+            matrix.seo_signals = {}
+        
+        # Сохранить текущие сигналы
+        previous_signals = matrix.seo_signals.get("current_signals")
+        matrix.seo_signals.update({
+            "current_signals": signals,
+            "last_collected_at": signals.get("collected_at"),
+            "meta_tags_count": len(signals.get("meta_tags", {}).get("og_tags", {})),
+            "structured_data_count": len(signals.get("structured_data", [])),
+            "robots_txt_exists": signals.get("robots_txt", {}).get("exists", False),
+            "sitemap_exists": signals.get("sitemap", {}).get("exists", False),
+        })
+        
+        # Сохранить историю (последние 5 снимков)
+        history = matrix.seo_signals.get("history", [])
+        history.append(signals)
+        if len(history) > 5:
+            history = history[-5:]
+        matrix.seo_signals["history"] = history
+        
+        matrix.last_updated = datetime.now(timezone.utc)
+        await db.commit()
+        
+        logger.info(f"Collected SEO signals for {company.name}: {len(signals.get('structured_data', []))} structured data items")
+        return {
+            "status": "collected",
+            "meta_tags": bool(signals.get("meta_tags", {}).get("title")),
+            "structured_data_count": len(signals.get("structured_data", [])),
+            "robots_txt_exists": signals.get("robots_txt", {}).get("exists", False),
+            "sitemap_exists": signals.get("sitemap", {}).get("exists", False),
+        }
         
     except Exception as e:
         logger.error(f"Error collecting SEO signals for company {company_id_str}: {e}")
         return {}
+    finally:
+        await collector.close()
 
 
 async def build_monitoring_matrix_async(db, company_ids: List[str]) -> Dict[str, Any]:
@@ -610,4 +882,326 @@ async def build_monitoring_matrix_async(db, company_ids: List[str]) -> Dict[str,
     except Exception as e:
         logger.error(f"Error building monitoring matrices: {e}")
         return {"status": "error", "error": str(e)}
+
+
+@celery_app.task
+def compare_website_structures(company_id: str):
+    """
+    Celery задача для сравнения структуры сайта компании.
+    
+    Сравнивает текущий снимок с предыдущим и создает события изменений.
+    
+    Args:
+        company_id: ID компании (строка)
+    """
+    return run_async_task(_compare_website_structures_async(company_id))
+
+
+async def _compare_website_structures_async(company_id: str) -> Dict[str, Any]:
+    """
+    Async функция для сравнения структуры сайта.
+    
+    Args:
+        company_id: ID компании (строка)
+        
+    Returns:
+        Словарь с результатами сравнения
+    """
+    monitor = WebsiteStructureMonitor()
+    try:
+        company_uuid = UUID(company_id)
+        
+        async with CelerySessionLocal() as db:
+            # Получить компанию
+            company_result = await db.execute(
+                select(Company).where(Company.id == company_uuid)
+            )
+            company = company_result.scalar_one_or_none()
+            
+            if not company or not company.website:
+                logger.warning(f"Company {company_id} not found or has no website")
+                return {"status": "error", "error": "Company not found or no website"}
+            
+            # Получить матрицу мониторинга
+            matrix_result = await db.execute(
+                select(CompetitorMonitoringMatrix).where(
+                    CompetitorMonitoringMatrix.company_id == company_uuid
+                )
+            )
+            matrix = matrix_result.scalar_one_or_none()
+            
+            if not matrix or not matrix.website_sources:
+                logger.warning(f"No monitoring matrix or snapshots for company {company_id}")
+                return {"status": "error", "error": "No snapshots found"}
+            
+            snapshots = matrix.website_sources.get("snapshots", [])
+            if len(snapshots) < 2:
+                logger.info(f"Not enough snapshots for comparison (need at least 2, have {len(snapshots)})")
+                return {"status": "skipped", "reason": "Not enough snapshots"}
+            
+            # Сравнить последние два снимка
+            previous_snapshot = snapshots[-2]
+            current_snapshot = snapshots[-1]
+            
+            # Захватить свежий снимок для сравнения
+            fresh_snapshot = await monitor.capture_website_snapshot(company.website)
+            if not fresh_snapshot:
+                logger.warning(f"Failed to capture fresh snapshot for {company.name}")
+                return {"status": "error", "error": "Failed to capture snapshot"}
+            
+            # Сравнить с предыдущим
+            changes = await monitor.detect_structure_changes(previous_snapshot, fresh_snapshot)
+            
+            if not changes.get("has_changes"):
+                logger.info(f"No changes detected for {company.name}")
+                return {"status": "no_changes", "company_id": company_id}
+            
+            # Создать события изменений
+            from app.models import (
+                CompetitorChangeEvent,
+                SourceType,
+                ChangeProcessingStatus,
+                ChangeNotificationStatus,
+            )
+            
+            events_created = 0
+            
+            # Событие для изменений навигации
+            if changes.get("navigation_changes", {}).get("has_changes"):
+                nav_changes = changes["navigation_changes"]
+                event = CompetitorChangeEvent(
+                    company_id=company_uuid,
+                    source_type=SourceType.BLOG,  # Используем BLOG как базовый тип для структуры сайта
+                    change_summary=f"Navigation changes detected: {len(nav_changes.get('added', []))} added, {len(nav_changes.get('removed', []))} removed",
+                    changed_fields=[nav_changes],  # changed_fields - это List[Dict]
+                    raw_diff={"type": "navigation", "changes": nav_changes},
+                    detected_at=datetime.now(timezone.utc),
+                    processing_status=ChangeProcessingStatus.SUCCESS,
+                    notification_status=ChangeNotificationStatus.PENDING,
+                )
+                db.add(event)
+                events_created += 1
+            
+            # Событие для изменений ключевых страниц
+            if changes.get("key_pages_changes", {}).get("has_changes"):
+                pages_changes = changes["key_pages_changes"]
+                event = CompetitorChangeEvent(
+                    company_id=company_uuid,
+                    source_type=SourceType.BLOG,
+                    change_summary=f"Key pages changes: {len(pages_changes.get('new_pages', []))} new, {len(pages_changes.get('removed_pages', []))} removed",
+                    changed_fields=[pages_changes],
+                    raw_diff={"type": "key_pages", "changes": pages_changes},
+                    detected_at=datetime.now(timezone.utc),
+                    processing_status=ChangeProcessingStatus.SUCCESS,
+                    notification_status=ChangeNotificationStatus.PENDING,
+                )
+                db.add(event)
+                events_created += 1
+            
+            # Событие для изменений метаданных
+            if changes.get("metadata_changes", {}).get("has_changes"):
+                meta_changes = changes["metadata_changes"]
+                event = CompetitorChangeEvent(
+                    company_id=company_uuid,
+                    source_type=SourceType.BLOG,
+                    change_summary="Website metadata changes detected",
+                    changed_fields=[meta_changes],
+                    raw_diff={"type": "metadata", "changes": meta_changes},
+                    detected_at=datetime.now(timezone.utc),
+                    processing_status=ChangeProcessingStatus.SUCCESS,
+                    notification_status=ChangeNotificationStatus.PENDING,
+                )
+                db.add(event)
+                events_created += 1
+            
+            # Обновить текущий снимок в матрице
+            snapshots = matrix.website_sources.get("snapshots", [])
+            snapshots.append(fresh_snapshot)
+            if len(snapshots) > 10:
+                snapshots = snapshots[-10:]
+            
+            matrix.website_sources.update({
+                "snapshots": snapshots,
+                "current_snapshot": fresh_snapshot,
+                "last_snapshot_at": fresh_snapshot.get("captured_at"),
+            })
+            matrix.last_updated = datetime.now(timezone.utc)
+            
+            await db.commit()
+            
+            logger.info(f"Compared website structures for {company.name}: {events_created} events created")
+            return {
+                "status": "completed",
+                "company_id": company_id,
+                "events_created": events_created,
+                "has_changes": True,
+            }
+            
+    except Exception as e:
+        logger.error(f"Error comparing website structures for company {company_id}: {e}")
+        return {"status": "error", "error": str(e)}
+    finally:
+        await monitor.close()
+
+
+@celery_app.task
+def compare_seo_signals(company_id: str):
+    """
+    Celery задача для сравнения SEO сигналов компании.
+    
+    Сравнивает текущие сигналы с предыдущими и создает события изменений.
+    
+    Args:
+        company_id: ID компании (строка)
+    """
+    return run_async_task(_compare_seo_signals_async(company_id))
+
+
+async def _compare_seo_signals_async(company_id: str) -> Dict[str, Any]:
+    """
+    Async функция для сравнения SEO сигналов.
+    
+    Args:
+        company_id: ID компании (строка)
+        
+    Returns:
+        Словарь с результатами сравнения
+    """
+    collector = SEOSignalCollector()
+    try:
+        company_uuid = UUID(company_id)
+        
+        async with CelerySessionLocal() as db:
+            # Получить компанию
+            company_result = await db.execute(
+                select(Company).where(Company.id == company_uuid)
+            )
+            company = company_result.scalar_one_or_none()
+            
+            if not company or not company.website:
+                logger.warning(f"Company {company_id} not found or has no website")
+                return {"status": "error", "error": "Company not found or no website"}
+            
+            # Получить матрицу мониторинга
+            matrix_result = await db.execute(
+                select(CompetitorMonitoringMatrix).where(
+                    CompetitorMonitoringMatrix.company_id == company_uuid
+                )
+            )
+            matrix = matrix_result.scalar_one_or_none()
+            
+            if not matrix or not matrix.seo_signals:
+                logger.warning(f"No SEO signals found for company {company_id}")
+                return {"status": "error", "error": "No SEO signals found"}
+            
+            # Собрать свежие сигналы
+            fresh_signals = await collector.collect_seo_signals(company.website)
+            if not fresh_signals:
+                logger.warning(f"Failed to collect fresh SEO signals for {company.name}")
+                return {"status": "error", "error": "Failed to collect signals"}
+            
+            # Получить предыдущие сигналы
+            previous_signals = matrix.seo_signals.get("current_signals")
+            if not previous_signals:
+                logger.info(f"No previous SEO signals to compare for {company.name}")
+                # Просто сохранить текущие
+                matrix.seo_signals["current_signals"] = fresh_signals
+                matrix.seo_signals["last_collected_at"] = fresh_signals.get("collected_at")
+                matrix.last_updated = datetime.now(timezone.utc)
+                await db.commit()
+                return {"status": "skipped", "reason": "No previous signals"}
+            
+            # Сравнить сигналы
+            changes = collector.compare_seo_signals(previous_signals, fresh_signals)
+            
+            if not changes.get("has_changes"):
+                logger.info(f"No SEO changes detected for {company.name}")
+                return {"status": "no_changes", "company_id": company_id}
+            
+            # Создать события изменений
+            from app.models import (
+                CompetitorChangeEvent,
+                SourceType,
+                ChangeProcessingStatus,
+                ChangeNotificationStatus,
+            )
+            
+            events_created = 0
+            
+            # Событие для изменений meta тегов
+            if changes.get("meta_tags_changes", {}).get("has_changes"):
+                meta_changes = changes["meta_tags_changes"]
+                event = CompetitorChangeEvent(
+                    company_id=company_uuid,
+                    source_type=SourceType.BLOG,
+                    change_summary="SEO meta tags changes detected",
+                    changed_fields=[meta_changes],
+                    raw_diff={"type": "meta_tags", "changes": meta_changes},
+                    detected_at=datetime.now(timezone.utc),
+                    processing_status=ChangeProcessingStatus.SUCCESS,
+                    notification_status=ChangeNotificationStatus.PENDING,
+                )
+                db.add(event)
+                events_created += 1
+            
+            # Событие для изменений structured data
+            if changes.get("structured_data_changes", {}).get("has_changes"):
+                struct_changes = changes["structured_data_changes"]
+                event = CompetitorChangeEvent(
+                    company_id=company_uuid,
+                    source_type=SourceType.BLOG,
+                    change_summary=f"Structured data changes: {struct_changes.get('current_count', 0)} items (was {struct_changes.get('previous_count', 0)})",
+                    changed_fields=[struct_changes],
+                    raw_diff={"type": "structured_data", "changes": struct_changes},
+                    detected_at=datetime.now(timezone.utc),
+                    processing_status=ChangeProcessingStatus.SUCCESS,
+                    notification_status=ChangeNotificationStatus.PENDING,
+                )
+                db.add(event)
+                events_created += 1
+            
+            # Событие для изменений sitemap
+            if changes.get("sitemap_changes", {}).get("has_changes"):
+                sitemap_changes = changes["sitemap_changes"]
+                event = CompetitorChangeEvent(
+                    company_id=company_uuid,
+                    source_type=SourceType.BLOG,
+                    change_summary=f"Sitemap changes detected: {len(sitemap_changes.get('added_urls', []))} URLs added, {len(sitemap_changes.get('removed_urls', []))} removed",
+                    changed_fields=[sitemap_changes],
+                    raw_diff={"type": "sitemap", "changes": sitemap_changes},
+                    detected_at=datetime.now(timezone.utc),
+                    processing_status=ChangeProcessingStatus.SUCCESS,
+                    notification_status=ChangeNotificationStatus.PENDING,
+                )
+                db.add(event)
+                events_created += 1
+            
+            # Обновить текущие сигналы
+            history = matrix.seo_signals.get("history", [])
+            history.append(fresh_signals)
+            if len(history) > 5:
+                history = history[-5:]
+            
+            matrix.seo_signals.update({
+                "current_signals": fresh_signals,
+                "last_collected_at": fresh_signals.get("collected_at"),
+                "history": history,
+            })
+            matrix.last_updated = datetime.now(timezone.utc)
+            
+            await db.commit()
+            
+            logger.info(f"Compared SEO signals for {company.name}: {events_created} events created")
+            return {
+                "status": "completed",
+                "company_id": company_id,
+                "events_created": events_created,
+                "has_changes": True,
+            }
+            
+    except Exception as e:
+        logger.error(f"Error comparing SEO signals for company {company_id}: {e}")
+        return {"status": "error", "error": str(e)}
+    finally:
+        await collector.close()
 
