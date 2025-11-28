@@ -55,7 +55,26 @@ export default function CompetitorSelectionStep({
         throw new Error('Invalid response format from server')
       }
       
-      setCompetitors(response.competitors.map(c => c.company))
+      // Validate and map competitors with fallbacks
+      const mappedCompetitors = response.competitors
+        .filter(c => c && c.company && c.company.name)  // Filter out invalid entries
+        .map(c => {
+          const company = c.company
+          return {
+            id: company.id || `temp-${Date.now()}-${Math.random()}`,  // Ensure ID is always present
+            name: company.name || 'Unknown Company',
+            website: company.website || '',
+            logo_url: company.logo_url || null,
+            category: company.category || null,
+            description: company.description || null,
+            ai_description: company.ai_description || company.description || undefined,  // Fallback to description
+            similarity_score: c.similarity_score,
+            common_categories: c.common_categories || [],
+            reason: c.reason || ''
+          }
+        })
+      
+      setCompetitors(mappedCompetitors)
     } catch (err: any) {
       // Ignore network errors that might be from duplicate requests or cancelled requests
       const isNetworkError = !err.response && (err.code === 'ECONNABORTED' || err.message === 'Network Error' || err.name === 'AbortError' || err.code === 'ERR_CANCELED')
@@ -258,10 +277,10 @@ export default function CompetitorSelectionStep({
                     </a>
                   )}
                   
-                  {/* AI Description */}
-                  {competitor.ai_description && (
+                  {/* AI Description or Description */}
+                  {(competitor.ai_description || competitor.description) && (
                     <p className="text-sm text-gray-600 line-clamp-3 mb-2">
-                      {competitor.ai_description}
+                      {competitor.ai_description || competitor.description}
                     </p>
                   )}
 

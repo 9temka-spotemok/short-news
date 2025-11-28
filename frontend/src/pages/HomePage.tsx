@@ -39,12 +39,29 @@ export default function HomePage() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [showAuthModal, setShowAuthModal] = useState(false)
 
-  // Clear onboarding session when user authenticates
+  // Clear onboarding session when user authenticates or logs out
   useEffect(() => {
     if (isAuthenticated) {
+      // Очистить сессию онбординга при авторизации
       sessionStorage.removeItem(ONBOARDING_SESSION_KEY)
       setSessionToken(null)
+      setCurrentStep('company_input')
+      setCompany(null)
+      setCompetitors([])
+      setObservationTaskId(null)
       setIsLoading(false)
+    } else {
+      // Очистить сессию онбординга при выходе из системы
+      // Это важно, чтобы прогресс-бар не оставался видимым
+      const existingToken = sessionStorage.getItem(ONBOARDING_SESSION_KEY)
+      if (existingToken) {
+        sessionStorage.removeItem(ONBOARDING_SESSION_KEY)
+        setSessionToken(null)
+        setCurrentStep('company_input')
+        setCompany(null)
+        setCompetitors([])
+        setObservationTaskId(null)
+      }
     }
   }, [isAuthenticated])
 
@@ -71,7 +88,7 @@ export default function HomePage() {
           try {
             const response = await ApiService.getOnboardingCompany(existingToken)
             setSessionToken(existingToken)
-            setCurrentStep(response.current_step)
+            setCurrentStep(response.current_step as OnboardingStep)
             setCompany(response.company)
             setIsLoading(false)
             return
@@ -84,7 +101,7 @@ export default function HomePage() {
         // Create new session
         const response = await ApiService.startOnboarding()
         setSessionToken(response.session_token)
-        setCurrentStep(response.current_step)
+        setCurrentStep(response.current_step as OnboardingStep)
         
         // Save session token to sessionStorage (безопаснее, чем localStorage)
         sessionStorage.setItem(ONBOARDING_SESSION_KEY, response.session_token)
@@ -122,7 +139,7 @@ export default function HomePage() {
     try {
       const response = await ApiService.analyzeCompanyForOnboarding(websiteUrl, sessionToken)
       setCompany(response.company)
-      setCurrentStep(response.current_step)
+      setCurrentStep(response.current_step as OnboardingStep)
     } catch (err: any) {
       toast.error(err.message || 'Ошибка при анализе компании')
       throw err
@@ -178,16 +195,16 @@ export default function HomePage() {
 
     const response = await ApiService.replaceCompetitorInOnboarding(sessionToken, competitorId)
     return {
-      id: response.company.id,
-      name: response.company.name,
-      website: response.company.website,
-      logo_url: response.company.logo_url,
-      category: response.company.category,
-      description: response.company.description,
-      ai_description: response.company.ai_description || '',
+      id: response.company.id || `temp-${Date.now()}-${Math.random()}`,
+      name: response.company.name || 'Unknown Company',
+      website: response.company.website || '',
+      logo_url: response.company.logo_url || null,
+      category: response.company.category || null,
+      description: response.company.description || null,
+      ai_description: response.company.ai_description || response.company.description || undefined,
       similarity_score: response.similarity_score,
-      common_categories: response.common_categories,
-      reason: response.reason
+      common_categories: response.common_categories || [],
+      reason: response.reason || ''
     }
   }
 
