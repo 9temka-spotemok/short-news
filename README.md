@@ -679,6 +679,10 @@ k6 run tests/performance/analytics-load.test.js
 - [docs/TELEGRAM_SETUP.md](docs/TELEGRAM_SETUP.md) - Настройка Telegram бота
 - [docs/CELERY_SCRAPER_OPTIMIZATION_PLAN.md](docs/CELERY_SCRAPER_OPTIMIZATION_PLAN.md) - **План оптимизации Celery и Scraper** (дедупликация запросов, SourceHealthService, параллелизация дайджестов) 🔥
 - [docs/ANALYSIS/README.md](docs/ANALYSIS/README.md) - Полный анализ системы (разделен на части) ⭐
+- [docs/ANALYSIS/PERSONALIZATION_ANALYSIS.md](docs/ANALYSIS/PERSONALIZATION_ANALYSIS.md) - **Анализ персонализации данных** (функциональные параметры, безопасность, UX, критические недостатки) 🔒
+- [docs/ANALYSIS/PERSONALIZATION_CHANGES.md](docs/ANALYSIS/PERSONALIZATION_CHANGES.md) - **Что изменится после исправлений** (изменения в безопасности, API, UX, новые функции) 📝
+- [docs/ANALYSIS/PERSONALIZATION_IMPLEMENTATION_PLAN.md](docs/ANALYSIS/PERSONALIZATION_IMPLEMENTATION_PLAN.md) - **План реализации исправлений** (пошаговый план с примерами кода, чек-листами и тестами) ✅
+- [docs/ANALYSIS/PERSONALIZATION_RISKS.md](docs/ANALYSIS/PERSONALIZATION_RISKS.md) - **Анализ рисков** (побочные эффекты для других модулей, рекомендации по исправлению) ⚠️
 - [docs/competitor-analysis.md](docs/competitor-analysis.md) - Анализ 123 конкурентов
 
 ### Диагностика и отладка:
