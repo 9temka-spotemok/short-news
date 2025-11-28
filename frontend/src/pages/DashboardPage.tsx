@@ -11,6 +11,7 @@ import Recommendations from '@/components/dashboard/Recommendations'
 import ReportCard from '@/components/dashboard/ReportCard'
 import SkeletonLoader from '@/components/dashboard/SkeletonLoader'
 import StatsCards from '@/components/dashboard/StatsCards'
+import MonitoringStatusCard from '@/components/monitoring/MonitoringStatusCard'
 import api, { ApiService } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
 import type { Company, Report } from '@/types'
@@ -151,7 +152,7 @@ export default function DashboardPage() {
   const [discoverSearchQuery, setDiscoverSearchQuery] = useState('')
   const [reports, setReports] = useState<Report[]>([])
   const [expandedReports, setExpandedReports] = useState<Set<string>>(new Set())
-  const [reportTabs, setReportTabs] = useState<Record<string, 'news' | 'sources' | 'pricing' | 'competitors'>>({})
+  const [reportTabs, setReportTabs] = useState<Record<string, 'news' | 'sources' | 'pricing' | 'competitors' | 'monitoring'>>({})
   const [reportData, setReportData] = useState<Record<string, Report>>({})
   const [pollingIntervals, setPollingIntervals] = useState<Record<string, NodeJS.Timeout>>({})
   const [reportsLoaded, setReportsLoaded] = useState(false) // Флаг для отслеживания загрузки отчётов
@@ -246,6 +247,15 @@ export default function DashboardPage() {
   const { data: userPreferences } = useQuery({
     queryKey: ['user-preferences'],
     queryFn: ApiService.getUserPreferences,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  })
+
+  // Load monitoring status for subscribed companies
+  const subscribedCompanies = userPreferences?.subscribed_companies || []
+  const { data: monitoringStatus, isLoading: monitoringLoading } = useQuery({
+    queryKey: ['monitoring-status', subscribedCompanies],
+    queryFn: () => ApiService.getMonitoringStatus(subscribedCompanies),
+    enabled: subscribedCompanies.length > 0,
     staleTime: 1000 * 60 * 5, // 5 minutes
   })
 
@@ -1050,6 +1060,42 @@ export default function DashboardPage() {
               loading={loading}
               showLinkToAnalytics={true}
             />
+
+            {/* Monitoring Status Section */}
+            {subscribedCompanies.length > 0 && (
+              <>
+                {monitoringLoading ? (
+                  <div>
+                    <h2 className="text-xl font-semibold text-gray-900 mb-4">Monitoring Status</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {[1, 2, 3].map((i) => (
+                        <div key={i} className="bg-white rounded-lg border border-gray-200 p-4 animate-pulse">
+                          <div className="h-4 bg-gray-200 rounded w-3/4 mb-3"></div>
+                          <div className="h-3 bg-gray-200 rounded w-1/2 mb-2"></div>
+                          <div className="h-3 bg-gray-200 rounded w-2/3"></div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : monitoringStatus?.statuses && monitoringStatus.statuses.length > 0 ? (
+                  <div>
+                    <h2 className="text-xl font-semibold text-gray-900 mb-4">Monitoring Status</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {monitoringStatus.statuses.map((status) => (
+                        <MonitoringStatusCard
+                          key={status.company_id}
+                          status={status}
+                          onViewDetails={() => {
+                            // Navigate to company details or monitoring page
+                            navigate(`/competitor-analysis?company_id=${status.company_id}`)
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </>
+            )}
 
             {/* Quick Links to other pages */}
             <div>

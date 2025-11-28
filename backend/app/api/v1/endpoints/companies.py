@@ -13,6 +13,7 @@ from uuid import UUID as UUIDType
 
 from app.core.database import get_db
 from app.models.company import Company
+from app.models.competitor import CompetitorMonitoringMatrix, CompetitorChangeEvent
 from app.models.news import (
     NewsItem,
     NewsCategory,
@@ -812,6 +813,319 @@ async def quick_company_analysis(
     except Exception as e:
         logger.error(f"Failed to analyze company: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to analyze company: {str(e)}")
+
+
+@router.get("/monitoring/status")
+async def get_monitoring_status(
+    company_ids: str = Query(..., description="Comma-separated list of company UUIDs"),
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get monitoring status for multiple companies.
+    
+    Returns status information including:
+    - Active status
+    - Source counts (social media, website pages, news, marketing, SEO)
+    - Last check timestamps for each source type
+    """
+    try:
+        # Parse company IDs from comma-separated string
+        company_id_list = [cid.strip() for cid in company_ids.split(',') if cid.strip()]
+        
+        if not company_id_list:
+            return {"statuses": []}
+        
+        # Validate UUIDs
+        valid_company_ids = []
+        for cid in company_id_list:
+            try:
+                valid_company_ids.append(UUIDType(cid))
+            except ValueError:
+                logger.warning(f"Invalid company ID format: {cid}")
+                continue
+        
+        if not valid_company_ids:
+            return {"statuses": []}
+        
+        # Build access filter
+        if current_user:
+            # Authenticated user: only their companies
+            company_filter = Company.user_id == current_user.id
+        else:
+            # Anonymous user: only global companies
+            company_filter = Company.user_id.is_(None)
+        
+        # Get companies with access check
+        companies_result = await db.execute(
+            select(Company)
+            .where(
+                Company.id.in_(valid_company_ids),
+                company_filter
+            )
+        )
+        companies = {str(c.id): c for c in companies_result.scalars().all()}
+        
+        # Get monitoring matrices for these companies
+        matrices_result = await db.execute(
+            select(CompetitorMonitoringMatrix)
+            .where(CompetitorMonitoringMatrix.company_id.in_(valid_company_ids))
+        )
+        matrices = {str(m.company_id): m for m in matrices_result.scalars().all()}
+        
+        # Build response
+        statuses = []
+        for company_id in valid_company_ids:
+            company_id_str = str(company_id)
+            company = companies.get(company_id_str)
+            
+            if not company:
+                # Skip companies user doesn't have access to
+                continue
+            
+            matrix = matrices.get(company_id_str)
+            
+            # Count sources
+            social_media_count = 0
+            if matrix and matrix.social_media_sources:
+                social_media_count = len([
+                    k for k, v in matrix.social_media_sources.items()
+                    if v and isinstance(v, dict) and v.get("url")
+                ])
+            
+            website_pages_count = 0
+            if matrix and matrix.website_sources:
+                key_pages = matrix.website_sources.get("key_pages", [])
+                if isinstance(key_pages, list):
+                    website_pages_count = len(key_pages)
+            
+            news_sources_count = 0
+            if matrix and matrix.news_sources:
+                press_releases = matrix.news_sources.get("press_release_urls", [])
+                blog_urls = matrix.news_sources.get("blog_urls", [])
+                if isinstance(press_releases, list):
+                    news_sources_count += len(press_releases)
+                if isinstance(blog_urls, list):
+                    news_sources_count += len(blog_urls)
+            
+            marketing_sources_count = 0
+            if matrix and matrix.marketing_sources:
+                banners = matrix.marketing_sources.get("banners", [])
+                landing_pages = matrix.marketing_sources.get("landing_pages", [])
+                products = matrix.marketing_sources.get("products", [])
+                job_postings = matrix.marketing_sources.get("job_postings", [])
+                if isinstance(banners, list):
+                    marketing_sources_count += len(banners)
+                if isinstance(landing_pages, list):
+                    marketing_sources_count += len(landing_pages)
+                if isinstance(products, list):
+                    marketing_sources_count += len(products)
+                if isinstance(job_postings, list):
+                    marketing_sources_count += len(job_postings)
+            
+            seo_signals_count = 0
+            if matrix and matrix.seo_signals:
+                # Count if any SEO data exists
+                if matrix.seo_signals.get("meta_tags") or matrix.seo_signals.get("structured_data"):
+                    seo_signals_count = 1
+            
+            # Get last check timestamps
+            last_checks = {
+                "social_media": None,
+                "website_structure": None,
+                "press_releases": None,
+                "marketing_changes": None,
+                "seo_signals": None,
+            }
+            
+            if matrix:
+                # Social media last check
+                if matrix.social_media_sources:
+                    social_checks = [
+                        v.get("last_checked") for v in matrix.social_media_sources.values()
+                        if isinstance(v, dict) and v.get("last_checked")
+                    ]
+                    if social_checks:
+                        last_checks["social_media"] = max(social_checks)
+                
+                # Website structure last check
+                if matrix.website_sources and matrix.website_sources.get("last_snapshot_at"):
+                    last_checks["website_structure"] = matrix.website_sources["last_snapshot_at"]
+                
+                # Press releases last check
+                if matrix.news_sources and matrix.news_sources.get("last_scraped_at"):
+                    last_checks["press_releases"] = matrix.news_sources["last_scraped_at"]
+                
+                # Marketing changes last check
+                if matrix.marketing_sources and matrix.marketing_sources.get("last_checked_at"):
+                    last_checks["marketing_changes"] = matrix.marketing_sources["last_checked_at"]
+                
+                # SEO signals last check
+                if matrix.seo_signals and matrix.seo_signals.get("last_collected_at"):
+                    last_checks["seo_signals"] = matrix.seo_signals["last_collected_at"]
+            
+            # Determine if monitoring is active
+            is_active = matrix is not None and (
+                social_media_count > 0 or
+                website_pages_count > 0 or
+                news_sources_count > 0 or
+                marketing_sources_count > 0 or
+                seo_signals_count > 0
+            )
+            
+            statuses.append({
+                "company_id": company_id_str,
+                "company_name": company.name,
+                "is_active": is_active,
+                "last_updated": matrix.last_updated.isoformat() if matrix and matrix.last_updated else None,
+                "sources_count": {
+                    "social_media": social_media_count,
+                    "website_pages": website_pages_count,
+                    "news_sources": news_sources_count,
+                    "marketing_sources": marketing_sources_count,
+                    "seo_signals": seo_signals_count,
+                },
+                "last_checks": last_checks,
+            })
+        
+        return {"statuses": statuses}
+        
+    except Exception as e:
+        logger.error(f"Failed to get monitoring status: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve monitoring status: {str(e)}")
+
+
+@router.get("/monitoring/stats")
+async def get_monitoring_stats(
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get monitoring statistics for user's companies.
+    
+    Returns:
+    - total_companies: Total number of companies
+    - active_monitoring: Number of companies with active monitoring
+    - total_changes_detected: Total number of change events detected
+    - changes_by_type: Count of changes grouped by source_type
+    - last_24h_changes: Number of changes detected in last 24 hours
+    """
+    try:
+        # Build access filter for companies
+        if current_user:
+            # Authenticated user: only their companies
+            company_filter = Company.user_id == current_user.id
+        else:
+            # Anonymous user: only global companies
+            company_filter = Company.user_id.is_(None)
+        
+        # Get total companies count
+        total_companies_result = await db.execute(
+            select(func.count(Company.id)).where(company_filter)
+        )
+        total_companies = total_companies_result.scalar() or 0
+        
+        # Get company IDs for further queries
+        companies_result = await db.execute(
+            select(Company.id).where(company_filter)
+        )
+        company_ids = [c for c in companies_result.scalars().all()]
+        
+        if not company_ids:
+            return {
+                "total_companies": 0,
+                "active_monitoring": 0,
+                "total_changes_detected": 0,
+                "changes_by_type": {},
+                "last_24h_changes": 0,
+            }
+        
+        # Get active monitoring count (companies with monitoring matrix that has sources)
+        matrices_result = await db.execute(
+            select(CompetitorMonitoringMatrix)
+            .join(Company, CompetitorMonitoringMatrix.company_id == Company.id)
+            .where(company_filter)
+        )
+        matrices = matrices_result.scalars().all()
+        
+        active_monitoring = 0
+        for matrix in matrices:
+            has_sources = (
+                (matrix.social_media_sources and len([
+                    k for k, v in (matrix.social_media_sources or {}).items()
+                    if v and isinstance(v, dict) and v.get("url")
+                ]) > 0) or
+                (matrix.website_sources and matrix.website_sources.get("key_pages") and 
+                 len(matrix.website_sources.get("key_pages", [])) > 0) or
+                (matrix.news_sources and (
+                    len(matrix.news_sources.get("press_release_urls", [])) > 0 or
+                    len(matrix.news_sources.get("blog_urls", [])) > 0
+                )) or
+                (matrix.marketing_sources and (
+                    len(matrix.marketing_sources.get("banners", [])) > 0 or
+                    len(matrix.marketing_sources.get("landing_pages", [])) > 0 or
+                    len(matrix.marketing_sources.get("products", [])) > 0 or
+                    len(matrix.marketing_sources.get("job_postings", [])) > 0
+                )) or
+                (matrix.seo_signals and (
+                    matrix.seo_signals.get("meta_tags") or
+                    matrix.seo_signals.get("structured_data")
+                ))
+            )
+            if has_sources:
+                active_monitoring += 1
+        
+        # Get total changes detected
+        total_changes_result = await db.execute(
+            select(func.count(CompetitorChangeEvent.id))
+            .join(Company, CompetitorChangeEvent.company_id == Company.id)
+            .where(company_filter)
+        )
+        total_changes_detected = total_changes_result.scalar() or 0
+        
+        # Get changes by type
+        changes_by_type_result = await db.execute(
+            select(
+                CompetitorChangeEvent.source_type,
+                func.count(CompetitorChangeEvent.id).label("count")
+            )
+            .join(Company, CompetitorChangeEvent.company_id == Company.id)
+            .where(company_filter)
+            .group_by(CompetitorChangeEvent.source_type)
+        )
+        changes_by_type = {}
+        for row in changes_by_type_result.all():
+            source_type = row.source_type
+            # Convert enum to string if needed
+            if hasattr(source_type, 'value'):
+                source_type_str = source_type.value
+            else:
+                source_type_str = str(source_type)
+            changes_by_type[source_type_str] = row.count
+        
+        # Get changes in last 24 hours
+        last_24h = datetime.now(timezone.utc) - timedelta(hours=24)
+        last_24h_changes_result = await db.execute(
+            select(func.count(CompetitorChangeEvent.id))
+            .join(Company, CompetitorChangeEvent.company_id == Company.id)
+            .where(
+                company_filter,
+                CompetitorChangeEvent.detected_at >= last_24h
+            )
+        )
+        last_24h_changes = last_24h_changes_result.scalar() or 0
+        
+        return {
+            "total_companies": total_companies,
+            "active_monitoring": active_monitoring,
+            "total_changes_detected": total_changes_detected,
+            "changes_by_type": changes_by_type,
+            "last_24h_changes": last_24h_changes,
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to get monitoring stats: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve monitoring stats: {str(e)}")
 
 
 

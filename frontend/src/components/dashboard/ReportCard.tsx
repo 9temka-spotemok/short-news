@@ -1,4 +1,7 @@
+import MonitoringSourcesCard from '@/components/monitoring/MonitoringSourcesCard'
+import { ApiService } from '@/services/api'
 import type { Report } from '@/types'
+import { useQuery } from '@tanstack/react-query'
 import { formatDistance } from 'date-fns'
 import { enUS } from 'date-fns/locale'
 import { ChevronDown, ChevronUp, Edit, ExternalLink, Github, Globe, RefreshCw, Trash2, Twitter, UserPlus } from 'lucide-react'
@@ -7,9 +10,9 @@ import { useMemo } from 'react'
 interface ReportCardProps {
   report: Report
   isExpanded: boolean
-  activeTab: 'news' | 'sources' | 'pricing' | 'competitors'
+  activeTab: 'news' | 'sources' | 'pricing' | 'competitors' | 'monitoring'
   onExpand: () => void
-  onTabChange: (tab: 'news' | 'sources' | 'pricing' | 'competitors') => void
+  onTabChange: (tab: 'news' | 'sources' | 'pricing' | 'competitors' | 'monitoring') => void
   reportData?: Report // Полные данные (только для status='ready')
   onRetry?: () => void // Функция для повторного создания отчёта
   onLoadCompetitors?: () => Promise<void> // Функция для загрузки конкурентов
@@ -251,10 +254,10 @@ export default function ReportCard({
                   {/* Табы */}
                   <div className="border-t border-gray-200 pt-4">
                     <div className="flex space-x-1 border-b border-gray-200 mb-4">
-                      {['news', 'sources', 'pricing', 'competitors'].map((tab) => (
+                      {['news', 'sources', 'pricing', 'competitors', 'monitoring'].map((tab) => (
                         <button
                           key={tab}
-                          onClick={() => onTabChange(tab as 'news' | 'sources' | 'pricing' | 'competitors')}
+                          onClick={() => onTabChange(tab as 'news' | 'sources' | 'pricing' | 'competitors' | 'monitoring')}
                           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
                             activeTab === tab
                               ? 'border-primary-500 text-primary-600'
@@ -265,6 +268,7 @@ export default function ReportCard({
                           {tab === 'sources' && 'Sources'}
                           {tab === 'pricing' && 'Pricing'}
                           {tab === 'competitors' && 'Competitors'}
+                          {tab === 'monitoring' && 'Monitoring'}
                         </button>
                       ))}
                     </div>
@@ -506,6 +510,10 @@ export default function ReportCard({
                         )}
                       </div>
                     )}
+
+                    {activeTab === 'monitoring' && company?.id && (
+                      <MonitoringTabContent companyId={company.id} />
+                    )}
                   </div>
 
                   {/* Website и Social Links - внизу */}
@@ -562,6 +570,56 @@ export default function ReportCard({
           )}
         </div>
       </div>
+    </div>
+  )
+}
+
+// Monitoring Tab Content Component
+function MonitoringTabContent({ companyId }: { companyId: string }) {
+  const { data: monitoringMatrix, isLoading, error } = useQuery({
+    queryKey: ['monitoring-matrix', companyId],
+    queryFn: () => ApiService.getMonitoringMatrix(companyId),
+    enabled: !!companyId,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  })
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <div className="animate-pulse">
+          <div className="h-4 bg-gray-200 rounded w-1/4 mb-4"></div>
+          <div className="h-32 bg-gray-200 rounded"></div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+        <p className="text-sm text-red-800">
+          Failed to load monitoring data. Please try again later.
+        </p>
+      </div>
+    )
+  }
+
+  if (!monitoringMatrix) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-sm text-gray-500">
+          No monitoring data available for this company yet.
+        </p>
+        <p className="text-xs text-gray-400 mt-2">
+          Monitoring will be set up automatically when you add this company.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <MonitoringSourcesCard matrix={monitoringMatrix as any} />
     </div>
   )
 }

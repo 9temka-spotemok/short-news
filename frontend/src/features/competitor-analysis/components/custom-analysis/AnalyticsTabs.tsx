@@ -1,22 +1,25 @@
 import { useMemo } from 'react'
 
 import type {
-  AnalyticsPeriod,
-  ComparisonSubjectRequest,
-  ComparisonResponse,
-  Company,
-  CompanyAnalyticsSnapshot,
-  ReportPreset,
-  SnapshotSeries
+    AnalyticsPeriod,
+    Company,
+    CompanyAnalyticsSnapshot,
+    ComparisonResponse,
+    ComparisonSubjectRequest,
+    ReportPreset,
+    SnapshotSeries
 } from '@/types'
 import type { FilterStateSnapshot } from '../../types'
 
-import { ActiveFiltersSummary, type ActiveFilters } from '../ActiveFiltersSummary'
-import { PersistentMetricsBoard } from '../PersistentMetricsBoard'
-import { CurrentSignalsBoard } from '../CurrentSignalsBoard'
-import { ChangeEventsSection } from '../ChangeEventsSection'
+import MonitoringSourcesCard from '@/components/monitoring/MonitoringSourcesCard'
+import { ApiService } from '@/services/api'
+import { useQuery } from '@tanstack/react-query'
 import { useChangeLog } from '../../hooks/useChangeLog'
 import { useKnowledgeGraph } from '../../hooks/useKnowledgeGraph'
+import { ActiveFiltersSummary, type ActiveFilters } from '../ActiveFiltersSummary'
+import { ChangeEventsSection } from '../ChangeEventsSection'
+import { CurrentSignalsBoard } from '../CurrentSignalsBoard'
+import { PersistentMetricsBoard } from '../PersistentMetricsBoard'
 
 export type AnalyticsTabsProps = {
   metricsTab: 'persistent' | 'signals'
@@ -239,9 +242,46 @@ export const AnalyticsTabs = ({
               }
               loadingMore={changeLogQuery.isFetchingNextPage}
             />
+            
+            {/* Monitoring Matrix Section */}
+            {selectedCompany?.id && (
+              <MonitoringMatrixSection companyId={selectedCompany.id} />
+            )}
           </>
         )}
       </div>
+    </div>
+  )
+}
+
+// Monitoring Matrix Section Component
+function MonitoringMatrixSection({ companyId }: { companyId: string }) {
+  const { data: monitoringMatrix, isLoading, error } = useQuery({
+    queryKey: ['monitoring-matrix', companyId],
+    queryFn: () => ApiService.getMonitoringMatrix(companyId),
+    enabled: !!companyId,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  })
+
+  if (isLoading) {
+    return (
+      <div className="bg-white rounded-lg border border-gray-200 p-5">
+        <div className="animate-pulse">
+          <div className="h-4 bg-gray-200 rounded w-1/4 mb-4"></div>
+          <div className="h-32 bg-gray-200 rounded"></div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error || !monitoringMatrix) {
+    return null // Don't show error, just hide the section
+  }
+
+  return (
+    <div className="bg-white rounded-lg border border-gray-200 p-5">
+      <h3 className="text-lg font-semibold text-gray-900 mb-4">Monitoring Matrix</h3>
+      <MonitoringSourcesCard matrix={monitoringMatrix as any} />
     </div>
   )
 }

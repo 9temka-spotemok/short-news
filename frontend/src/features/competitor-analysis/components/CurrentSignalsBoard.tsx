@@ -1,17 +1,20 @@
 import { History, Newspaper, Sparkles, TrendingUp } from 'lucide-react'
 
 import ThemeAnalysis from '@/components/ThemeAnalysis'
+import MonitoringSourcesCard from '@/components/monitoring/MonitoringSourcesCard'
+import { ApiService } from '@/services/api'
 import type {
-  Company,
-  CompanyAnalyticsSnapshot,
-  ComparisonMetricSummary,
-  ComparisonSubjectRequest,
-  ComparisonSubjectSummary,
-  CompetitorChangeEvent,
-  KnowledgeGraphEdge,
-  NewsItem,
-  ReportPreset,
+    Company,
+    CompanyAnalyticsSnapshot,
+    ComparisonMetricSummary,
+    ComparisonSubjectRequest,
+    ComparisonSubjectSummary,
+    CompetitorChangeEvent,
+    KnowledgeGraphEdge,
+    NewsItem,
+    ReportPreset,
 } from '@/types'
+import { useQuery } from '@tanstack/react-query'
 import { formatLabel } from '../utils/formatters'
 
 type AbSelection = {
@@ -476,6 +479,11 @@ export const CurrentSignalsBoard = ({
         </div>
       </div>
 
+      {/* Monitoring Sources Section */}
+      {selectedCompany?.id && (
+        <MonitoringSourcesSection companyId={selectedCompany.id} />
+      )}
+
       {themesData && (
         <div className="bg-white rounded-lg shadow-md p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
@@ -484,6 +492,38 @@ export const CurrentSignalsBoard = ({
           <ThemeAnalysis themesData={themesData} companies={analysisData.companies} />
         </div>
       )}
+    </div>
+  )
+}
+
+// Monitoring Sources Section Component
+function MonitoringSourcesSection({ companyId }: { companyId: string }) {
+  const { data: monitoringMatrix, isLoading, error } = useQuery({
+    queryKey: ['monitoring-matrix', companyId],
+    queryFn: () => ApiService.getMonitoringMatrix(companyId),
+    enabled: !!companyId,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  })
+
+  if (isLoading) {
+    return (
+      <div className="bg-white rounded-lg border border-gray-200 p-5">
+        <div className="animate-pulse">
+          <div className="h-4 bg-gray-200 rounded w-1/4 mb-4"></div>
+          <div className="h-32 bg-gray-200 rounded"></div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error || !monitoringMatrix) {
+    return null // Don't show error, just hide the section
+  }
+
+  return (
+    <div className="bg-white rounded-lg border border-gray-200 p-5">
+      <h3 className="text-sm font-semibold text-gray-800 mb-3">Monitoring Sources</h3>
+      <MonitoringSourcesCard matrix={monitoringMatrix as any} />
     </div>
   )
 }

@@ -1,5 +1,5 @@
+import { Activity, BarChart3, Bell, TrendingUp } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { BarChart3, TrendingUp, Settings, Bell, Search } from 'lucide-react'
 
 interface QuickLink {
   to: string
@@ -16,17 +16,23 @@ const quickLinks: QuickLink[] = [
     description: 'Deep dive into competitor insights and comparisons'
   },
   {
+    to: '/monitoring',
+    icon: Activity,
+    title: 'Monitoring',
+    description: 'Track competitor changes and updates'
+  },
+  {
     to: '/news-analytics',
     icon: TrendingUp,
     title: 'News Analytics',
     description: 'View trends, statistics, and detailed analytics'
   },
-  {
-    to: '/settings',
-    icon: Settings,
-    title: 'Settings',
-    description: 'Manage your preferences and account settings'
-  },
+  // {
+  //   to: '/settings',
+  //   icon: Settings,
+  //   title: 'Settings',
+  //   description: 'Manage your preferences and account settings'
+  // },
   {
     to: '/notifications',
     icon: Bell,

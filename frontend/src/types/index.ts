@@ -455,6 +455,12 @@ export interface Company {
   category: string
   twitter_handle: string
   github_org: string
+  // Social media URLs
+  facebook_url?: string | null
+  instagram_url?: string | null
+  linkedin_url?: string | null
+  youtube_url?: string | null
+  tiktok_url?: string | null
   created_at: string
   updated_at: string
 }
@@ -905,6 +911,180 @@ export interface OnboardingCompanyAnalyzeRequest {
 export interface OnboardingCompanyAnalyzeResponse {
   company: OnboardingCompanyData
   current_step: OnboardingStep
+}
+
+// Monitoring types
+export interface SocialMediaSources {
+  facebook?: { url: string; handle: string | null; last_checked: string } | null
+  instagram?: { url: string; handle: string | null; last_checked: string } | null
+  linkedin?: { url: string; handle: string | null; last_checked: string } | null
+  youtube?: { url: string; handle: string | null; last_checked: string } | null
+  tiktok?: { url: string; handle: string | null; last_checked: string } | null
+  twitter?: { url: string; handle: string | null; last_checked: string } | null
+}
+
+export interface WebsitePage {
+  type: 'pricing' | 'features' | 'about' | 'blog' | 'news' | 'careers'
+  url: string | null
+  found: boolean
+}
+
+export interface WebsiteStructure {
+  website_url: string
+  captured_at: string
+  navigation: {
+    links: Array<{ url: string; text: string; href: string }>
+    count: number
+    hash: string
+  }
+  key_pages: WebsitePage[]
+  metadata: {
+    title: string | null
+    description: string | null
+    keywords: string | null
+    og_tags: Record<string, string>
+    twitter_tags: Record<string, string>
+  }
+  html_structure: {
+    sections: Array<{ tag: string; id: string; class: string }>
+    headings: Array<{ level: string; text: string }>
+    hash: string
+  }
+}
+
+export interface SEOSignals {
+  website_url: string
+  collected_at: string
+  meta_tags: {
+    title: string | null
+    description: string | null
+    keywords: string | null
+    og_tags: Record<string, string>
+    twitter_tags: Record<string, string>
+    other_meta: Record<string, string>
+  }
+  structured_data: Array<Record<string, any>>
+  robots_txt: {
+    exists: boolean
+    content: string | null
+    sitemap_urls: string[]
+    user_agents: string[]
+  }
+  sitemap: {
+    exists: boolean
+    urls: string[]
+    sitemap_index: boolean
+    sitemap_urls: string[]
+  }
+  canonical_urls: string[]
+  hreflang_tags: Array<{ hreflang: string; href: string }>
+}
+
+export interface MonitoringMatrix {
+  company_id: string
+  monitoring_config: Record<string, any>
+  social_media_sources: SocialMediaSources
+  website_sources: {
+    snapshots: WebsiteStructure[]
+    current_snapshot: WebsiteStructure | null
+    last_snapshot_at: string | null
+    website_url: string | null
+    status: string
+    key_pages_count: number
+  }
+  news_sources: {
+    last_scraped_at: string | null
+    press_release_url: string | null
+    press_releases_count: number
+    status: string
+  }
+  marketing_sources: {
+    last_checked_at: string | null
+    banners: {
+      banners: Array<{ url: string; alt: string; hash: string }>
+      count: number
+      hash: string
+      extracted_at: string
+    } | null
+    pricing: {
+      plans: Array<{ name: string; price: string; text: string }>
+      count: number
+      hash: string
+      extracted_at: string
+    } | null
+    products: {
+      products: Array<{ name: string; description: string; url: string | null }>
+      count: number
+      hash: string
+      extracted_at: string
+    } | null
+    job_postings: {
+      jobs: Array<{ name: string; description: string; location: string; url: string | null }>
+      count: number
+      hash: string
+      extracted_at: string
+    } | null
+  }
+  seo_signals: {
+    current_signals: SEOSignals | null
+    last_collected_at: string | null
+    meta_tags_count: number
+    structured_data_count: number
+    robots_txt_exists: boolean
+    sitemap_exists: boolean
+    history: SEOSignals[]
+  }
+  last_updated: string
+}
+
+export interface MonitoringStatus {
+  company_id: string
+  company_name: string
+  is_active: boolean
+  last_updated: string | null
+  sources_count: {
+    social_media: number
+    website_pages: number
+    news_sources: number
+    marketing_sources: number
+    seo_signals: number
+  }
+  last_checks: {
+    social_media: string | null
+    website_structure: string | null
+    press_releases: string | null
+    marketing_changes: string | null
+    seo_signals: string | null
+  }
+}
+
+export interface MonitoringChangeEvent {
+  id: string
+  company_id: string
+  change_type: 'navigation' | 'key_pages' | 'metadata' | 'banners' | 'pricing' | 'products' | 'job_postings' | 'meta_tags' | 'structured_data' | 'sitemap'
+  change_summary: string
+  detected_at: string
+  details: Record<string, any>
+}
+
+export interface MonitoringStats {
+  total_companies: number
+  active_monitoring: number
+  total_changes_detected: number
+  changes_by_type: Record<string, number>
+  last_24h_changes: number
+}
+
+export interface MonitoringPreferences {
+  enabled: boolean
+  check_frequency: {
+    website_structure: number  // hours
+    marketing_changes: number  // hours
+    seo_signals: number  // hours
+    press_releases: number  // hours
+  }
+  notification_enabled: boolean
+  notification_types: string[]
 }
 
 export interface OnboardingCompanyResponse {

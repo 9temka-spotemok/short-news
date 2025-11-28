@@ -13,6 +13,7 @@ import DashboardPage from '@/pages/DashboardPage'
 import DigestSettingsPage from '@/pages/DigestSettingsPage'
 import HomePage from '@/pages/HomePage'
 import LoginPage from '@/pages/LoginPage'
+import MonitoringDashboardPage from '@/pages/MonitoringDashboardPage'
 import NewsAnalyticsPage from '@/pages/NewsAnalyticsPage'
 import NewsDetailPage from '@/pages/NewsDetailPage'
 import NotificationsPage from '@/pages/NotificationsPage'
@@ -71,6 +72,10 @@ function App() {
             <Route 
               path="news-analytics" 
               element={isAuthenticated ? <NewsAnalyticsPage /> : <Navigate to="/login" />} 
+            />
+            <Route 
+              path="monitoring" 
+              element={isAuthenticated ? <MonitoringDashboardPage /> : <Navigate to="/login" />} 
             />
             <Route 
               path="category/:categoryName" 

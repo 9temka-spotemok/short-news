@@ -1578,6 +1578,152 @@ export class ApiService {
     })
     return response.data
   }
+
+  // Monitoring endpoints
+  /**
+   * Get monitoring status for companies
+   */
+  static async getMonitoringStatus(companyIds: string[]): Promise<{
+    statuses: Array<{
+      company_id: string
+      company_name: string
+      is_active: boolean
+      last_updated: string | null
+      sources_count: {
+        social_media: number
+        website_pages: number
+        news_sources: number
+        marketing_sources: number
+        seo_signals: number
+      }
+      last_checks: {
+        social_media: string | null
+        website_structure: string | null
+        press_releases: string | null
+        marketing_changes: string | null
+        seo_signals: string | null
+      }
+    }>
+  }> {
+    const response = await api.get('/companies/monitoring/status', {
+      params: { company_ids: companyIds.join(',') }
+    })
+    return response.data
+  }
+
+  /**
+   * Get monitoring matrix for a company
+   */
+  static async getMonitoringMatrix(companyId: string): Promise<{
+    company_id: string
+    monitoring_config: Record<string, any>
+    social_media_sources: Record<string, any>
+    website_sources: Record<string, any>
+    news_sources: Record<string, any>
+    marketing_sources: Record<string, any>
+    seo_signals: Record<string, any>
+    last_updated: string
+  }> {
+    const response = await api.get(`/companies/${companyId}/monitoring/matrix`)
+    return response.data
+  }
+
+  /**
+   * Get monitoring changes for companies
+   */
+  static async getMonitoringChanges(filters: {
+    company_ids?: string[]
+    change_types?: string[]
+    date_from?: string
+    date_to?: string
+    limit?: number
+    offset?: number
+  }): Promise<{
+    events: Array<{
+      id: string
+      company_id: string
+      change_type: string
+      change_summary: string
+      detected_at: string
+      details: Record<string, any>
+    }>
+    total: number
+    has_more: boolean
+  }> {
+    const params = new URLSearchParams()
+    if (filters.company_ids?.length) params.append('company_ids', filters.company_ids.join(','))
+    if (filters.change_types?.length) params.append('change_types', filters.change_types.join(','))
+    if (filters.date_from) params.append('date_from', filters.date_from)
+    if (filters.date_to) params.append('date_to', filters.date_to)
+    if (filters.limit) params.append('limit', filters.limit.toString())
+    if (filters.offset) params.append('offset', filters.offset.toString())
+    
+    const response = await api.get('/companies/monitoring/changes', { params })
+    return response.data
+  }
+
+  /**
+   * Get monitoring stats
+   */
+  static async getMonitoringStats(): Promise<{
+    total_companies: number
+    active_monitoring: number
+    total_changes_detected: number
+    changes_by_type: Record<string, number>
+    last_24h_changes: number
+  }> {
+    const response = await api.get('/companies/monitoring/stats')
+    return response.data
+  }
+
+  /**
+   * Get monitoring preferences
+   */
+  static async getMonitoringPreferences(): Promise<{
+    enabled: boolean
+    check_frequency: {
+      website_structure: number
+      marketing_changes: number
+      seo_signals: number
+      press_releases: number
+    }
+    notification_enabled: boolean
+    notification_types: string[]
+  }> {
+    const response = await api.get('/users/monitoring/preferences')
+    return response.data
+  }
+
+  /**
+   * Update monitoring preferences
+   */
+  static async updateMonitoringPreferences(preferences: {
+    enabled?: boolean
+    check_frequency?: {
+      website_structure?: number
+      marketing_changes?: number
+      seo_signals?: number
+      press_releases?: number
+    }
+    notification_enabled?: boolean
+    notification_types?: string[]
+  }): Promise<{
+    status: string
+    preferences: {
+      enabled: boolean
+      check_frequency: {
+        website_structure: number
+        marketing_changes: number
+        seo_signals: number
+        press_releases: number
+      }
+      notification_enabled: boolean
+      notification_types: string[]
+    }
+  }> {
+    const response = await api.put('/users/monitoring/preferences', preferences)
+    return response.data
+  }
 }
 
 // Export the default api instance for backward compatibility

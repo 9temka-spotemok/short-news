@@ -56,6 +56,62 @@ shot-news/
 
 ## ♻️ Свежие улучшения (январь 2025)
 
+### Система мониторинга конкурентов (январь 2025)
+
+**Комплексная система автоматического мониторинга изменений конкурентов:**
+
+- ✅ **Мониторинг социальных сетей** — автоматическое обнаружение и отслеживание Facebook, Instagram, LinkedIn, YouTube, TikTok профилей
+- ✅ **Мониторинг структуры сайта** — отслеживание изменений в навигации, ключевых страницах (pricing, features, about, blog, careers), метаданных
+- ✅ **Мониторинг маркетинга** — обнаружение изменений в баннерах, ценах, продуктах, вакансиях
+- ✅ **Мониторинг SEO** — отслеживание изменений в meta-тегах, structured data, robots.txt, sitemap.xml
+- ✅ **Сбор пресс-релизов** — автоматическое обнаружение и парсинг страниц с пресс-релизами
+- ✅ **Периодические задачи** — автоматический запуск мониторинга через Celery Beat (ежедневно/еженедельно)
+- ✅ **Система уведомлений** — автоматическое создание событий изменений с интеграцией в существующую систему уведомлений
+
+**Backend компоненты:**
+- `backend/app/services/website_structure_monitor.py` — мониторинг структуры сайта
+- `backend/app/services/marketing_change_detector.py` — обнаружение маркетинговых изменений
+- `backend/app/services/seo_signal_collector.py` — сбор SEO сигналов
+- `backend/app/scrapers/press_release_scraper.py` — парсинг пресс-релизов
+- `backend/app/tasks/observation.py` — Celery задачи для мониторинга
+- `backend/app/models/competitor.py` — модели `CompetitorMonitoringMatrix` и `CompetitorChangeEvent`
+
+**Frontend компоненты:**
+- `frontend/src/components/monitoring/MonitoringStatusCard.tsx` — карточка статуса мониторинга
+- `frontend/src/components/monitoring/MonitoringSourcesCard.tsx` — карточка источников мониторинга
+- `frontend/src/components/monitoring/SocialMediaIcons.tsx` — иконки соцсетей
+- `frontend/src/components/monitoring/CompanyMonitoringCard.tsx` — расширенная карточка компании
+- `frontend/src/components/monitoring/MonitoringChangesTable.tsx` — таблица изменений
+- `frontend/src/pages/MonitoringDashboardPage.tsx` — страница управления мониторингом
+
+**Интеграция:**
+- ✅ Dashboard — секция "Monitoring Status" с карточками компаний
+- ✅ ReportCard — таб "Monitoring" с матрицей мониторинга
+- ✅ CompetitorAnalysisPage — секции "Monitoring Sources" и "Monitoring Matrix"
+- ✅ ChangeEventsSection — фильтры по типам изменений с иконками и группировкой
+
+**API endpoints:**
+- `GET /api/v1/companies/monitoring/status` — статус мониторинга для компаний
+- `GET /api/v1/companies/{company_id}/monitoring/matrix` — матрица мониторинга компании
+- `GET /api/v1/companies/monitoring/changes` — изменения мониторинга
+- `GET /api/v1/companies/monitoring/stats` — статистика мониторинга
+- `GET/PUT /api/v1/users/monitoring/preferences` — настройки мониторинга
+
+**Файлы:**
+- `backend/app/services/website_structure_monitor.py` — сервис мониторинга структуры сайта
+- `backend/app/services/marketing_change_detector.py` — сервис обнаружения маркетинговых изменений
+- `backend/app/services/seo_signal_collector.py` — сервис сбора SEO сигналов
+- `backend/app/scrapers/press_release_scraper.py` — скрейпер пресс-релизов
+- `backend/app/tasks/observation.py` — Celery задачи мониторинга
+- `backend/app/models/competitor.py` — модели данных мониторинга
+- `frontend/src/components/monitoring/*` — компоненты мониторинга
+- `frontend/src/pages/MonitoringDashboardPage.tsx` — страница мониторинга
+- `docs/OBSERVATION_TODO_LIST.md` — полный список задач и прогресс
+
+**Документация:**
+- `docs/OBSERVATION_TODO_LIST.md` — детальный список задач и статус реализации (~92%)
+- `docs/OBSERVATION_WORK_PLAN.md` — план работ по фазам
+
 ### Оптимизация персонализации данных (ноябрь 2025)
 
 **Критические оптимизации производительности:**
@@ -213,6 +269,7 @@ shot-news/
 - [x] Веб-интерфейс
 - [x] Система аутентификации
 - [x] Ручное добавление конкурентов с автоматическим сканированием новостей
+- [x] Система мониторинга конкурентов (автоматическое отслеживание изменений)
 
 ### Ручное добавление конкурентов
 
@@ -303,6 +360,30 @@ shot-news/
 **Настройка:**
 - Для работы AI-описаний требуется `OPENAI_API_KEY` в `.env` (опционально, работает fallback)
 - Модель по умолчанию: `gpt-4o-mini` (настраивается через `OPENAI_MODEL`)
+
+### Система мониторинга конкурентов
+
+Автоматический мониторинг изменений в конкурентах с отслеживанием:
+- **Социальные сети** — Facebook, Instagram, LinkedIn, YouTube, TikTok
+- **Структура сайта** — навигация, ключевые страницы, метаданные
+- **Маркетинг** — баннеры, цены, продукты, вакансии
+- **SEO** — meta-теги, structured data, robots.txt, sitemap.xml
+- **Пресс-релизы** — автоматический сбор и парсинг
+
+**Интерфейсы:**
+- Dashboard — секция статуса мониторинга
+- Monitoring Dashboard (`/monitoring`) — централизованное управление
+- ReportCard — таб "Monitoring" с детальной матрицей
+- CompetitorAnalysisPage — секции источников и матрицы мониторинга
+
+**Файлы:**
+- `backend/app/services/website_structure_monitor.py` — мониторинг структуры сайта
+- `backend/app/services/marketing_change_detector.py` — обнаружение маркетинговых изменений
+- `backend/app/services/seo_signal_collector.py` — сбор SEO сигналов
+- `backend/app/scrapers/press_release_scraper.py` — парсинг пресс-релизов
+- `backend/app/tasks/observation.py` — Celery задачи мониторинга
+- `frontend/src/components/monitoring/*` — компоненты мониторинга
+- `frontend/src/pages/MonitoringDashboardPage.tsx` — страница управления
 
 ### История изменений конкурентов
 
@@ -785,7 +866,7 @@ python -m alembic upgrade head
 - `news.py` - Эндпоинты для работы с новостями (получение, фильтрация, поиск)
 - `users.py` - Управление пользователями и их предпочтениями
 - `digests.py` - Эндпоинты для дайджестов
-- `companies.py` - Управление компаниями. **Новые эндпоинты:** `POST /companies/scan` (сканирование компании), `POST /companies/` (создание/обновление компании с новостями)
+- `companies.py` - Управление компаниями. **Эндпоинты:** `GET /companies/` (список компаний), `GET /companies/{company_id}` (детали компании), `POST /companies/scan` (сканирование компании), `POST /companies/` (создание/обновление компании с новостями), `POST /companies/quick-analysis` (быстрый анализ компании), `GET /companies/monitoring/status` (статус мониторинга для компаний - возвращает информацию о количестве источников и последних проверках), `GET /companies/monitoring/stats` (статистика мониторинга - общее количество компаний, активный мониторинг, обнаруженные изменения по типам, изменения за последние 24 часа)
 - `competitors.py` - Управление отслеживаемыми компаниями
 - `notifications.py` - Уведомления пользователей
 - `telegram.py` - Webhook для Telegram бота, обработка callback queries и сообщений
