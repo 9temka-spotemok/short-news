@@ -27,6 +27,7 @@ celery_app = Celery(
         "app.tasks.competitors",
         "app.tasks.reports",
         "app.tasks.observation",
+        "app.tasks.subscriptions",
     ]
 )
 
@@ -148,6 +149,15 @@ _BASE_BEAT_SCHEDULE = {
     "periodic-scrape-press-releases": {
         "task": "app.tasks.observation.periodic_scrape_press_releases",
         "schedule": 24 * 60 * 60,  # Daily
+    },
+    # Subscription expiration checks
+    "check-expired-trials": {
+        "task": "subscriptions.check_expired_trials",
+        "schedule": 60 * 60,  # Every hour
+    },
+    "check-expired-subscriptions": {
+        "task": "subscriptions.check_expired_subscriptions",
+        "schedule": 60 * 60,  # Every hour
     },
 }
 

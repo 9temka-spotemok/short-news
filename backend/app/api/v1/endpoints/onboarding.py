@@ -1158,6 +1158,30 @@ async def complete_onboarding(
         # Commit all changes
         await db.commit()
         
+        # 6. Create trial subscription
+        try:
+            from app.services.subscription_service import SubscriptionService
+            subscription_service = SubscriptionService(db)
+            
+            # Get user email for dev environment checks
+            user_result = await db.execute(
+                select(User).where(User.id == final_user_id)
+            )
+            user = user_result.scalar_one_or_none()
+            user_email = user.email if user else None
+            
+            trial_subscription = await subscription_service.create_trial_subscription(
+                final_user_id,
+                user_email=user_email
+            )
+            logger.info(
+                f"Created trial subscription for user {final_user_id}, "
+                f"expires at {trial_subscription.trial_ends_at if trial_subscription.trial_ends_at else 'never (dev)'}"
+            )
+        except Exception as e:
+            # Not critical if trial creation fails - can be created later via API
+            logger.warning(f"Failed to create trial subscription for user {final_user_id}: {e}")
+        
         logger.info(
             f"Completed onboarding for user {final_user_id}: "
             f"parent company {parent_company.id}, {len(competitor_companies)} competitors, "
