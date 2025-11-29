@@ -36,7 +36,7 @@ class UserPreferencesRepository:
         result = await self._session.execute(
             text("""
                 SELECT id FROM user_preferences 
-                WHERE interested_categories @> ARRAY[:category::newscategory]
+                WHERE interested_categories @> ARRAY[CAST(:category AS newscategory)]
             """),
             {"category": category}
         )

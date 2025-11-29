@@ -309,7 +309,7 @@ class UniversalBlogScraper:
                         continue
 
                     soup = BeautifulSoup(response.text, "html.parser")
-                    articles = self._extract_articles(soup, final_url)
+                    articles = self._extract_articles(soup, final_url, DEFAULT_ARTICLE_SELECTORS)
                     if not articles:
                         page_title = soup.title.string if soup.title else "N/A"
                         logger.debug(
