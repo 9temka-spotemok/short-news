@@ -49,6 +49,7 @@ from .competitor import (
 )
 from .report import Report, ReportStatus
 from .onboarding import OnboardingSession, OnboardingStep
+from .subscription import Subscription, SubscriptionStatus
 
 __all__ = [
     "Base",
@@ -106,4 +107,6 @@ __all__ = [
     "ReportStatus",
     "OnboardingSession",
     "OnboardingStep",
+    "Subscription",
+    "SubscriptionStatus",
 ]

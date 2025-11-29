@@ -155,6 +155,29 @@ class Settings(BaseSettings):
     # Rate Limiting
     RATE_LIMIT_REQUESTS: int = Field(default=100, description="Rate limit requests per minute")
     
+    # Subscription settings
+    DISABLE_SUBSCRIPTION_CHECK: bool = Field(
+        default=False,
+        description="Disable subscription checks in development (allows unlimited access)"
+    )
+    SUBSCRIPTION_DEV_USERS: List[str] = Field(
+        default_factory=lambda: [],
+        description="List of email addresses that should have unlimited trial access (comma-separated or JSON array)"
+    )
+    
+    @field_validator('SUBSCRIPTION_DEV_USERS', mode='before')
+    @classmethod
+    def validate_dev_users(cls, v):
+        """Validate SUBSCRIPTION_DEV_USERS field to handle JSON string or comma-separated inputs"""
+        if isinstance(v, str):
+            try:
+                import json
+                return json.loads(v)
+            except json.JSONDecodeError:
+                # If not JSON, treat as comma-separated string
+                return [email.strip() for email in v.split(',') if email.strip()]
+        return v
+    
     # Logging
     LOG_LEVEL: str = Field(default="INFO", description="Log level")
     

@@ -69,6 +69,12 @@ class User(BaseModel):
         back_populates="user",
         cascade="all, delete-orphan"
     )
+    subscription: Mapped[Optional["Subscription"]] = relationship(
+        "Subscription",
+        back_populates="user",
+        uselist=False,
+        cascade="all, delete-orphan"
+    )
     
     # Indexes
     __table_args__ = (
@@ -87,6 +93,17 @@ class User(BaseModel):
         if expires.tzinfo is None:
             expires = expires.replace(tzinfo=timezone.utc)
         return now < expires
+    
+    def has_active_subscription(self) -> bool:
+        """
+        Check if user has an active subscription or trial
+        
+        Returns:
+            True if user has active subscription/trial, False otherwise
+        """
+        if not self.subscription:
+            return False
+        return self.subscription.is_active(user_email=self.email)
     
     def __repr__(self) -> str:
         return f"<User(id={self.id}, email={self.email}, active={self.is_active})>"
