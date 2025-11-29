@@ -68,6 +68,32 @@ class UserPreferences(BaseModel):
     # Timezone and locale settings
     timezone = Column(String(50), default="UTC")  # e.g., "UTC", "America/New_York", "Europe/Moscow"
     week_start_day = Column(Integer, default=0)  # 0=Sunday, 1=Monday
+
+    # Monitoring settings
+    monitoring_enabled = Column(Boolean, default=True)
+    monitoring_check_frequency = Column(
+        SQLEnum('hourly', '6h', 'daily', 'weekly', name='monitoring_frequency'),
+        default='daily',
+    )
+    monitoring_notify_on_changes = Column(Boolean, default=True)
+    monitoring_change_types = Column(
+        JSON,
+        default=lambda: [
+            'website_structure',
+            'marketing_banner',
+            'marketing_landing',
+            'marketing_product',
+            'marketing_jobs',
+            'seo_meta',
+            'seo_structure',
+            'pricing',
+        ],
+    )
+    monitoring_auto_refresh = Column(Boolean, default=True)
+    monitoring_notification_channels = Column(
+        JSON,
+        default=lambda: {'email': True, 'telegram': False},
+    )
     
     # Relationships
     user = relationship("User", back_populates="preferences")
