@@ -361,6 +361,82 @@ async def get_companies(
         raise HTTPException(status_code=500, detail="Failed to retrieve companies")
 
 
+@router.get("/{company_id}/monitoring/matrix")
+async def get_monitoring_matrix(
+    company_id: str,
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get monitoring matrix for a specific company.
+    
+    Returns the complete monitoring matrix including:
+    - monitoring_config: General monitoring configuration
+    - social_media_sources: Discovered social media accounts
+    - website_sources: Website structure and key pages
+    - news_sources: News and press release sources
+    - marketing_sources: Marketing change tracking sources
+    - seo_signals: SEO signals collected
+    - last_updated: Timestamp of last update
+    
+    Only accessible if company belongs to current user or is global (user_id is None).
+    """
+    logger.info(f"Get monitoring matrix: company_id={company_id}, user={current_user.id if current_user else 'anonymous'}")
+    
+    try:
+        from app.core.access_control import check_company_access
+        
+        # Validate company_id format
+        try:
+            company_uuid = UUIDType(company_id)
+        except ValueError:
+            raise HTTPException(status_code=404, detail="Company not found")
+        
+        # Check company access (returns None if no access, raises 404 for security)
+        company = await check_company_access(company_id, current_user, db)
+        
+        if not company:
+            raise HTTPException(status_code=404, detail="Company not found")
+        
+        # Get monitoring matrix for this company
+        matrix_result = await db.execute(
+            select(CompetitorMonitoringMatrix)
+            .where(CompetitorMonitoringMatrix.company_id == company_uuid)
+        )
+        matrix = matrix_result.scalar_one_or_none()
+        
+        # If no matrix exists, return empty structure
+        if not matrix:
+            return {
+                "company_id": company_id,
+                "monitoring_config": {},
+                "social_media_sources": {},
+                "website_sources": {},
+                "news_sources": {},
+                "marketing_sources": {},
+                "seo_signals": {},
+                "last_updated": None,
+            }
+        
+        # Return matrix data
+        return {
+            "company_id": str(matrix.company_id),
+            "monitoring_config": matrix.monitoring_config or {},
+            "social_media_sources": matrix.social_media_sources or {},
+            "website_sources": matrix.website_sources or {},
+            "news_sources": matrix.news_sources or {},
+            "marketing_sources": matrix.marketing_sources or {},
+            "seo_signals": matrix.seo_signals or {},
+            "last_updated": matrix.last_updated.isoformat() if matrix.last_updated else None,
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get monitoring matrix: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve monitoring matrix: {str(e)}")
+
+
 @router.get("/{company_id}")
 async def get_company(
     company_id: str,
@@ -1126,7 +1202,6 @@ async def get_monitoring_stats(
     except Exception as e:
         logger.error(f"Failed to get monitoring stats: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to retrieve monitoring stats: {str(e)}")
-
 
 
 

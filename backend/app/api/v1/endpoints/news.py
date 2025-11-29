@@ -22,7 +22,7 @@ from app.models.news import (
     NewsUpdateSchema,
 )
 from app.models.preferences import UserPreferences
-from app.models import User
+from app.models import User, Company
 from app.core.database import get_db
 from app.core.exceptions import ValidationError
 from app.core.access_control import get_user_company_ids, check_company_access, check_news_access
@@ -525,7 +525,10 @@ async def get_news_statistics_by_companies(
     """
     Get comprehensive news statistics filtered by company IDs
     
-    For authenticated users, validates that all requested companies belong to user (user_id).
+    For authenticated users, validates that all requested companies either:
+    - Belong to user (user_id = current_user.id or user_id = null for global companies), OR
+    - Are in the user's subscribed_companies list
+    
     Returns statistics about news items for specific companies including counts by category,
     source type, recent news, and high priority items.
     """
@@ -541,16 +544,42 @@ async def get_news_statistics_by_companies(
                 detail="At least one company ID is required"
             )
         
-        # For authenticated users, validate that all requested companies belong to user (user_id)
+        # For authenticated users, validate that all requested companies belong to user (user_id) OR are in subscribed_companies
         if current_user:
             try:
+                # Get user preferences to check subscribed_companies
+                user_prefs_result = await db.execute(
+                    select(UserPreferences).where(UserPreferences.user_id == current_user.id)
+                )
+                user_prefs = user_prefs_result.scalar_one_or_none()
+                subscribed_company_ids = set()
+                if user_prefs and user_prefs.subscribed_companies:
+                    # Convert to UUID strings for comparison
+                    subscribed_company_ids = {str(cid) for cid in user_prefs.subscribed_companies}
+                
                 unauthorized_ids = []
                 for cid in parsed_company_ids:
                     if cid:
                         try:
+                            # Check if company belongs to user (user_id) OR is in subscribed_companies
                             company = await check_company_access(cid, current_user, db)
                             if not company:
-                                unauthorized_ids.append(cid)
+                                # If not accessible via user_id, check if it's in subscribed_companies
+                                if cid in subscribed_company_ids:
+                                    # Verify the company exists (even if it doesn't belong to user)
+                                    try:
+                                        company_uuid = UUID(cid)
+                                        company_result = await db.execute(
+                                            select(Company).where(Company.id == company_uuid)
+                                        )
+                                        company = company_result.scalar_one_or_none()
+                                        if not company:
+                                            unauthorized_ids.append(cid)
+                                    except (ValueError, TypeError) as e:
+                                        logger.warning(f"Invalid company ID format: {cid}, error: {e}")
+                                        unauthorized_ids.append(cid)
+                                else:
+                                    unauthorized_ids.append(cid)
                         except (ValueError, TypeError) as e:
                             logger.warning(f"Invalid company ID format: {cid}, error: {e}")
                             unauthorized_ids.append(cid)

@@ -127,7 +127,7 @@ async def get_unread_notifications(
                 )
             )
         )
-        unread_count = count_result.scalar()
+        unread_count = count_result.scalar() or 0
         
         return {
             "unread_count": unread_count,
@@ -137,17 +137,23 @@ async def get_unread_notifications(
                     "type": n.type,
                     "title": n.title,
                     "message": n.message,
-                    "data": n.data,
+                    "data": n.data if n.data else {},
                     "priority": n.priority,
-                    "created_at": n.created_at.isoformat()
+                    "created_at": n.created_at.isoformat() if n.created_at else None
                 }
                 for n in notifications
             ]
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error fetching unread notifications: {e}")
-        raise HTTPException(status_code=500, detail="Failed to fetch unread notifications")
+        logger.error(f"Error fetching unread notifications: {e}", exc_info=True)
+        # Return empty response instead of raising to prevent connection issues
+        return {
+            "unread_count": 0,
+            "notifications": []
+        }
 
 
 @router.put("/{notification_id}/read")

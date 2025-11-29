@@ -1164,7 +1164,7 @@ async def complete_onboarding(
             f"total subscriptions: {len(new_subscriptions)}"
         )
         
-        return {
+        response_data = {
             "status": "success",
             "company_id": str(parent_company.id),
             "competitor_count": len(competitor_companies),
@@ -1173,15 +1173,23 @@ async def complete_onboarding(
                 {
                     "id": str(comp.id),
                     "name": comp.name,
-                    "website": comp.website
+                    "website": comp.website or ""
                 }
                 for comp in [parent_company] + competitor_companies
             ]
         }
         
+        logger.info(f"Onboarding completed successfully for user {final_user_id}")
+        return response_data
+        
     except HTTPException:
+        await db.rollback()
         raise
     except Exception as e:
         logger.error(f"Failed to complete onboarding: {e}", exc_info=True)
         await db.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to complete onboarding: {str(e)}")
+        # Return a proper error response instead of just raising
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Failed to complete onboarding: {str(e)}"
+        )
