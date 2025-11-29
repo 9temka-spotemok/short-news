@@ -1164,3 +1164,38 @@ export interface OnboardingCompleteResponse {
   }>
   completed_at?: string | null
 }
+
+// Subscription types
+export enum SubscriptionStatus {
+  TRIAL = 'trial',
+  ACTIVE = 'active',
+  CANCELLED = 'cancelled',
+  EXPIRED = 'expired'
+}
+
+export interface Subscription {
+  id: string
+  status: SubscriptionStatus
+  plan_type: string
+  price: number
+  currency: string
+  trial_started_at?: string | null
+  trial_ends_at?: string | null
+  started_at?: string | null
+  expires_at?: string | null
+  days_remaining: number
+  is_active: boolean
+}
+
+export interface SubscriptionAccessResponse {
+  has_access: boolean
+  days_remaining?: number | null
+  reason?: string | null
+  status?: SubscriptionStatus | null
+}
+
+export interface CreateSubscriptionRequest {
+  payment_provider: string
+  payment_subscription_id: string
+  subscription_id?: string | null
+}

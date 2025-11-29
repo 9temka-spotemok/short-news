@@ -1,44 +1,47 @@
 import { useAuthStore } from '@/store/authStore'
 import type {
-  AnalyticsChangeLogResponse,
-  AnalyticsExportRequestPayload,
-  AnalyticsExportResponse,
-  AnalyticsPeriod,
-  ApiResponse,
-  AuthResponse,
-  ChangeProcessingStatus,
-  Company,
-  CompanyAnalyticsSnapshot,
-  CompanyScanRequest,
-  CompanyScanResult,
-  ComparisonFilters,
-  ComparisonRequestPayload,
-  ComparisonResponse,
-  CompetitorChangeEvent,
-  CreateCompanyRequest,
-  CreateCompanyResponse,
-  KnowledgeGraphEdge,
-  LoginRequest,
-  NewsCategoryInfo,
-  NewsFilter,
-  NewsItem,
-  NewsListResponse,
-  NewsSearchResponse,
-  NewsStats,
-  RefreshTokenRequest,
-  RefreshTokenResponse,
-  RegisterRequest,
-  Report,
-  ReportCreateRequest,
-  ReportCreateResponse,
-  ReportPreset,
-  ReportPresetCreateRequest,
-  ReportStatusResponse,
-  ReportsListResponse,
-  SearchRequest,
-  SnapshotSeries,
-  SourceTypeInfo,
-  User
+    AnalyticsChangeLogResponse,
+    AnalyticsExportRequestPayload,
+    AnalyticsExportResponse,
+    AnalyticsPeriod,
+    ApiResponse,
+    AuthResponse,
+    ChangeProcessingStatus,
+    Company,
+    CompanyAnalyticsSnapshot,
+    CompanyScanRequest,
+    CompanyScanResult,
+    ComparisonFilters,
+    ComparisonRequestPayload,
+    ComparisonResponse,
+    CompetitorChangeEvent,
+    CreateCompanyRequest,
+    CreateCompanyResponse,
+    CreateSubscriptionRequest,
+    KnowledgeGraphEdge,
+    LoginRequest,
+    NewsCategoryInfo,
+    NewsFilter,
+    NewsItem,
+    NewsListResponse,
+    NewsSearchResponse,
+    NewsStats,
+    RefreshTokenRequest,
+    RefreshTokenResponse,
+    RegisterRequest,
+    Report,
+    ReportCreateRequest,
+    ReportCreateResponse,
+    ReportPreset,
+    ReportPresetCreateRequest,
+    ReportStatusResponse,
+    ReportsListResponse,
+    SearchRequest,
+    SnapshotSeries,
+    SourceTypeInfo,
+    Subscription,
+    SubscriptionAccessResponse,
+    User
 } from '@/types'
 import axios, { AxiosError, AxiosInstance, AxiosResponse } from 'axios'
 import JSZip from 'jszip'
@@ -1722,6 +1725,40 @@ export class ApiService {
     }
   }> {
     const response = await api.put('/users/monitoring/preferences', preferences)
+    return response.data
+  }
+
+  /**
+   * Get current subscription for authenticated user
+   */
+  static async getCurrentSubscription(): Promise<{ subscription: Subscription | null }> {
+    const response = await api.get<{ subscription: Subscription | null }>('/subscriptions/current')
+    return response.data
+  }
+
+  /**
+   * Check subscription access
+   */
+  static async checkSubscriptionAccess(): Promise<SubscriptionAccessResponse> {
+    const response = await api.get<SubscriptionAccessResponse>('/subscriptions/check-access')
+    return response.data
+  }
+
+  /**
+   * Create or activate subscription after payment
+   */
+  static async createSubscription(
+    paymentData: CreateSubscriptionRequest
+  ): Promise<{ subscription: Subscription }> {
+    const response = await api.post<{ subscription: Subscription }>('/subscriptions/create', paymentData)
+    return response.data
+  }
+
+  /**
+   * Cancel subscription
+   */
+  static async cancelSubscription(): Promise<{ status: string; message: string }> {
+    const response = await api.post<{ status: string; message: string }>('/subscriptions/cancel')
     return response.data
   }
 }
