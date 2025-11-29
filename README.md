@@ -308,6 +308,38 @@ shot-news/
 
 **TODO:** Добавить асинхронное сканирование для больших сайтов (>50 статей) с использованием Celery задач
 
+### Система подписок и монетизация (январь 2025)
+
+**Реализована система подписок с защитой для dev окружения:**
+
+- ✅ **Модель Subscription** — полная модель с полями для триала, подписки, платежей
+- ✅ **SubscriptionService** — сервис управления подписками (7 методов) с защитой для dev
+- ✅ **API endpoints** — 4 эндпоинта для работы с подписками (`/current`, `/create`, `/cancel`, `/check-access`)
+- ✅ **Celery задачи** — автоматическая проверка истечения триалов и подписок (каждый час)
+- ✅ **Интеграция с онбордингом** — автоматическое создание триала на 3 дня после завершения онбординга
+- ✅ **Frontend компоненты** — карточка статуса подписки, баннер, хук проверки доступа
+- ✅ **Защита для dev** — переменные `DISABLE_SUBSCRIPTION_CHECK` и `SUBSCRIPTION_DEV_USERS` для предотвращения потери доступа в разработке
+
+**Backend файлы:**
+- ✅ `backend/app/models/subscription.py` — модель Subscription с методами `is_active()` и `days_remaining()` (с защитой для dev)
+- ✅ `backend/app/services/subscription_service.py` — сервис управления подписками
+- ✅ `backend/app/api/v1/endpoints/subscriptions.py` — API endpoints для подписок
+- ✅ `backend/app/tasks/subscriptions.py` — Celery задачи для проверки истечения
+- ✅ `backend/alembic/versions/a1b2c3d4e5f9_add_subscriptions_table.py` — миграция для таблицы subscriptions
+
+**Frontend файлы:**
+- ✅ `frontend/src/components/subscription/SubscriptionStatusCard.tsx` — карточка статуса подписки
+- ✅ `frontend/src/components/subscription/SubscriptionBanner.tsx` — баннер о необходимости подписки
+- ✅ `frontend/src/hooks/useSubscriptionAccess.ts` — хук для проверки доступа
+- ✅ `frontend/src/pages/SettingsPage.tsx` — добавлена вкладка Subscription
+
+**Настройка для dev окружения:**
+- Добавьте в `.env`: `DISABLE_SUBSCRIPTION_CHECK=true` для полного отключения проверки подписки
+- Или: `SUBSCRIPTION_DEV_USERS=your-email@example.com` для бесконечного триала конкретных пользователей
+
+**Статус реализации:**
+- ✅ Фаза 2 (Подписки) - полностью реализована
+
 ### Система онбординга (5-экранный флоу)
 
 **Описание:**
@@ -901,6 +933,7 @@ python -m alembic upgrade head
 - `notifications.py` - Уведомления пользователей
 - `telegram.py` - Webhook для Telegram бота, обработка callback queries и сообщений
 - `reports.py` - **Новый:** Эндпоинты для системы отчётов о компаниях. `POST /reports/create` (создание отчёта с быстрым анализом, сразу возвращает ready статус с данными в report_data), `GET /reports/{report_id}/status` (проверка статуса), `GET /reports/{report_id}` (получение полных данных отчёта - сначала из report_data, fallback на динамическую сборку), `GET /reports/` (список отчётов пользователя), `DELETE /reports/{report_id}` (удаление отчёта). **Исправлено:** улучшена обработка ошибок при создании отчётов, добавлена защита от SQLAlchemy asyncpg ошибок, оптимизирован поиск конкурентов с ограничением количества компаний для анализа
+- `subscriptions.py` - **Новый:** Эндпоинты для системы подписок. `GET /subscriptions/current` (получение текущей подписки), `POST /subscriptions/create` (создание/активация подписки после оплаты), `POST /subscriptions/cancel` (отмена подписки), `GET /subscriptions/check-access` (проверка доступа к функциям)
 - `admin.py` - Административные функции
 
 **API Endpoints v2 (`app/api/v2/endpoints/`):**
@@ -908,19 +941,20 @@ python -m alembic upgrade head
 
 **Ядро приложения (`app/core/`):**
 - `database.py` - Async SQLAlchemy управление сессиями БД (использует `async_sessionmaker`). Функции `get_db()` и `AsyncSessionLocal`
-- `config.py` - Конфигурация приложения из переменных окружения (Settings класс)
+- `config.py` - Конфигурация приложения из переменных окружения (Settings класс). **Добавлено:** `DISABLE_SUBSCRIPTION_CHECK` (отключение проверки подписки в dev), `SUBSCRIPTION_DEV_USERS` (список email для бесконечного триала)
 - `exceptions.py` - Кастомные исключения и обработчики ошибок
 - `security.py` - JWT аутентификация и безопасность (функции `get_current_user`, `create_access_token`)
 - `access_control.py` - **Централизованный контроль доступа и персонализация данных.** Функции: `check_company_access()` (проверка доступа к компании), `check_news_access()` (проверка доступа к новости), `get_user_company_ids()` (получение списка ID компаний пользователя с кешированием), `invalidate_user_cache()` (инвалидация кеша). Обеспечивает изоляцию данных между пользователями и поддержку глобальных компаний (`user_id = None`). **Оптимизировано:** используется JOIN вместо IN для проверки доступа к новостям.
 - `personalization.py` - **Централизованный сервис персонализации данных.** Класс `PersonalizationService` с методами: `get_filter_company_ids()` (получение ID компаний для фильтрации), `parse_company_ids_from_query()` (парсинг ID из query параметров), `should_return_empty()` (проверка необходимости возврата пустого результата). Обеспечивает единую логику персонализации во всех эндпоинтах.
 
 **Модели данных (`app/models/`):**
-- `user.py` - Модель пользователя (User)
+- `user.py` - Модель пользователя (User) с relationship к Subscription и методом `has_active_subscription()`
 - `news.py` - Модель новостей (NewsItem) c NLP-метаданными (`topic`, `sentiment`, `raw_snapshot_url`) и энумами `NewsTopic`, `SentimentLabel`
 - `company.py` - Модель компаний (Company)
 - `preferences.py` - Настройки пользователя (UserPreferences: дайджесты, Telegram, категории)
 - `notification.py` - Уведомления (Notification)
 - `activity.py` - Активность пользователя (UserActivity)
+- `subscription.py` - **Новый:** Модель подписок (Subscription) с полями: `id`, `user_id` (unique), `status` (enum: trial/active/cancelled/expired), `plan_type`, `price`, `currency`, `trial_started_at`, `trial_ends_at`, `started_at`, `expires_at`, `cancelled_at`, `payment_provider`, `payment_subscription_id`, `subscription_metadata` (JSON). Методы: `is_active()` (с защитой для dev окружения), `days_remaining()` (возвращает 9999 для dev пользователей)
 - `report.py` - **Новый:** Модель отчётов о компаниях (Report) с полями: `id`, `user_id`, `query`, `status` (enum: processing/ready/error), `company_id`, `error_message`, `created_at`, `completed_at`, `report_data` (JSON). Используется для сохранения полных данных отчёта (company, news, categories, sources, pricing, competitors) в БД. Поддерживает как быстрый анализ (ready сразу), так и асинхронную генерацию через Celery (processing)
 - `analytics.py` - Модели аналитики: `CompanyAnalyticsSnapshot` (снапшоты метрик), `ImpactComponent` (компоненты impact score), `AnalyticsGraphEdge` (edges knowledge graph), `UserReportPreset` (пресеты отчетов), энумы `AnalyticsPeriod`, `ImpactComponentType`, `AnalyticsEntityType`, `RelationshipType`
 
@@ -930,6 +964,7 @@ python -m alembic upgrade head
 - `digest_service.py` - Legacy-адаптер; основная логика генерации вынесена в `app/domains/notifications/services/digest_service.py`.
 - `telegram_service.py` - Отправка сообщений в Telegram, клавиатуры, webhook. Добавлено `send_post_digest_controls()` и улучшено `send_digest_settings_menu()`
 - `competitor_service.py` - Анализ конкурентов и сравнение компаний. Класс `CompetitorAnalysisService` с методами `suggest_competitors()` для поиска похожих компаний, `compare_companies()` для сравнения метрик. **Исправлено:** оптимизирован метод `suggest_competitors()` с ограничением количества анализируемых компаний (до 50), добавлены лимиты на загрузку новостей (1000), улучшена обработка ошибок и добавлен alias `CompetitorService = CompetitorAnalysisService` для обратной совместимости
+- `subscription_service.py` - **Новый:** Сервис управления подписками. Методы: `create_trial_subscription()` (создание триала на 3 дня, с защитой для dev - бесконечный триал), `check_subscription_access()` (проверка доступа с учетом dev окружения), `activate_subscription()` (активация после оплаты), `cancel_subscription()` (отмена), `get_user_subscription()` (получение подписки), `expire_trials()` (пометка истекших триалов, пропускает dev пользователей), `expire_subscriptions()` (пометка истекших подписок, пропускает dev пользователей)
 - `notification_service.py` - Legacy-адаптер для доменного `app/domains/notifications/services/notification_service.py`
 - `company_info_extractor.py` - Извлечение метаданных компании из веб-сайта (название, описание, логотип, категория)
 - `analytics_comparison_service.py` - Legacy-адаптер для сравнения аналитики; постепенно мигрируется в `app/domains/analytics/services/comparison_service.py`
@@ -949,6 +984,7 @@ python -m alembic upgrade head
 - `nlp.py` - Обновлённые задачи NLP: классификация тем/тональности/приоритета, генерация summary и ключевых слов
 - `analytics.py` - Celery задачи для аналитики: `recompute_company_analytics` (пересчет для одной компании), `recompute_all_analytics` (пересчет для всех компаний), `sync_company_knowledge_graph` (синхронизация knowledge graph). Автоматически запускаются каждые 6 часов через Celery Beat
 - `reports.py` - **Новый:** Celery задача `generate_company_report` для асинхронной генерации отчётов о компаниях. Разрешает query (URL или название компании), находит/создаёт компанию через существующую логику scan_company, собирает данные (новости, категории, источники, pricing информация, конкуренты) и сохраняет в `report_data` через `update_report_data()`. Также используется функция `_generate_quick_analysis_data()` из `companies.py` для быстрого анализа без скрапинга
+- `subscriptions.py` - **Новый:** Celery задачи для управления подписками. `check_expired_trials()` (проверка истечения триалов каждый час), `check_expired_subscriptions()` (проверка истечения подписок каждый час). Задачи пропускают dev пользователей и не истекают подписки, если `DISABLE_SUBSCRIPTION_CHECK=true`
 
 **Скраперы (`app/scrapers/`):**
 - `universal_scraper.py` - Универсальный скрапер для блогов и новостных страниц компаний. **Обновлен:** добавлена поддержка ручного указания URL страницы с новостями через параметр `news_page_url` и заполнение базовых NLP полей (`priority_score`, `topic`, `sentiment`, `raw_snapshot_url` как заглушки)
@@ -980,8 +1016,10 @@ python -m alembic upgrade head
 - API эндпоинт `/api/v1/telegram/check-user/{chat_id}` - Проверка настроек пользователя через API
 
 **Frontend (`frontend/`):**
-- `src/components/` - React компоненты (23 компонента)
+- `src/components/` - React компоненты (26 компонентов)
   - `Header.tsx` - Навигация и меню пользователя (десктоп и мобильная версия). Включает ссылки на Profile и Settings
+  - `subscription/SubscriptionStatusCard.tsx` - **Новый:** Карточка статуса подписки с отображением дней до окончания триала, кнопками оформления подписки
+  - `subscription/SubscriptionBanner.tsx` - **Новый:** Баннер о необходимости подписки для пользователей без доступа (можно закрыть)
   - `AddCompetitorModal.tsx` - Модальное окно для ручного добавления конкурентов с расширенным функционалом:
     - Режим сканирования: автоматическое определение и сканирование новостей
     - Ручной режим: добавление компании без сканирования
@@ -991,7 +1029,8 @@ python -m alembic upgrade head
   - `dashboard/ReportCard.tsx` - **Новый:** Компонент карточки отчёта с аккордеоном. Отображает статус отчёта (processing/ready/error), информацию о компании, категории новостей и табы: News (последние 5 новостей), Sources (источники с количеством новостей), Pricing (информация о ценообразовании), Competitors (конкуренты с lazy loading). Поддерживает кнопки Retry (для error статуса), Edit, Delete, Load Competitors
   - `dashboard/ConfirmDeleteModal.tsx` - **Новый:** Модальное окно для подтверждения удаления отчёта
 - `src/pages/` - Страницы приложения (14 страниц)
-  - `DashboardPage.tsx` - Главная страница дашборда. **Обновлена:** добавлена кнопка "Add Competitor" на вкладке Competitors list для открытия модального окна добавления компании
+  - `DashboardPage.tsx` - Главная страница дашборда. **Обновлена:** добавлена кнопка "Add Competitor" на вкладке Competitors list для открытия модального окна добавления компании, добавлен `SubscriptionBanner` для пользователей без доступа
+  - `SettingsPage.tsx` - Страница настроек личного кабинета. **Обновлена:** добавлена вкладка "Subscription" с карточкой статуса подписки и информацией о плане
   - `DashboardPageTest.tsx` - **Обновлена:** Вкладка Discover переработана для системы отчётов:
     - Упрощённый Hero Section с полем ввода (без модального окна)
     - Создание отчётов по Enter
@@ -1003,7 +1042,9 @@ python -m alembic upgrade head
   - `DigestSettingsPage.tsx` - Настройки дайджестов (частота, формат, Telegram интеграция)
   - `CompetitorAnalysisPage.tsx` - Аналитика конкурентов. **Обновлена:** добавлены фильтры (тип источника, тема, тональность, min priority) и визуализации распределения тем/тональности, а также средний приоритет новости
 - `src/services/` - API клиенты
-  - `api.ts` - API сервис с методами для работы с пользователями, настройками, компаниями, категориями. **Добавлены методы:** `scanCompany()` (сканирование компании), `createCompany()` (создание/обновление компании), `createReport(query)` (создание отчёта с быстрым анализом, возвращает ready статус), `getReportStatus()` (проверка статуса), `getReport(reportId, includeCompetitors)` (получение полных данных), `getReports()` (список отчётов), `deleteReport()` (удаление отчёта)
+  - `api.ts` - API сервис с методами для работы с пользователями, настройками, компаниями, категориями. **Добавлены методы:** `scanCompany()` (сканирование компании), `createCompany()` (создание/обновление компании), `createReport(query)` (создание отчёта с быстрым анализом, возвращает ready статус), `getReportStatus()` (проверка статуса), `getReport(reportId, includeCompetitors)` (получение полных данных), `getReports()` (список отчётов), `deleteReport()` (удаление отчёта), `getCurrentSubscription()` (получение текущей подписки), `checkSubscriptionAccess()` (проверка доступа), `createSubscription()` (создание/активация подписки), `cancelSubscription()` (отмена подписки)
+- `src/hooks/` - React хуки
+  - `useSubscriptionAccess.ts` - **Новый:** Хук для проверки доступа к функциям на основе подписки. Возвращает `hasAccess`, `reason`, `loading`, `daysRemaining`, `status`, `refetch`
 - `src/store/` - State management (Zustand)
   - `authStore.ts` - Хранилище состояния аутентификации (пользователь, токены, методы login/logout/updateUser)
 
