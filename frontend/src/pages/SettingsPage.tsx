@@ -1,3 +1,4 @@
+import MonitoringSettings from '@/components/settings/MonitoringSettings'
 import SubscriptionStatusCard from '@/components/subscription/SubscriptionStatusCard'
 import api, { ApiService } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
@@ -43,8 +44,9 @@ export default function SettingsPage() {
   const tabs = [
     { id: 'profile', label: 'Profile', icon: User },
     { id: 'subscription', label: 'Subscription', icon: CreditCard },
-    { id: 'notifications', label: 'Notifications', icon: Bell },
-    { id: 'preferences', label: 'Preferences', icon: Filter },
+    { id: 'notifications', label: 'Notifications & Digests', icon: Bell },
+    { id: 'monitoring', label: 'Monitoring', icon: Filter },
+    { id: 'preferences', label: 'News Preferences', icon: Filter },
     { id: 'security', label: 'Security', icon: Shield },
   ]
 
@@ -561,6 +563,10 @@ export default function SettingsPage() {
                   </div>
                 </div>
               </div>
+            )}
+
+            {activeTab === 'monitoring' && (
+              <MonitoringSettings />
             )}
 
             {activeTab === 'preferences' && (
