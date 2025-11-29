@@ -1,7 +1,8 @@
+import SubscriptionStatusCard from '@/components/subscription/SubscriptionStatusCard'
 import api, { ApiService } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
 import type { Company, NewsCategoryInfo } from '@/types'
-import { Bell, Filter, Search, Shield, User, X } from 'lucide-react'
+import { Bell, CreditCard, Filter, Search, Shield, User, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import { useNavigate } from 'react-router-dom'
@@ -41,6 +42,7 @@ export default function SettingsPage() {
 
   const tabs = [
     { id: 'profile', label: 'Profile', icon: User },
+    { id: 'subscription', label: 'Subscription', icon: CreditCard },
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'preferences', label: 'Preferences', icon: Filter },
     { id: 'security', label: 'Security', icon: Shield },
@@ -332,6 +334,60 @@ export default function SettingsPage() {
                       <p className="text-sm text-gray-500 mt-1">
                         Avatar upload coming soon
                       </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'subscription' && (
+              <div className="space-y-6">
+                <div className="card p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                    Subscription Status
+                  </h3>
+                  <SubscriptionStatusCard />
+                </div>
+
+                <div className="card p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                    Subscription Plan
+                  </h3>
+                  <div className="space-y-4">
+                    <div className="border rounded-lg p-4 bg-gray-50">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-medium text-gray-900">Monthly Plan</h4>
+                        <span className="text-2xl font-bold text-gray-900">$29</span>
+                      </div>
+                      <p className="text-sm text-gray-600 mb-4">
+                        Full access to all features including competitor monitoring, analytics, and personalized digests
+                      </p>
+                      <ul className="space-y-2 text-sm text-gray-700 mb-4">
+                        <li className="flex items-center">
+                          <span className="text-green-500 mr-2">✓</span>
+                          Unlimited competitor tracking
+                        </li>
+                        <li className="flex items-center">
+                          <span className="text-green-500 mr-2">✓</span>
+                          Advanced analytics and insights
+                        </li>
+                        <li className="flex items-center">
+                          <span className="text-green-500 mr-2">✓</span>
+                          Personalized daily digests
+                        </li>
+                        <li className="flex items-center">
+                          <span className="text-green-500 mr-2">✓</span>
+                          Real-time monitoring alerts
+                        </li>
+                      </ul>
+                      <button
+                        onClick={() => {
+                          toast('Интеграция с платежной системой в разработке')
+                        }}
+                        className="w-full bg-primary-600 text-white py-2 px-4 rounded-lg hover:bg-primary-700 transition-colors font-medium"
+                      >
+                        Subscribe Now
+                      </button>
                     </div>
                   </div>
                 </div>

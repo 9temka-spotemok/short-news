@@ -12,6 +12,7 @@ import ReportCard from '@/components/dashboard/ReportCard'
 import SkeletonLoader from '@/components/dashboard/SkeletonLoader'
 import StatsCards from '@/components/dashboard/StatsCards'
 import MonitoringStatusCard from '@/components/monitoring/MonitoringStatusCard'
+import SubscriptionBanner from '@/components/subscription/SubscriptionBanner'
 import api, { ApiService } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
 import type { Company, Report } from '@/types'
@@ -966,6 +967,9 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Subscription Banner */}
+        <SubscriptionBanner />
+        
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between">
