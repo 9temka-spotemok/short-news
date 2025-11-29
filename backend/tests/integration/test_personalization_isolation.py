@@ -284,3 +284,6 @@ async def test_user_sees_all_own_news(
         assert result is not None
         assert result.id == news.id
 
+
+
+

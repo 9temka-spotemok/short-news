@@ -474,3 +474,6 @@ User {user_id} has no companies, returning empty news list
 **Автор:** AI Code Review  
 **Дата:** 2025-01-31  
 **Статус:** ✅ Все исправления выполнены, готово к тестированию
+
+
+

@@ -278,3 +278,6 @@ async def test_cannot_access_news_with_invalid_id(
     result = await check_news_access(fake_uuid, user, async_session)
     assert result is None
 
+
+
+
