@@ -5,7 +5,7 @@ Companies endpoints
 from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, Depends, Query, HTTPException, Body
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, or_
+from sqlalchemy import select, func, or_, and_
 from loguru import logger
 from urllib.parse import urlparse
 from datetime import datetime, timezone, timedelta
@@ -24,6 +24,7 @@ from app.models.news import (
 from app.services.company_info_extractor import extract_company_info
 from app.api.dependencies import get_current_user, get_current_user_optional
 from app.models import User
+from app.schemas.monitoring import MonitoringChangesResponseSchema
 from app.domains.news.scrapers import CompanyContext, NewsScraperRegistry
 from app.tasks.scraping import scan_company_sources_initial
 from app.core.access_control import invalidate_user_cache
@@ -1204,5 +1205,179 @@ async def get_monitoring_stats(
         raise HTTPException(status_code=500, detail=f"Failed to retrieve monitoring stats: {str(e)}")
 
 
+@router.get("/monitoring/changes", response_model=MonitoringChangesResponseSchema)
+async def get_monitoring_changes(
+    company_ids: Optional[str] = Query(
+        None,
+        description="Comma-separated list of company UUIDs to filter by"
+    ),
+    change_types: Optional[str] = Query(
+        None,
+        description=(
+            "Comma-separated list of change types. "
+            "Typically comes from raw_diff['type'] values "
+            "such as website_structure, marketing_banner, marketing_landing, "
+            "marketing_product, marketing_jobs, seo_meta, seo_structure, pricing"
+        ),
+    ),
+    date_from: Optional[datetime] = Query(
+        None,
+        description="Filter events from this date (ISO 8601 format)"
+    ),
+    date_to: Optional[datetime] = Query(
+        None,
+        description="Filter events to this date (ISO 8601 format)"
+    ),
+    limit: int = Query(
+        50,
+        ge=1,
+        le=500,
+        description="Maximum number of results to return (1-500)"
+    ),
+    offset: int = Query(
+        0,
+        ge=0,
+        description="Offset for pagination"
+    ),
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get monitoring change events for companies.
 
+    Returns change events detected by the monitoring system (pricing/features, website, marketing, etc.).
 
+    Access control:
+    - Authenticated users see events only for their companies (Company.user_id == current_user.id)
+    - Anonymous users see events only for global companies (Company.user_id is NULL)
+
+    Filtering:
+    - Filter by specific companies using `company_ids`
+    - Filter by change types using `change_types` (mapped from raw_diff['type'])
+    - Filter by date range using `date_from` and `date_to`
+
+    Pagination:
+    - `limit` controls page size (default: 50, max: 500)
+    - `offset` controls pagination offset
+    - Response includes `total` count and `has_more` flag
+    """
+    try:
+        from app.core.access_control import check_company_access  # noqa: F401  # kept for future per-company checks
+
+        # Parse company IDs from comma-separated string
+        company_id_list: list[UUIDType] = []
+        if company_ids:
+            for cid in company_ids.split(","):
+                cid = cid.strip()
+                if not cid:
+                    continue
+                try:
+                    company_id_list.append(UUIDType(cid))
+                except ValueError:
+                    logger.warning(f"Invalid company ID format in monitoring/changes: {cid}")
+
+        # Parse change types from comma-separated string
+        change_type_list: list[str] = []
+        if change_types:
+            change_type_list = [ct.strip() for ct in change_types.split(",") if ct.strip()]
+
+        # Build access filter for companies (data isolation)
+        if current_user:
+            # Authenticated user: only their companies
+            company_filter = Company.user_id == current_user.id
+        else:
+            # Anonymous user: only global companies
+            company_filter = Company.user_id.is_(None)
+
+        # Base query joining companies for access control
+        conditions = [company_filter]
+
+        if company_id_list:
+            conditions.append(CompetitorChangeEvent.company_id.in_(company_id_list))
+
+        # Filter by change type from raw_diff['type'] when provided
+        if change_type_list:
+            type_conditions = []
+            for ct in change_type_list:
+                type_conditions.append(
+                    CompetitorChangeEvent.raw_diff["type"].astext == ct
+                )
+            if type_conditions:
+                conditions.append(or_(*type_conditions))
+
+        # Date filters
+        if date_from:
+            conditions.append(CompetitorChangeEvent.detected_at >= date_from)
+        if date_to:
+            conditions.append(CompetitorChangeEvent.detected_at <= date_to)
+
+        # Build main query
+        base_query = (
+            select(CompetitorChangeEvent)
+            .join(Company, CompetitorChangeEvent.company_id == Company.id)
+        )
+
+        if conditions:
+            base_query = base_query.where(and_(*conditions))
+
+        # Total count query
+        count_query = (
+            select(func.count(CompetitorChangeEvent.id))
+            .join(Company, CompetitorChangeEvent.company_id == Company.id)
+            .where(and_(*conditions)) if conditions else
+            select(func.count(CompetitorChangeEvent.id))
+        )
+
+        total_result = await db.execute(count_query)
+        total = total_result.scalar() or 0
+
+        # Apply ordering and pagination
+        events_query = (
+            base_query
+            .order_by(CompetitorChangeEvent.detected_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+
+        result = await db.execute(events_query)
+        events = result.scalars().all()
+
+        # Map events to response format expected by frontend
+        events_data = []
+        for event in events:
+            raw_diff = event.raw_diff or {}
+            # Prefer explicit type from raw_diff, fallback to source_type
+            raw_type = raw_diff.get("type")
+            if raw_type:
+                change_type = str(raw_type)
+            else:
+                source_type = event.source_type
+                if hasattr(source_type, "value"):
+                    change_type = source_type.value
+                else:
+                    change_type = str(source_type)
+
+            events_data.append(
+                {
+                    "id": str(event.id),
+                    "company_id": str(event.company_id),
+                    "change_type": change_type,
+                    "change_summary": event.change_summary,
+                    "detected_at": event.detected_at.isoformat(),
+                    # Frontend expects generic details object; we pass full raw_diff
+                    "details": raw_diff,
+                }
+            )
+
+        return {
+            "events": events_data,
+            "total": total,
+            "has_more": (offset + limit) < total,
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to get monitoring changes: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to retrieve monitoring changes: {str(e)}",
+        )
