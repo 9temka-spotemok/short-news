@@ -83,3 +83,4 @@ class MonitoringChangesFiltersSchema(BaseModel):
     limit: int = Field(50, ge=1, le=500, description="Maximum number of results.")
     offset: int = Field(0, ge=0, description="Pagination offset.")
 
+
