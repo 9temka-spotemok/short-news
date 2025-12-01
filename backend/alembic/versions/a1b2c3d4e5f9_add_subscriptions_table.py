@@ -99,3 +99,4 @@ def downgrade() -> None:
 
     # Drop enum type
     op.execute("DROP TYPE IF EXISTS subscriptionstatus")
+

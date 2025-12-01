@@ -102,3 +102,4 @@ def downgrade() -> None:
     op.drop_column("user_preferences", "monitoring_enabled")
     op.execute("DROP TYPE IF EXISTS monitoring_frequency;")
 
+
