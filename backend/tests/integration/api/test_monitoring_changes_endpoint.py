@@ -101,3 +101,4 @@ async def test_get_monitoring_changes_filters_by_change_type(
     # We don't assert exact zero because existing data may not have type field;
     # the main check is that endpoint behaves correctly and returns valid structure.
 
+
