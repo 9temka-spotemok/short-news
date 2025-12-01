@@ -51,3 +51,4 @@ def check_expired_subscriptions():
     except Exception as e:
         logger.error(f"Error checking expired subscriptions: {e}", exc_info=True)
         raise
+

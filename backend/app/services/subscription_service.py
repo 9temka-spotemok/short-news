@@ -278,3 +278,4 @@ class SubscriptionService:
             logger.info(f"Expired {expired_count} active subscriptions")
         
         return expired_count
+
