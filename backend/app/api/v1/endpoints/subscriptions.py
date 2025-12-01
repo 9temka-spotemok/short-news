@@ -217,3 +217,4 @@ async def check_subscription_access(
             "reason": reason,
             "status": subscription.status if subscription else None
         }
+
