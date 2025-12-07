@@ -155,7 +155,6 @@ shot-news/
 - ✅ **Исправлены импорты** — обновлены импорты `CompetitorService` на `CompetitorAnalysisService` во всех местах использования, добавлен alias для обратной совместимости
 - ✅ **Улучшена обработка транзакций** — добавлена правильная обработка rollback при ошибках создания отчёта
 - ✅ **Исправлена ошибка 'str' object has no attribute 'value'** — добавлена безопасная проверка `hasattr()` перед обращением к `.value` для enum полей (`news.category`, `news.source_type`) в `_generate_quick_analysis_data()` и других местах, где обрабатываются новости
-- ✅ **Исправлена ошибка Database error при сохранении report_data** — добавлена проверка и очистка не-JSON-сериализуемых объектов в `report_data` перед сохранением в БД, улучшена обработка ошибок при создании и обновлении отчётов, добавлена валидация `company_id` перед сохранением
 - ✅ **Исправлена ошибка "invalid input value for enum reportstatus: READY"** — добавлена нормализация значения status в нижний регистр перед сохранением в БД, добавлен `values_callable` в определение ENUM для правильной обработки значений enum SQLAlchemy, добавлены множественные проверки status перед flush в БД для предотвращения передачи неправильного значения
 
 **Файлы:**
@@ -484,6 +483,260 @@ shot-news/
 **Файлы:**
 - `backend/app/models/report.py` - добавлено поле `report_data: Mapped[Optional[Dict[str, Any]]]`
 - `backend/alembic/versions/32e8440a3173_add_report_data_to_reports.py` - миграция для `report_data`
+- `backend/app/domains/reports/repositories/report_repository.py` - метод `update_report_data()`
+- `backend/app/api/v1/endpoints/companies.py` - функция `_generate_quick_analysis_data()`
+- `backend/app/api/v1/endpoints/reports.py` - обновлён `/reports/create` и `GET /reports/{report_id}`
+- `backend/app/tasks/reports.py` - обновлён `generate_company_report` для сохранения в `report_data`
+- `frontend/src/pages/DashboardPageTest.tsx` - убран Quick Analysis из "My Competitors", обновлён `handleCreateReport`
+- `frontend/src/components/dashboard/ConfirmDeleteModal.tsx` - новый компонент для подтверждения удаления
+
+## ♻️ Свежие улучшения (ноябрь 2025)
+
+- `backend/app/tasks/scraping.py` — исправлена проблема с event loop в Celery: заменён `asyncio.run()` на `_run_async` helper для корректной работы async кода в Celery worker. Это устраняет ошибки вида "Task got Future attached to a different loop" и "Event loop is closed".
+- `backend/app/tasks/digest.py` — исправлены проблемы с event loop в задачах digest: создан отдельный engine с `NullPool` для задач Celery (аналогично `notifications.py`), что гарантирует создание соединений в правильном event loop. Все задачи (`generate_daily_digests`, `generate_weekly_digests`, `send_channel_digest`) используют `_TaskSessionLocal` вместо общего `AsyncSessionLocal`, что устраняет ошибки "Task got Future attached to a different loop" и "Event loop is closed" при работе с asyncpg соединениями.
+- `backend/app/domains/notifications/repositories/preferences_repository.py` — исправлена ошибка типов в SQL запросе для enum массивов: метод `list_interested_in_category` теперь использует raw SQL с явным приведением типа `ARRAY[:category::newscategory]` вместо SQLAlchemy `.contains()`, что устраняет ошибку `operator does not exist: character varying[] @> newscategory[]`.
+- `backend/app/domains/news/repositories/news_repository.py` — исправлена ошибка отсутствующих колонок: после применения миграции `f7a8b9c0d1e2` (вручную через SQL) возвращен обычный запрос в `fetch_by_url` без временного `load_only()`, что устраняет ошибку `column news_items.topic does not exist`.
+- `backend/app/api/v2/endpoints/analytics.py` — исправлена логика автоматического создания snapshot: добавлен rollback после ошибок, проверка на существующий snapshot перед созданием нового, улучшена обработка ошибок при создании пустого snapshot; теперь `/impact/latest` всегда создает snapshot автоматически, даже при отсутствии данных.
+- `backend/app/core/database.py` — добавлена функция `get_async_session()` для использования в скриптах диагностики; функция работает как async generator и может быть использована в `async for` циклах, аналогично `get_db()` для зависимостей FastAPI.
+- `docs/SNAPSHOT_VERIFICATION_REPORT.md` — создан отчет о проверке системы snapshot; проверено соответствие логирования документации, исправлен скрипт диагностики, все компоненты соответствуют требованиям из `DIAGNOSE_404_SNAPSHOT.md`.
+- `docs/ANALYTICS_FIX_REPORT.md` — отчет об исправлении проблем с аналитикой: исправлена проблема 404 при автоматическом создании snapshot, добавлена обработка ошибок и проверка на существующие snapshots.
+- `backend/app/domains/notifications/services/digest_service.py` — Telegram-дайджесты генерируются методом `format_digest_for_telegram`, который форматирует агрегированные новости по компаниям, экранирует Markdown-символы и учитывает пользовательский часовой пояс; бот больше не падает на `Bad Request: can't parse entities`.
+- `backend/app/domains/analytics/services/snapshot_service.py`, `backend/app/models/analytics.py` — устранён `NOT NULL constraint failed: impact_components.snapshot_id`, снапшоты теперь флашатся перед сохранением компонент, а отношения на `ImpactComponent` переведены на `lazy="selectin"`, так что фронтенд и тесты стабильно видят breakdown после `recompute`.
+- `backend/app/celery_app.py`, `docker-compose.yml` — Celery worker слушает очереди `celery` и `analytics`, маршрутизация задач аналитики вынесена в `task_routes`, предупреждения о недоступной очереди при `POST /api/v2/analytics/.../recompute` больше не мешают запуску пересчёта ( worker нужно перезапустить ).
+- `backend/app/domains/news/services/ingestion_service.py`, `backend/app/utils/datetime_utils.py`, `backend/app/scrapers/*` — `published_at` приводится к naive UTC, ingestion корректно принимает tz-aware даты, скрейперы больше не генерируют offset-aware метки и не падают с `asyncpg.exceptions.DataError`.
+- `backend/app/celery_app.py` — загрузка динамического beat-расписания теперь выполняется в отдельном event loop, что устраняет предупреждение `coroutine was never awaited` и гарантирует применение БД-правил.
+- `backend/app/models/notification_channels.py`, `backend/app/models/notifications.py` — PostgreSQL ENUM'ы синхронизированы со значениями Python-перечислений (`pending/sent/...`), что убирает падения Celery из-за `"PENDING"`.
+- `backend/app/domains/notifications/services/notification_service.py`, `backend/app/tasks/notifications.py` — нормализованы временные зоны (UTC aware для доставок, naive-UTC для `NewsItem.published_at`) и введён общий раннер `_run_async`, чтобы Celery-задачи не ломались на `asyncio.run`.
+- `backend/app/scrapers/universal_scraper.py` — HTTP-клиент использует отдельную proxy-сессию; параметр `proxies` больше не передаётся в `AsyncClient.get`, поэтому скрейпер не падает на httpx 0.27+.
+- `backend/app/scrapers/universal_scraper.py`, `backend/app/scrapers/config_loader.py` — универсальный скрейпер перед запуском обхода анализирует главную страницу компании, автоматически добавляет найденные blog/news/press ссылки в отдельные источники `discovered_*` и отключает ретраи для эвристических URL. В логах больше нет бесконечных повторов 404, а успешные страницы обрабатываются в приоритете.
+- `backend/app/domains/news/services/scraper_service.py` — `published_at` принудительно нормализуется в naive-UTC перед вставкой, поэтому PostgreSQL больше не падает на `invalid input for query argument $12`.
+- `backend/app/domains/news/services/ingestion_service.py` — ingestion загружает детальную страницу и обновляет заголовок/summary по `og:title`/`og:description`, так что карточки теперь отображают реальный headline статьи (флаг `SCRAPER_DETAIL_ENRICHMENT_ENABLED`).
+- `backend/scripts/run-scraper.sh` — cron запускает `python3`, что избавляет контейнер от сообщений `python: not found`.
+- `backend/scripts/run_telegram_bot.py` — при локальной среде выводится предупреждение, если токен не соответствует тестовому боту `@short_news_bot_test_bot`; см. `LOCAL_BOT_SETUP.md`.
+- `docker-compose.yml` (`frontend` сервис) — перед запуском `npm run dev` выполняется `npm install`, поэтому новые зависимости (например, `@tanstack/react-query-devtools`) подтягиваются автоматически.
+- `frontend/src/services/api.ts`, `frontend/env.example` — `resolveApiBaseUrl()` теперь ищет `VITE_API_URL`, затем рантайм-переопределение `window.__SHOT_NEWS_API_URL__`, fallback `VITE_DEV_API_URL` и только в dev возвращает `http://localhost:8000`. При отсутствии конфигурации в консоли выводится предупреждение, чтобы избежать таймаутов `ECONNABORTED`.
+- `frontend/src/features/competitor-analysis/components/CompanyAnalysisFlow.tsx` — компонент перешёл на уровень фичи и реализует быстрый one-click сценарий: выбор компании → запуск анализа → отображение результатов. Страница `CompetitorAnalysisPage` лишь прокидывает хуки (`useAnalysisFlow`) и фильтры, весь авто-подбор конкурентов выполняется в хуке.
+- `docker-compose.yml` (`backend` сервис) — backend теперь получает `CELERY_BROKER_URL`/`CELERY_RESULT_BACKEND=redis://redis:6379/0`, поэтому `POST /api/v2/analytics/.../recompute` не зависает на попытке подключиться к `localhost:6379`. После обновления обязательно выполните `docker compose restart backend celery-worker celery-beat`, чтобы API и worker использовали единый Redis.
+
+## ♻️ Свежие улучшения (ноябрь 2025)
+
+### Автоматическое создание отчёта после онбординга
+
+- ✅ После завершения мастера онбординга автоматически запускается создание отчёта по введённой компании — поведение соответствует кнопке поиска на `DashboardPageTest`, так что пользователь сразу получает быстрый анализ.
+- ✅ Весь UX (toast'ы `Creating report...`, обработка `ready/processing`) повторяет дашборд, поэтому статус отчёта прозрачен и во время онбординга.
+
+**Файлы:**
+- `frontend/src/pages/OnboardingPage.tsx` — добавлен helper `createCompanyReport()` и вызов после `ApiService.completeOnboarding`.
+
+### Система отчётов с быстрым анализом (Discover Tab Refactoring)
+
+**Реализована система отчётов с сохранением результатов в БД:**
+
+- ✅ **Поле `report_data` (JSON)** в модели `Report` для сохранения полных данных отчёта (company, news, categories, sources, pricing, competitors)
+- ✅ **Миграция `32e8440a3173_add_report_data_to_reports`** добавляет поле `report_data` в таблицу `reports`
+- ✅ **Метод `update_report_data()`** в `ReportRepository` для сохранения данных отчёта в БД
+- ✅ **Функция `_generate_quick_analysis_data()`** в `companies.py` - вынесена логика quick-analysis для переиспользования
+- ✅ **Endpoint `/reports/create`** теперь сразу вызывает quick-analysis, создаёт отчёт со статусом `ready`, сохраняет результаты в `report_data`
+- ✅ **Логика статусов сохранена** (processing, ready, error) - для будущего full report через Celery task
+- ✅ **Celery task `generate_company_report`** обновлён для сохранения результатов в `report_data` при завершении
+- ✅ **GET `/reports/{report_id}`** сначала проверяет `report_data` из БД, если нет - собирает динамически (fallback)
+- ✅ **Frontend:** Убран Quick Analysis блок из вкладки "My Competitors", оставлен один блок поиска на вкладке "Discover"
+- ✅ **Frontend:** `handleCreateReport` обновлён для обработки статуса `ready` сразу после создания отчёта
+- ✅ **Frontend:** Добавлен компонент `ConfirmDeleteModal` для подтверждения удаления отчёта
+
+**Файлы:**
+- `backend/app/models/report.py` - добавлено поле `report_data: Mapped[Optional[Dict[str, Any]]]`
+- `backend/alembic/versions/32e8440a3173_add_report_data_to_reports.py` - миграция для `report_data`
+- `backend/app/domains/reports/repositories/report_repository.py` - метод `update_report_data()`
+- `backend/app/api/v1/endpoints/companies.py` - функция `_generate_quick_analysis_data()`
+- `backend/app/api/v1/endpoints/reports.py` - обновлён `/reports/create` и `GET /reports/{report_id}`
+- `backend/app/tasks/reports.py` - обновлён `generate_company_report` для сохранения в `report_data`
+- `frontend/src/pages/DashboardPageTest.tsx` - убран Quick Analysis из "My Competitors", обновлён `handleCreateReport`
+- `frontend/src/components/dashboard/ConfirmDeleteModal.tsx` - новый компонент для подтверждения удаления
+
+## ♻️ Свежие улучшения (ноябрь 2025)
+
+- `backend/app/tasks/scraping.py` — исправлена проблема с event loop в Celery: заменён `asyncio.run()` на `_run_async` helper для корректной работы async кода в Celery worker. Это устраняет ошибки вида "Task got Future attached to a different loop" и "Event loop is closed".
+- `backend/app/tasks/digest.py` — исправлены проблемы с event loop в задачах digest: создан отдельный engine с `NullPool` для задач Celery (аналогично `notifications.py`), что гарантирует создание соединений в правильном event loop. Все задачи (`generate_daily_digests`, `generate_weekly_digests`, `send_channel_digest`) используют `_TaskSessionLocal` вместо общего `AsyncSessionLocal`, что устраняет ошибки "Task got Future attached to a different loop" и "Event loop is closed" при работе с asyncpg соединениями.
+- `backend/app/domains/notifications/repositories/preferences_repository.py` — исправлена ошибка типов в SQL запросе для enum массивов: метод `list_interested_in_category` теперь использует raw SQL с явным приведением типа `ARRAY[:category::newscategory]` вместо SQLAlchemy `.contains()`, что устраняет ошибку `operator does not exist: character varying[] @> newscategory[]`.
+- `backend/app/domains/news/repositories/news_repository.py` — исправлена ошибка отсутствующих колонок: после применения миграции `f7a8b9c0d1e2` (вручную через SQL) возвращен обычный запрос в `fetch_by_url` без временного `load_only()`, что устраняет ошибку `column news_items.topic does not exist`.
+- `backend/app/api/v2/endpoints/analytics.py` — исправлена логика автоматического создания snapshot: добавлен rollback после ошибок, проверка на существующий snapshot перед созданием нового, улучшена обработка ошибок при создании пустого snapshot; теперь `/impact/latest` всегда создает snapshot автоматически, даже при отсутствии данных.
+- `backend/app/core/database.py` — добавлена функция `get_async_session()` для использования в скриптах диагностики; функция работает как async generator и может быть использована в `async for` циклах, аналогично `get_db()` для зависимостей FastAPI.
+- `docs/SNAPSHOT_VERIFICATION_REPORT.md` — создан отчет о проверке системы snapshot; проверено соответствие логирования документации, исправлен скрипт диагностики, все компоненты соответствуют требованиям из `DIAGNOSE_404_SNAPSHOT.md`.
+- `docs/ANALYTICS_FIX_REPORT.md` — отчет об исправлении проблем с аналитикой: исправлена проблема 404 при автоматическом создании snapshot, добавлена обработка ошибок и проверка на существующие snapshots.
+- `backend/app/domains/notifications/services/digest_service.py` — Telegram-дайджесты генерируются методом `format_digest_for_telegram`, который форматирует агрегированные новости по компаниям, экранирует Markdown-символы и учитывает пользовательский часовой пояс; бот больше не падает на `Bad Request: can't parse entities`.
+- `backend/app/domains/analytics/services/snapshot_service.py`, `backend/app/models/analytics.py` — устранён `NOT NULL constraint failed: impact_components.snapshot_id`, снапшоты теперь флашатся перед сохранением компонент, а отношения на `ImpactComponent` переведены на `lazy="selectin"`, так что фронтенд и тесты стабильно видят breakdown после `recompute`.
+- `backend/app/celery_app.py`, `docker-compose.yml` — Celery worker слушает очереди `celery` и `analytics`, маршрутизация задач аналитики вынесена в `task_routes`, предупреждения о недоступной очереди при `POST /api/v2/analytics/.../recompute` больше не мешают запуску пересчёта ( worker нужно перезапустить ).
+- `backend/app/domains/news/services/ingestion_service.py`, `backend/app/utils/datetime_utils.py`, `backend/app/scrapers/*` — `published_at` приводится к naive UTC, ingestion корректно принимает tz-aware даты, скрейперы больше не генерируют offset-aware метки и не падают с `asyncpg.exceptions.DataError`.
+- `backend/app/celery_app.py` — загрузка динамического beat-расписания теперь выполняется в отдельном event loop, что устраняет предупреждение `coroutine was never awaited` и гарантирует применение БД-правил.
+- `backend/app/models/notification_channels.py`, `backend/app/models/notifications.py` — PostgreSQL ENUM'ы синхронизированы со значениями Python-перечислений (`pending/sent/...`), что убирает падения Celery из-за `"PENDING"`.
+- `backend/app/domains/notifications/services/notification_service.py`, `backend/app/tasks/notifications.py` — нормализованы временные зоны (UTC aware для доставок, naive-UTC для `NewsItem.published_at`) и введён общий раннер `_run_async`, чтобы Celery-задачи не ломались на `asyncio.run`.
+- `backend/app/scrapers/universal_scraper.py` — HTTP-клиент использует отдельную proxy-сессию; параметр `proxies` больше не передаётся в `AsyncClient.get`, поэтому скрейпер не падает на httpx 0.27+.
+- `backend/app/scrapers/universal_scraper.py`, `backend/app/scrapers/config_loader.py` — универсальный скрейпер перед запуском обхода анализирует главную страницу компании, автоматически добавляет найденные blog/news/press ссылки в отдельные источники `discovered_*` и отключает ретраи для эвристических URL. В логах больше нет бесконечных повторов 404, а успешные страницы обрабатываются в приоритете.
+- `backend/app/domains/news/services/scraper_service.py` — `published_at` принудительно нормализуется в naive-UTC перед вставкой, поэтому PostgreSQL больше не падает на `invalid input for query argument $12`.
+- `backend/app/domains/news/services/ingestion_service.py` — ingestion загружает детальную страницу и обновляет заголовок/summary по `og:title`/`og:description`, так что карточки теперь отображают реальный headline статьи (флаг `SCRAPER_DETAIL_ENRICHMENT_ENABLED`).
+- `backend/scripts/run-scraper.sh` — cron запускает `python3`, что избавляет контейнер от сообщений `python: not found`.
+- `backend/scripts/run_telegram_bot.py` — при локальной среде выводится предупреждение, если токен не соответствует тестовому боту `@short_news_bot_test_bot`; см. `LOCAL_BOT_SETUP.md`.
+- `docker-compose.yml` (`frontend` сервис) — перед запуском `npm run dev` выполняется `npm install`, поэтому новые зависимости (например, `@tanstack/react-query-devtools`) подтягиваются автоматически.
+- `frontend/src/services/api.ts`, `frontend/env.example` — `resolveApiBaseUrl()` теперь ищет `VITE_API_URL`, затем рантайм-переопределение `window.__SHOT_NEWS_API_URL__`, fallback `VITE_DEV_API_URL` и только в dev возвращает `http://localhost:8000`. При отсутствии конфигурации в консоли выводится предупреждение, чтобы избежать таймаутов `ECONNABORTED`.
+- `frontend/src/features/competitor-analysis/components/CompanyAnalysisFlow.tsx` — компонент перешёл на уровень фичи и реализует быстрый one-click сценарий: выбор компании → запуск анализа → отображение результатов. Страница `CompetitorAnalysisPage` лишь прокидывает хуки (`useAnalysisFlow`) и фильтры, весь авто-подбор конкурентов выполняется в хуке.
+- `docker-compose.yml` (`backend` сервис) — backend теперь получает `CELERY_BROKER_URL`/`CELERY_RESULT_BACKEND=redis://redis:6379/0`, поэтому `POST /api/v2/analytics/.../recompute` не зависает на попытке подключиться к `localhost:6379`. После обновления обязательно выполните `docker compose restart backend celery-worker celery-beat`, чтобы API и worker использовали единый Redis.
+
+## ♻️ Свежие улучшения (ноябрь 2025)
+
+### Автоматическое создание отчёта после онбординга
+
+- ✅ После завершения мастера онбординга автоматически запускается создание отчёта по введённой компании — поведение соответствует кнопке поиска на `DashboardPageTest`, так что пользователь сразу получает быстрый анализ.
+- ✅ Весь UX (toast'ы `Creating report...`, обработка `ready/processing`) повторяет дашборд, поэтому статус отчёта прозрачен и во время онбординга.
+
+**Файлы:**
+- `frontend/src/pages/OnboardingPage.tsx` — добавлен helper `createCompanyReport()` и вызов после `ApiService.completeOnboarding`.
+
+### Система отчётов с быстрым анализом (Discover Tab Refactoring)
+
+**Реализована система отчётов с сохранением результатов в БД:**
+
+- ✅ **Поле `report_data` (JSON)** в модели `Report` для сохранения полных данных отчёта (company, news, categories, sources, pricing, competitors)
+- ✅ **Миграция `32e8440a3173_add_report_data_to_reports`** добавляет поле `report_data` в таблицу `reports`
+- ✅ **Метод `update_report_data()`** в `ReportRepository` для сохранения данных отчёта в БД
+- ✅ **Функция `_generate_quick_analysis_data()`** в `companies.py` - вынесена логика quick-analysis для переиспользования
+- ✅ **Endpoint `/reports/create`** теперь сразу вызывает quick-analysis, создаёт отчёт со статусом `ready`, сохраняет результаты в `report_data`
+- ✅ **Логика статусов сохранена** (processing, ready, error) - для будущего full report через Celery task
+- ✅ **Celery task `generate_company_report`** обновлён для сохранения результатов в `report_data` при завершении
+- ✅ **GET `/reports/{report_id}`** сначала проверяет `report_data` из БД, если нет - собирает динамически (fallback)
+- ✅ **Frontend:** Убран Quick Analysis блок из вкладки "My Competitors", оставлен один блок поиска на вкладке "Discover"
+- ✅ **Frontend:** `handleCreateReport` обновлён для обработки статуса `ready` сразу после создания отчёта
+- ✅ **Frontend:** Добавлен компонент `ConfirmDeleteModal` для подтверждения удаления отчёта
+
+**Файлы:**
+- `backend/app/models/report.py` - добавлено поле `report_data: Mapped[Optional[Dict[str, Any]]]`
+- `backend/alembic/versions/32e8440a3173_add_report_data_to_reports.py` - миграция для `report_data`
+- `backend/app/domains/reports/repositories/report_repository.py` - метод `update_report_data()`
+- `backend/app/api/v1/endpoints/companies.py` - функция `_generate_quick_analysis_data()`
+- `backend/app/api/v1/endpoints/reports.py` - обновлён `/reports/create` и `GET /reports/{report_id}`
+- `backend/app/tasks/reports.py` - обновлён `generate_company_report` для сохранения в `report_data`
+- `frontend/src/pages/DashboardPageTest.tsx` - убран Quick Analysis из "My Competitors", обновлён `handleCreateReport`
+- `frontend/src/components/dashboard/ConfirmDeleteModal.tsx` - новый компонент для подтверждения удаления
+
+## ♻️ Свежие улучшения (ноябрь 2025)
+
+- `backend/app/tasks/scraping.py` — исправлена проблема с event loop в Celery: заменён `asyncio.run()` на `_run_async` helper для корректной работы async кода в Celery worker. Это устраняет ошибки вида "Task got Future attached to a different loop" и "Event loop is closed".
+- `backend/app/tasks/digest.py` — исправлены проблемы с event loop в задачах digest: создан отдельный engine с `NullPool` для задач Celery (аналогично `notifications.py`), что гарантирует создание соединений в правильном event loop. Все задачи (`generate_daily_digests`, `generate_weekly_digests`, `send_channel_digest`) используют `_TaskSessionLocal` вместо общего `AsyncSessionLocal`, что устраняет ошибки "Task got Future attached to a different loop" и "Event loop is closed" при работе с asyncpg соединениями.
+- `backend/app/domains/notifications/repositories/preferences_repository.py` — исправлена ошибка типов в SQL запросе для enum массивов: метод `list_interested_in_category` теперь использует raw SQL с явным приведением типа `ARRAY[:category::newscategory]` вместо SQLAlchemy `.contains()`, что устраняет ошибку `operator does not exist: character varying[] @> newscategory[]`.
+- `backend/app/domains/news/repositories/news_repository.py` — исправлена ошибка отсутствующих колонок: после применения миграции `f7a8b9c0d1e2` (вручную через SQL) возвращен обычный запрос в `fetch_by_url` без временного `load_only()`, что устраняет ошибку `column news_items.topic does not exist`.
+- `backend/app/api/v2/endpoints/analytics.py` — исправлена логика автоматического создания snapshot: добавлен rollback после ошибок, проверка на существующий snapshot перед созданием нового, улучшена обработка ошибок при создании пустого snapshot; теперь `/impact/latest` всегда создает snapshot автоматически, даже при отсутствии данных.
+- `backend/app/core/database.py` — добавлена функция `get_async_session()` для использования в скриптах диагностики; функция работает как async generator и может быть использована в `async for` циклах, аналогично `get_db()` для зависимостей FastAPI.
+- `docs/SNAPSHOT_VERIFICATION_REPORT.md` — создан отчет о проверке системы snapshot; проверено соответствие логирования документации, исправлен скрипт диагностики, все компоненты соответствуют требованиям из `DIAGNOSE_404_SNAPSHOT.md`.
+- `docs/ANALYTICS_FIX_REPORT.md` — отчет об исправлении проблем с аналитикой: исправлена проблема 404 при автоматическом создании snapshot, добавлена обработка ошибок и проверка на существующие snapshots.
+- `backend/app/domains/notifications/services/digest_service.py` — Telegram-дайджесты генерируются методом `format_digest_for_telegram`, который форматирует агрегированные новости по компаниям, экранирует Markdown-символы и учитывает пользовательский часовой пояс; бот больше не падает на `Bad Request: can't parse entities`.
+- `backend/app/domains/analytics/services/snapshot_service.py`, `backend/app/models/analytics.py` — устранён `NOT NULL constraint failed: impact_components.snapshot_id`, снапшоты теперь флашатся перед сохранением компонент, а отношения на `ImpactComponent` переведены на `lazy="selectin"`, так что фронтенд и тесты стабильно видят breakdown после `recompute`.
+- `backend/app/celery_app.py`, `docker-compose.yml` — Celery worker слушает очереди `celery` и `analytics`, маршрутизация задач аналитики вынесена в `task_routes`, предупреждения о недоступной очереди при `POST /api/v2/analytics/.../recompute` больше не мешают запуску пересчёта ( worker нужно перезапустить ).
+- `backend/app/domains/news/services/ingestion_service.py`, `backend/app/utils/datetime_utils.py`, `backend/app/scrapers/*` — `published_at` приводится к naive UTC, ingestion корректно принимает tz-aware даты, скрейперы больше не генерируют offset-aware метки и не падают с `asyncpg.exceptions.DataError`.
+- `backend/app/celery_app.py` — загрузка динамического beat-расписания теперь выполняется в отдельном event loop, что устраняет предупреждение `coroutine was never awaited` и гарантирует применение БД-правил.
+- `backend/app/models/notification_channels.py`, `backend/app/models/notifications.py` — PostgreSQL ENUM'ы синхронизированы со значениями Python-перечислений (`pending/sent/...`), что убирает падения Celery из-за `"PENDING"`.
+- `backend/app/domains/notifications/services/notification_service.py`, `backend/app/tasks/notifications.py` — нормализованы временные зоны (UTC aware для доставок, naive-UTC для `NewsItem.published_at`) и введён общий раннер `_run_async`, чтобы Celery-задачи не ломались на `asyncio.run`.
+- `backend/app/scrapers/universal_scraper.py` — HTTP-клиент использует отдельную proxy-сессию; параметр `proxies` больше не передаётся в `AsyncClient.get`, поэтому скрейпер не падает на httpx 0.27+.
+- `backend/app/scrapers/universal_scraper.py`, `backend/app/scrapers/config_loader.py` — универсальный скрейпер перед запуском обхода анализирует главную страницу компании, автоматически добавляет найденные blog/news/press ссылки в отдельные источники `discovered_*` и отключает ретраи для эвристических URL. В логах больше нет бесконечных повторов 404, а успешные страницы обрабатываются в приоритете.
+- `backend/app/domains/news/services/scraper_service.py` — `published_at` принудительно нормализуется в naive-UTC перед вставкой, поэтому PostgreSQL больше не падает на `invalid input for query argument $12`.
+- `backend/app/domains/news/services/ingestion_service.py` — ingestion загружает детальную страницу и обновляет заголовок/summary по `og:title`/`og:description`, так что карточки теперь отображают реальный headline статьи (флаг `SCRAPER_DETAIL_ENRICHMENT_ENABLED`).
+- `backend/scripts/run-scraper.sh` — cron запускает `python3`, что избавляет контейнер от сообщений `python: not found`.
+- `backend/scripts/run_telegram_bot.py` — при локальной среде выводится предупреждение, если токен не соответствует тестовому боту `@short_news_bot_test_bot`; см. `LOCAL_BOT_SETUP.md`.
+- `docker-compose.yml` (`frontend` сервис) — перед запуском `npm run dev` выполняется `npm install`, поэтому новые зависимости (например, `@tanstack/react-query-devtools`) подтягиваются автоматически.
+- `frontend/src/services/api.ts`, `frontend/env.example` — `resolveApiBaseUrl()` теперь ищет `VITE_API_URL`, затем рантайм-переопределение `window.__SHOT_NEWS_API_URL__`, fallback `VITE_DEV_API_URL` и только в dev возвращает `http://localhost:8000`. При отсутствии конфигурации в консоли выводится предупреждение, чтобы избежать таймаутов `ECONNABORTED`.
+- `frontend/src/features/competitor-analysis/components/CompanyAnalysisFlow.tsx` — компонент перешёл на уровень фичи и реализует быстрый one-click сценарий: выбор компании → запуск анализа → отображение результатов. Страница `CompetitorAnalysisPage` лишь прокидывает хуки (`useAnalysisFlow`) и фильтры, весь авто-подбор конкурентов выполняется в хуке.
+- `docker-compose.yml` (`backend` сервис) — backend теперь получает `CELERY_BROKER_URL`/`CELERY_RESULT_BACKEND=redis://redis:6379/0`, поэтому `POST /api/v2/analytics/.../recompute` не зависает на попытке подключиться к `localhost:6379`. После обновления обязательно выполните `docker compose restart backend celery-worker celery-beat`, чтобы API и worker использовали единый Redis.
+
+## ♻️ Свежие улучшения (ноябрь 2025)
+
+### Автоматическое создание отчёта после онбординга
+
+- ✅ После завершения мастера онбординга автоматически запускается создание отчёта по введённой компании — поведение соответствует кнопке поиска на `DashboardPageTest`, так что пользователь сразу получает быстрый анализ.
+- ✅ Весь UX (toast'ы `Creating report...`, обработка `ready/processing`) повторяет дашборд, поэтому статус отчёта прозрачен и во время онбординга.
+
+**Файлы:**
+- `frontend/src/pages/OnboardingPage.tsx` — добавлен helper `createCompanyReport()` и вызов после `ApiService.completeOnboarding`.
+
+### Система отчётов с быстрым анализом (Discover Tab Refactoring)
+
+**Реализована система отчётов с сохранением результатов в БД:**
+
+- ✅ **Поле `report_data` (JSON)** в модели `Report` для сохранения полных данных отчёта (company, news, categories, sources, pricing, competitors)
+- ✅ **Миграция `32e8440a3173_add_report_data_to_reports`** добавляет поле `report_data` в таблицу `reports`
+- ✅ **Метод `update_report_data()`** в `ReportRepository` для сохранения данных отчёта в БД
+- ✅ **Функция `_generate_quick_analysis_data()`** в `companies.py` - вынесена логика quick-analysis для переиспользования
+- ✅ **Endpoint `/reports/create`** теперь сразу вызывает quick-analysis, создаёт отчёт со статусом `ready`, сохраняет результаты в `report_data`
+- ✅ **Логика статусов сохранена** (processing, ready, error) - для будущего full report через Celery task
+- ✅ **Celery task `generate_company_report`** обновлён для сохранения результатов в `report_data` при завершении
+- ✅ **GET `/reports/{report_id}`** сначала проверяет `report_data` из БД, если нет - собирает динамически (fallback)
+- ✅ **Frontend:** Убран Quick Analysis блок из вкладки "My Competitors", оставлен один блок поиска на вкладке "Discover"
+- ✅ **Frontend:** `handleCreateReport` обновлён для обработки статуса `ready` сразу после создания отчёта
+- ✅ **Frontend:** Добавлен компонент `ConfirmDeleteModal` для подтверждения удаления отчёта
+
+**Файлы:**
+- `backend/app/models/report.py` - добавлено поле `report_data: Mapped[Optional[Dict[str, Any]]]`
+- `backend/app/domains/reports/repositories/report_repository.py` - метод `update_report_data()`
+- `backend/app/api/v1/endpoints/companies.py` - функция `_generate_quick_analysis_data()`
+- `backend/app/api/v1/endpoints/reports.py` - обновлён `/reports/create` и `GET /reports/{report_id}`
+- `backend/app/tasks/reports.py` - обновлён `generate_company_report` для сохранения в `report_data`
+- `frontend/src/pages/DashboardPageTest.tsx` - убран Quick Analysis из "My Competitors", обновлён `handleCreateReport`
+- `frontend/src/components/dashboard/ConfirmDeleteModal.tsx` - новый компонент для подтверждения удаления
+
+## ♻️ Свежие улучшения (ноябрь 2025)
+
+- `backend/app/tasks/scraping.py` — исправлена проблема с event loop в Celery: заменён `asyncio.run()` на `_run_async` helper для корректной работы async кода в Celery worker. Это устраняет ошибки вида "Task got Future attached to a different loop" и "Event loop is closed".
+- `backend/app/tasks/digest.py` — исправлены проблемы с event loop в задачах digest: создан отдельный engine с `NullPool` для задач Celery (аналогично `notifications.py`), что гарантирует создание соединений в правильном event loop. Все задачи (`generate_daily_digests`, `generate_weekly_digests`, `send_channel_digest`) используют `_TaskSessionLocal` вместо общего `AsyncSessionLocal`, что устраняет ошибки "Task got Future attached to a different loop" и "Event loop is closed" при работе с asyncpg соединениями.
+- `backend/app/domains/notifications/repositories/preferences_repository.py` — исправлена ошибка типов в SQL запросе для enum массивов: метод `list_interested_in_category` теперь использует raw SQL с явным приведением типа `ARRAY[:category::newscategory]` вместо SQLAlchemy `.contains()`, что устраняет ошибку `operator does not exist: character varying[] @> newscategory[]`.
+- `backend/app/domains/news/repositories/news_repository.py` — исправлена ошибка отсутствующих колонок: после применения миграции `f7a8b9c0d1e2` (вручную через SQL) возвращен обычный запрос в `fetch_by_url` без временного `load_only()`, что устраняет ошибку `column news_items.topic does not exist`.
+- `backend/app/api/v2/endpoints/analytics.py` — исправлена логика автоматического создания snapshot: добавлен rollback после ошибок, проверка на существующий snapshot перед созданием нового, улучшена обработка ошибок при создании пустого snapshot; теперь `/impact/latest` всегда создает snapshot автоматически, даже при отсутствии данных.
+- `backend/app/core/database.py` — добавлена функция `get_async_session()` для использования в скриптах диагностики; функция работает как async generator и может быть использована в `async for` циклах, аналогично `get_db()` для зависимостей FastAPI.
+- `docs/SNAPSHOT_VERIFICATION_REPORT.md` — создан отчет о проверке системы snapshot; проверено соответствие логирования документации, исправлен скрипт диагностики, все компоненты соответствуют требованиям из `DIAGNOSE_404_SNAPSHOT.md`.
+- `docs/ANALYTICS_FIX_REPORT.md` — отчет об исправлении проблем с аналитикой: исправлена проблема 404 при автоматическом создании snapshot, добавлена обработка ошибок и проверка на существующие snapshots.
+- `backend/app/domains/notifications/services/digest_service.py` — Telegram-дайджесты генерируются методом `format_digest_for_telegram`, который форматирует агрегированные новости по компаниям, экранирует Markdown-символы и учитывает пользовательский часовой пояс; бот больше не падает на `Bad Request: can't parse entities`.
+- `backend/app/domains/analytics/services/snapshot_service.py`, `backend/app/models/analytics.py` — устранён `NOT NULL constraint failed: impact_components.snapshot_id`, снапшоты теперь флашатся перед сохранением компонент, а отношения на `ImpactComponent` переведены на `lazy="selectin"`, так что фронтенд и тесты стабильно видят breakdown после `recompute`.
+- `backend/app/celery_app.py`, `docker-compose.yml` — Celery worker слушает очереди `celery` и `analytics`, маршрутизация задач аналитики вынесена в `task_routes`, предупреждения о недоступной очереди при `POST /api/v2/analytics/.../recompute` больше не мешают запуску пересчёта ( worker нужно перезапустить ).
+- `backend/app/domains/news/services/ingestion_service.py`, `backend/app/utils/datetime_utils.py`, `backend/app/scrapers/*` — `published_at` приводится к naive UTC, ingestion корректно принимает tz-aware даты, скрейперы больше не генерируют offset-aware метки и не падают с `asyncpg.exceptions.DataError`.
+- `backend/app/celery_app.py` — загрузка динамического beat-расписания теперь выполняется в отдельном event loop, что устраняет предупреждение `coroutine was never awaited` и гарантирует применение БД-правил.
+- `backend/app/models/notification_channels.py`, `backend/app/models/notifications.py` — PostgreSQL ENUM'ы синхронизированы со значениями Python-перечислений (`pending/sent/...`), что убирает падения Celery из-за `"PENDING"`.
+- `backend/app/domains/notifications/services/notification_service.py`, `backend/app/tasks/notifications.py` — нормализованы временные зоны (UTC aware для доставок, naive-UTC для `NewsItem.published_at`) и введён общий раннер `_run_async`, чтобы Celery-задачи не ломались на `asyncio.run`.
+- `backend/app/scrapers/universal_scraper.py` — HTTP-клиент использует отдельную proxy-сессию; параметр `proxies` больше не передаётся в `AsyncClient.get`, поэтому скрейпер не падает на httpx 0.27+.
+- `backend/app/scrapers/universal_scraper.py`, `backend/app/scrapers/config_loader.py` — универсальный скрейпер перед запуском обхода анализирует главную страницу компании, автоматически добавляет найденные blog/news/press ссылки в отдельные источники `discovered_*` и отключает ретраи для эвристических URL. В логах больше нет бесконечных повторов 404, а успешные страницы обрабатываются в приоритете.
+- `backend/app/domains/news/services/scraper_service.py` — `published_at` принудительно нормализуется в naive-UTC перед вставкой, поэтому PostgreSQL больше не падает на `invalid input for query argument $12`.
+- `backend/app/domains/news/services/ingestion_service.py` — ingestion загружает детальную страницу и обновляет заголовок/summary по `og:title`/`og:description`, так что карточки теперь отображают реальный headline статьи (флаг `SCRAPER_DETAIL_ENRICHMENT_ENABLED`).
+- `backend/scripts/run-scraper.sh` — cron запускает `python3`, что избавляет контейнер от сообщений `python: not found`.
+- `backend/scripts/run_telegram_bot.py` — при локальной среде выводится предупреждение, если токен не соответствует тестовому боту `@short_news_bot_test_bot`; см. `LOCAL_BOT_SETUP.md`.
+- `docker-compose.yml` (`frontend` сервис) — перед запуском `npm run dev` выполняется `npm install`, поэтому новые зависимости (например, `@tanstack/react-query-devtools`) подтягиваются автоматически.
+- `frontend/src/services/api.ts`, `frontend/env.example` — `resolveApiBaseUrl()` теперь ищет `VITE_API_URL`, затем рантайм-переопределение `window.__SHOT_NEWS_API_URL__`, fallback `VITE_DEV_API_URL` и только в dev возвращает `http://localhost:8000`. При отсутствии конфигурации в консоли выводится предупреждение, чтобы избежать таймаутов `ECONNABORTED`.
+- `frontend/src/features/competitor-analysis/components/CompanyAnalysisFlow.tsx` — компонент перешёл на уровень фичи и реализует быстрый one-click сценарий: выбор компании → запуск анализа → отображение результатов. Страница `CompetitorAnalysisPage` лишь прокидывает хуки (`useAnalysisFlow`) и фильтры, весь авто-подбор конкурентов выполняется в хуке.
+- `docker-compose.yml` (`backend` сервис) — backend теперь получает `CELERY_BROKER_URL`/`CELERY_RESULT_BACKEND=redis://redis:6379/0`, поэтому `POST /api/v2/analytics/.../recompute` не зависает на попытке подключиться к `localhost:6379`. После обновления обязательно выполните `docker compose restart backend celery-worker celery-beat`, чтобы API и worker использовали единый Redis.
+
+## ♻️ Свежие улучшения (ноябрь 2025)
+
+### Автоматическое создание отчёта после онбординга
+
+- ✅ После завершения мастера онбординга автоматически запускается создание отчёта по введённой компании — поведение соответствует кнопке поиска на `DashboardPageTest`, так что пользователь сразу получает быстрый анализ.
+- ✅ Весь UX (toast'ы `Creating report...`, обработка `ready/processing`) повторяет дашборд, поэтому статус отчёта прозрачен и во время онбординга.
+
+**Файлы:**
+- `frontend/src/pages/OnboardingPage.tsx` — добавлен helper `createCompanyReport()` и вызов после `ApiService.completeOnboarding`.
+
+### Система отчётов с быстрым анализом (Discover Tab Refactoring)
+
+**Реализована система отчётов с сохранением результатов в БД:**
+
+- ✅ **Поле `report_data` (JSON)** в модели `Report` для сохранения полных данных отчёта (company, news, categories, sources, pricing, competitors)
+- ✅ **Миграция `32e8440a3173_add_report_data_to_reports`** добавляет поле `report_data` в таблицу `reports`
+- ✅ **Метод `update_report_data()`** в `ReportRepository` для сохранения данных отчёта в БД
+- ✅ **Функция `_generate_quick_analysis_data()`** в `companies.py` - вынесена логика quick-analysis для переиспользования
+- ✅ **Endpoint `/reports/create`** теперь сразу вызывает quick-analysis, создаёт отчёт со статусом `ready`, сохраняет результаты в `report_data`
+- ✅ **Логика статусов сохранена** (processing, ready, error) - для будущего full report через Celery task
+- ✅ **Celery task `generate_company_report`** обновлён для сохранения результатов в `report_data` при завершении
+- ✅ **GET `/reports/{report_id}`** сначала проверяет `report_data` из БД, если нет - собирает динамически (fallback)
+- ✅ **Frontend:** Убран Quick Analysis блок из вкладки "My Competitors", оставлен один блок поиска на вкладке "Discover"
+- ✅ **Frontend:** `handleCreateReport` обновлён для обработки статуса `ready` сразу после создания отчёта
+- ✅ **Frontend:** Добавлен компонент `ConfirmDeleteModal` для подтверждения удаления отчёта
+
+**Файлы:**
+- `backend/app/models/report.py` - добавлено поле `report_data: Mapped[Optional[Dict[str, Any]]]`
 - `backend/app/domains/reports/repositories/report_repository.py` - метод `update_report_data()`
 - `backend/app/api/v1/endpoints/companies.py` - функция `_generate_quick_analysis_data()`
 - `backend/app/api/v1/endpoints/reports.py` - обновлён `/reports/create` и `GET /reports/{report_id}`
