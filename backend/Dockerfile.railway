@@ -18,7 +18,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Copy Railway environment file if it exists
-COPY railway.env .env
 
 # Create non-root user for security
 RUN useradd --create-home --shell /bin/bash appuser
