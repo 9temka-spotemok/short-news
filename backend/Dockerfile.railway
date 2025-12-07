@@ -2,23 +2,15 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Устанавливаем системные зависимости
 RUN apt-get update && apt-get install -y \
     libpq-dev \
-    gcc \
     && rm -rf /var/lib/apt/lists/*
 
-# Копируем requirements.txt
-COPY backend/requirements.txt ./requirements.txt
+COPY backend/requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
 
-# Устанавливаем зависимости
-RUN pip install --no-cache-dir -r requirements.txt
+COPY backend /app/backend
 
-# Копируем весь backend
-COPY backend/ ./backend/
-
-# Переходим в директорию backend
 WORKDIR /app/backend
 
-# Запускаем приложение
 CMD ["python", "main.py"]
