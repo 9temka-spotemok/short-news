@@ -17,8 +17,8 @@ COPY . .
 
 # Create scripts directory and copy init scripts
 RUN mkdir -p /app/scripts
-COPY scripts/init.sh /app/scripts/init.sh
-COPY scripts/init_db.py /app/scripts/init_db.py
+COPY backend/scripts/init.sh /app/scripts/init.sh
+COPY backend/scripts/init_db.py /app/scripts/init_db.py
 RUN chmod +x /app/scripts/init.sh
 
 # Create non-root user for security
