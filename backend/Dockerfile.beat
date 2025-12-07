@@ -1,17 +1,20 @@
 FROM python:3.11-slim
 
-WORKDIR /app
+# Работаем сразу внутри backend
+WORKDIR /app/backend
 
+# Системные зависимости для сборки пакетов (psycopg2 и др.)
 RUN apt-get update && apt-get install -y \
     build-essential \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-COPY backend/requirements.txt requirements.txt
+# Сначала ставим Python-зависимости (используем кеш слоёв)
+COPY requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY backend /app/backend
+# Затем копируем исходники
+COPY . .
 
-WORKDIR /app/backend
-
+# Запуск Celery beat
 CMD ["celery", "-A", "app.core.celery_app.app", "beat", "--loglevel=INFO"]
