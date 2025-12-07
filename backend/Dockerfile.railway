@@ -1,35 +1,29 @@
 FROM python:3.11-slim
 
-# Set workdir
 WORKDIR /app
 
-# Install system dependencies
+# Устанавливаем зависимости системы
 RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy only requirements and install them first (cache layer)
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Копируем только backend
+COPY backend/ ./backend/
 
-# Copy app code
+# Копируем только requirements.txt
+COPY backend/requirements.txt ./backend/requirements.txt
+
+# Устанавливаем зависимости
+RUN pip install --no-cache-dir -r backend/requirements.txt
+
+# Копируем остальной проект
 COPY . .
 
-# Copy Railway environment file if it exists
-
-# Create non-root user for security
+# Создание пользователя (если нужно)
 RUN useradd --create-home --shell /bin/bash appuser
 RUN chown -R appuser:appuser /app
 USER appuser
 
-# Expose port (Railway will set PORT dynamically)
-EXPOSE $PORT
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD python -c "import requests; requests.get('http://localhost:$PORT/health')" || exit 1
-
-# Start using our main.py with proper PORT handling
-CMD ["python", "main.py"]
+CMD ["python", "backend/main.py"]
