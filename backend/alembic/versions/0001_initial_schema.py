@@ -145,7 +145,7 @@ def upgrade() -> None:
         sa.Column('id', sa.UUID(), nullable=False, server_default=sa.text('uuid_generate_v4()')),
         sa.Column('user_id', sa.UUID(), nullable=False),
         sa.Column('subscribed_companies', postgresql.ARRAY(sa.UUID()), nullable=True),
-        sa.Column('interested_categories', postgresql.ARRAY(postgresql.ENUM('product_update', 'pricing_change', 'strategic_announcement', 'technical_update', 'funding_news', 'research_paper', 'community_event', 'partnership', 'acquisition', 'integration', 'security_update', 'api_update', 'model_release', 'performance_improvement', 'feature_deprecation', name='newscategory', create_type=False)), nullable=True),
+        sa.Column('interested_categories', postgresql.ARRAY(sa.String()), nullable=True),
         sa.Column('keywords', postgresql.ARRAY(sa.String()), nullable=True),
         sa.Column('notification_frequency', sa.String(length=20), server_default='DAILY', nullable=True),
         sa.Column('digest_format', sa.String(length=50), nullable=True),
