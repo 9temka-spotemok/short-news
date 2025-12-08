@@ -20,5 +20,5 @@ COPY . .
 RUN adduser --disabled-password --gecos '' celery && chown -R celery:celery /app
 USER celery
 
-# Запуск Celery worker
-CMD ["celery", "-A", "app.core.celery_app.app", "worker", "--loglevel=INFO"]
+# Запуск Celery worker c ограниченной конкуренцией, чтобы не упираться в память/соединения БД на маленьких инстансах
+CMD ["celery", "-A", "app.core.celery_app.app", "worker", "--loglevel=INFO", "--concurrency=4", "--max-tasks-per-child=100", "--prefetch-multiplier=1"]
