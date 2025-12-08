@@ -58,8 +58,9 @@ shot-news/
 
 ### Стабилизация Celery worker на Railway
 - ✅ Ограничена конкуренция Celery worker до 4 процессов, добавлены `--max-tasks-per-child=100` и `--prefetch-multiplier=1`, чтобы снизить пиковое потребление памяти и число одновременных соединений к Postgres/Redis на маленьких инстансах Railway.
+- ✅ Исправлен Celery app: запуск через `app.celery_app:celery_app` (ранее указывался несуществующий модуль).
 - Чтобы применить, пересоберите образ сервиса `worker` и задеплойте его на Railway.
-- Файлы: `backend/Dockerfile.worker` — обновлён `CMD` с новыми параметрами.
+- Файлы: `backend/Dockerfile.worker` — обновлён `CMD` с новыми параметрами и правильным Celery app.
 
 ## ♻️ Свежие улучшения (январь 2025)
 
