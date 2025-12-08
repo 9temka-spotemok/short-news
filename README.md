@@ -415,6 +415,168 @@ shot-news/
 - ✅ **Frontend:** Убран Quick Analysis блок из вкладки "My Competitors", оставлен один блок поиска на вкладке "Discover"
 - ✅ **Frontend:** `handleCreateReport` обновлён для обработки статуса `ready` сразу после создания отчёта
 - ✅ **Frontend:** Добавлен компонент `ConfirmDeleteModal` для подтверждения удаления отчёта
+**Frontend:**
+- React 18.3.0
+- TypeScript 5.6.0
+- Tailwind CSS 3.4.0
+- TanStack Query 5.56.0
+
+## 📈 Observability
+
+- **Celery Prometheus exporter:** включается по умолчанию (`CELERY_METRICS_ENABLED=true`), доступен по `http://localhost:9464/metrics`. Настройки: `CELERY_METRICS_HOST`, `CELERY_METRICS_PORT`, `CELERY_METRICS_NAMESPACE`, `CELERY_METRICS_DURATION_BUCKETS`.
+- **OpenTelemetry:** активируйте `CELERY_OTEL_ENABLED=true` и настройте провайдера (`OTEL_METRICS_EXPORTER`, `OTEL_RESOURCE_ATTRIBUTES`), чтобы пересылать метрики в единую систему.
+- **Дедупликация задач:** `CELERY_DEDUP_TTL_SECONDS` контролирует TTL для ключей вида `analytics:<scope>:...`. При повторной постановке возвращается payload со статусом `duplicate`.
+- **Baseline Phase 0:** инструкция и чек-лист — `docs/REFACTORING/metrics/2025-11-12_baseline.md`, итоговые значения заносятся в `docs/REFACTORING/metrics/phase0_baseline_metrics.md`.
+- **Нагрузочные сценарии:** `backend/tests/performance/api_news.js` и `api_analytics_impact.js` (k6), шаблон payload `tests/performance/payloads/company-scan.template.json` для `hey`. Команды и параметры см. в baseline-инструкции.
+
+## 📊 Источники данных
+
+- OpenAI Blog
+- Anthropic News
+- Google AI Blog
+- Meta AI Blog
+- Twitter/X API
+- GitHub API
+- Reddit API
+
+## 🧪 Тестирование
+
+```bash
+# Backend tests
+cd backend && poetry run pytest
+
+# Точечные unit-тесты (NLP и конкурентная аналитика)
+cd backend && poetry run pytest tests/test_nlp_service.py tests/test_competitor_service.py
+
+# Frontend tests
+cd frontend && npm test
+
+# E2E tests
+cd frontend && npm run test:e2e
+
+# Интеграционные тесты API v2 (требуют TEST_DATABASE_URL)
+cd backend && TEST_DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/shotnews_test poetry run pytest tests/test_analytics_v2.py
+
+# Нагрузочные тесты (k6)
+k6 run tests/performance/analytics-load.test.js
+```
+
+### Playwright E2E сценарии
+
+- Сценарий `recompute → отображение → экспорт` и визуальные проверки A/B пресетов находятся в `frontend/tests/e2e/analytics.spec.ts`.
+- Конфигурация Playwright (`frontend/playwright.config.ts`) поддерживает автозапуск Vite preview и (опционально) команды запуска backend'а через `E2E_BACKEND_COMMAND`.
+- Перед первым запуском установите браузеры: `cd frontend && npx playwright install --with-deps`.
+- Требуемые переменные окружения:
+  - `E2E_API_URL` (по умолчанию `http://127.0.0.1:8000`)
+  - `E2E_BASE_URL` (по умолчанию `http://127.0.0.1:4173`)
+  - `E2E_USER_EMAIL`, `E2E_USER_PASSWORD` — тестовый пользователь с доступом к аналитике.
+  - Дополнительно можно переопределить используемые компании (`E2E_PRIMARY_COMPANY_NAME`, `E2E_COMPETITOR_COMPANY_NAME`), однако базовые сценарии используют `E2E Analytics Primary` и `E2E Analytics Competitor`. Убедитесь, что в БД есть данные и снимки аналитики для этих компаний (иначе графики покажут плейсхолдер).
+
+### Интеграционные тесты API v2 Analytics
+
+- Тесты `backend/tests/test_analytics_v2.py` проверяют пересчёт, синхронизацию графа, экспорт и пресеты.
+- Требуется рабочий Postgres с указанием `TEST_DATABASE_URL`. База будет создана/удалена в рамках теста, поэтому используйте отдельный инстанс.
+- Celery настроен на `task_always_eager`, поэтому внешние брокеры не нужны.
+
+### Нагрузочные сценарии k6
+
+- Скрипт `tests/performance/analytics-load.test.js` эмулирует очереди пересчёта и экспорт отчётов.
+- Переменные окружения:
+  - `API_BASE_URL` — адрес backend API.
+  - `API_TOKEN` — Bearer токен пользователя.
+  - `COMPANY_IDS` — список UUID компаний через запятую.
+- Пример запуска:  
+  `API_BASE_URL=http://localhost:8000 API_TOKEN=... COMPANY_IDS=uuid1,uuid2 k6 run tests/performance/analytics-load.test.js`
+
+### CI-пайплайны
+
+- `.github/workflows/ci.yml` — backend/unit тесты при push/PR, ручной запуск e2e с поднятием Postgres/Redis.
+- `.github/workflows/performance-tests.yml` — ручной прогон k6 сценария (требует секрета с токеном и компаниями).
+
+### Новые и обновлённые файлы
+
+- `frontend/playwright.config.ts` — конфигурация e2e сценариев, описание webServer и metadata.
+- `frontend/tests/e2e/analytics.spec.ts` — e2e сценарии (пересчёт → экспорт, A/B визуальные проверки).
+- `backend/tests/test_analytics_v2.py` — интеграционные тесты API v2 analytics.
+- `tests/performance/analytics-load.test.js` — k6 нагрузочный профиль Celery/экспорта.
+- `.github/workflows/ci.yml`, `.github/workflows/performance-tests.yml` — обновлённый CI контур.
+- `frontend/src/components/ErrorBanner.tsx` — общий баннер ошибок с action-кнопками и поддержкой ретраев.
+- `frontend/src/components/LoadingOverlay.tsx` — универсальный спиннер (inline/overlay) для состояний загрузки.
+
+## 📈 Производительность
+
+- Время загрузки страницы: < 2 сек
+- API response time: < 500 мс
+- Uptime: 99.5%
+
+## 🔐 Безопасность
+
+- HTTPS only
+- JWT authentication
+- Rate limiting
+- GDPR compliance
+
+### CORS (продакшен)
+
+- Backend добавляет CORS через `fastapi.middleware.cors.CORSMiddleware`.
+- Разрешённые origin'ы берутся из переменных окружения:
+  - `ALLOWED_HOSTS` — список origin'ов (CSV или JSON) для точных совпадений.
+  - `ALLOWED_ORIGIN_REGEX` — регулярное выражение для доменов вроде Netlify превью (`https://.*.netlify.app`).
+- Файлы и ответственность:
+  - `backend/app/core/config.py` — описание настроек и парсинг переменных окружения.
+  - `backend/main.py` — подключение CORS middleware c `allow_origins` и `allow_origin_regex`.
+  - `backend/railway.env` — пример переменных для Railway (продакшен).
+  - `backend/app/parsers/pricing.py` — нормализация HTML-снапшотов тарифов конкурентов.
+  - `backend/app/services/competitor_change_service.py` — change detection, сохранение снапшотов и генерация событий.
+  - `backend/app/models/crawl.py` — сущности расписаний обходов и профилей источников.
+  - `backend/app/services/crawl_schedule_service.py` — управление частотой обходов и историями запусков.
+  - `backend/app/api/v1/endpoints/schedules.py` — REST-доступ к расписаниям и гидрации профилей.
+  - `backend/app/models/notification_channels.py` — каналы/подписки/события уведомлений.
+  - `backend/app/services/notification_dispatcher.py` — очередь событий и формирование доставок.
+  - `backend/app/services/notification_delivery_executor.py` — отправка уведомлений в Email, Telegram, webhook.
+  - `backend/app/models/analytics.py` — хранение метрик, компонентов impact score, knowledge graph, пресетов.
+  - `backend/app/services/analytics_service.py` — расчёт аналитики, формирование графа, управление снапшотами.
+  - `backend/app/api/v2/endpoints/analytics.py` — API `v2` для выдачи метрик, графа и пользовательских пресетов.
+  - `backend/app/tasks/analytics.py` — фоновые задачи пересчёта аналитики и синхронизации knowledge graph.
+  - `backend/app/api/v1/endpoints/competitors.py` — REST-ручки `/competitors/changes/*`.
+  - `frontend/src/services/api.ts` — методы `getCompetitorChangeEvents`, `recomputeCompetitorChangeEvent`.
+  - `frontend/src/pages/CompetitorAnalysisPage.tsx` — UI-секция Latest Changes и действия по пересчёту diff.
+- `frontend/src/components/ErrorBanner.tsx` — переиспользуемое отображение ошибок (используется в карточках аналитики и подсказок).
+- `frontend/src/components/LoadingOverlay.tsx` — консистентный индикатор загрузки (inline и overlay-режимы).
+
+## 🐛 Исправленные проблемы
+
+### 2025-12-07 - Фикс сборки Docker-образов backend, Celery Beat и Worker
+
+**Проблема:** Dockerfiles ожидали контекст сборки из корня (`COPY backend/...`), из-за чего билды в контексте `backend/` падали с ошибкой `"/backend": not found`.
+
+**Исправления:**
+- ✅ `Dockerfile` (backend API), `Dockerfile.beat` и `Dockerfile.worker` переориентированы на контекст `backend/`: `COPY requirements.txt` и `COPY . .` работают из текущего каталога, рабочая директория сразу `/app/backend`.
+- ✅ Обновлены инструкции для сборки:  
+  - Backend API: `docker build -f backend/Dockerfile backend`  
+  - Beat: `docker build -f backend/Dockerfile.beat backend`  
+  - Worker: `docker build -f backend/Dockerfile.worker backend`
+
+**Файлы и назначение:**
+- `backend/Dockerfile` — Dockerfile backend API (контекст `backend/`).
+- `backend/Dockerfile.beat` — Dockerfile Celery Beat (контекст `backend/`).
+- `backend/Dockerfile.worker` — Dockerfile Celery Worker (контекст `backend/`).
+
+### 2025-11-07 - Исправление запуска news-scraper и поддержка Next.js блогов
+
+**Проблема:**
+- Контейнер `shot-news-scraper` падал с ошибкой `exec /usr/local/bin/scraper-entrypoint.sh: no such file or directory` из-за CRLF окончаний строк в скриптах.
+- Сканер не обнаруживал статьи на Next.js сайтах (пример: `https://www.aeochecker.ai/blogs`).
+
+**Причины:**
+- При монтировании каталога `backend/scripts` из Windows-хоста файлы `scraper-entrypoint.sh`, `run-scraper.sh`, `scraper-cron`, `check_database.py` сохранялись с `CRLF`, что делало entrypoint невыполнимым внутри Linux-контейнера.
+- Контент Next.js генерируется на клиенте и хранится в JSON внутри `<script>` тегов, которые стандартный HTML-парсер не анализировал.
+
+**Исправления:**
+- ✅ Нормализованы окончания строк (LF) для `backend/scripts/scraper-entrypoint.sh`, `backend/scripts/run-scraper.sh`, `backend/scripts/scraper-cron`, `backend/scripts/check_database.py`.
+- ✅ Контейнер `news-scraper` пересобран на базе `Dockerfile.scraper`; cron-записи корректно устанавливаются во время билда.
+- ✅ `backend/app/scrapers/universal_scraper.py` дополнился парсингом Next.js `<script>` тегов и ручным указанием URL страницы с новостями.
+- ✅ API `/api/v1/companies/scan` теперь корректно обрабатывает Next.js сайты как в автоматическом режиме, так и при передаче `news_page_url`.
 
 **Файлы:**
 - `backend/app/models/report.py` - добавлено поле `report_data: Mapped[Optional[Dict[str, Any]]]`
