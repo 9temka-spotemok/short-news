@@ -14,8 +14,6 @@ revision = 'initial_schema'
 down_revision = None
 branch_labels = None
 depends_on = None
-
-
 def upgrade() -> None:
     # Create extensions
     op.execute("CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"")
@@ -47,6 +45,12 @@ def upgrade() -> None:
         print("Tables already exist, skipping initial schema creation")
         return
     
+    # Drop conflicting types just in case (idempotent)
+    op.execute("DROP TYPE IF EXISTS notificationfrequency CASCADE")
+    op.execute("DROP TYPE IF EXISTS activitytype CASCADE")
+    op.execute("DROP TYPE IF EXISTS sourcetype CASCADE")
+    op.execute("DROP TYPE IF EXISTS news_category CASCADE")
+    
     # Create custom types using raw SQL to avoid conflicts
     op.execute("""
         DO $$ BEGIN
@@ -71,16 +75,7 @@ def upgrade() -> None:
         END $$;
     """)
     
-    op.execute("""
-        DO $$ BEGIN
-            CREATE TYPE notificationfrequency AS ENUM (
-                'REALTIME', 'DAILY', 'WEEKLY', 'NEVER'
-            );
-        EXCEPTION
-            WHEN duplicate_object THEN null;
-        END $$;
-    """)
-    
+
     op.execute("""
         DO $$ BEGIN
             CREATE TYPE activitytype AS ENUM (
@@ -150,9 +145,9 @@ def upgrade() -> None:
         sa.Column('id', sa.UUID(), nullable=False, server_default=sa.text('uuid_generate_v4()')),
         sa.Column('user_id', sa.UUID(), nullable=False),
         sa.Column('subscribed_companies', postgresql.ARRAY(sa.UUID()), nullable=True),
-        sa.Column('interested_categories', postgresql.ARRAY(sa.Enum('product_update', 'pricing_change', 'strategic_announcement', 'technical_update', 'funding_news', 'research_paper', 'community_event', 'partnership', 'acquisition', 'integration', 'security_update', 'api_update', 'model_release', 'performance_improvement', 'feature_deprecation', name='newscategory')), nullable=True),
+        sa.Column('interested_categories', postgresql.ARRAY(postgresql.ENUM('product_update', 'pricing_change', 'strategic_announcement', 'technical_update', 'funding_news', 'research_paper', 'community_event', 'partnership', 'acquisition', 'integration', 'security_update', 'api_update', 'model_release', 'performance_improvement', 'feature_deprecation', name='newscategory', create_type=False)), nullable=True),
         sa.Column('keywords', postgresql.ARRAY(sa.String()), nullable=True),
-        sa.Column('notification_frequency', sa.Enum('REALTIME', 'DAILY', 'WEEKLY', 'NEVER', name='notificationfrequency'), server_default='DAILY', nullable=True),
+        sa.Column('notification_frequency', sa.String(length=20), server_default='DAILY', nullable=True),
         sa.Column('digest_format', sa.String(length=50), nullable=True),
         sa.Column('telegram_chat_id', sa.String(length=100), nullable=True),
         sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
@@ -167,7 +162,7 @@ def upgrade() -> None:
         sa.Column('id', sa.UUID(), nullable=False, server_default=sa.text('uuid_generate_v4()')),
         sa.Column('user_id', sa.UUID(), nullable=False),
         sa.Column('news_id', sa.UUID(), nullable=False),
-        sa.Column('action', sa.Enum('VIEWED', 'FAVORITED', 'MARKED_READ', 'SHARED', name='activitytype'), nullable=False),
+        sa.Column('action', postgresql.ENUM('VIEWED', 'FAVORITED', 'MARKED_READ', 'SHARED', name='activitytype', create_type=False), nullable=False),
         sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
         sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
         sa.ForeignKeyConstraint(['news_id'], ['news_items.id'], ondelete='CASCADE'),
