@@ -16,5 +16,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Затем копируем исходники
 COPY . .
 
+# Создаём непривилегированного пользователя для запуска Celery
+RUN adduser --disabled-password --gecos '' celery && chown -R celery:celery /app
+USER celery
+
 # Запуск Celery beat
 CMD ["celery", "-A", "app.core.celery_app.app", "beat", "--loglevel=INFO"]
