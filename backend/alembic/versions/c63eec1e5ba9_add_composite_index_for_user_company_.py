@@ -23,15 +23,15 @@ def upgrade() -> None:
     This index significantly improves performance when filtering news items
     by user_id through JOIN operations instead of IN clauses.
     """
-    # Create composite index for optimizing JOIN queries
-    # This index helps when querying: SELECT news_items.* FROM news_items 
-    # JOIN companies ON news_items.company_id = companies.id 
-    # WHERE companies.user_id = :user_id
-    op.execute(
-        "CREATE INDEX IF NOT EXISTS idx_companies_user_id_id "
-        "ON companies(user_id, id) "
-        "WHERE user_id IS NOT NULL"
-    )
+    bind = op.get_bind()
+    insp = sa.inspect(bind)
+    cols = {c["name"] for c in insp.get_columns("companies")}
+    if "user_id" in cols:
+        op.execute(
+            "CREATE INDEX IF NOT EXISTS idx_companies_user_id_id "
+            "ON companies(user_id, id) "
+            "WHERE user_id IS NOT NULL"
+        )
 
 
 def downgrade() -> None:
